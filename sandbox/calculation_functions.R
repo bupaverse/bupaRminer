@@ -21,7 +21,8 @@ calculate_relationship_scores <- function(ev_log){
   timestamp_colname <- timestamp(ev_log)
   lifecycle_colname <- lifecycle_id(ev_log)
   
-  ## First we must establish R6 scores
+  ## First we must establish parallel activities as they clutter 
+  ## our perception of the sequence of activities.
   rel_df <- discover_parallels_from_log(ev_log,
                                         ev_log %>% 
                                           filter(!(!!sym(activity_colname) %in% c("START","END"))) %>% 
@@ -39,14 +40,13 @@ calculate_relationship_scores <- function(ev_log){
   
   
   ## Check if there are immediate repeat activities
-  R6_thres <- 0.80
-  R7_theta <- 0
+  par_thres <- 0.80
   
   renamed_entries <- discover_self_loops(
     ev_log,
     duplicated_activities,
     rel_df %>% filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)),
-    R6_thres = R6_thres)
+    parallel_thres = par_thres)
   
   ## Merge self_loops into one entry with start and end
   if(renamed_entries %>% nrow > 0){
@@ -68,7 +68,7 @@ calculate_relationship_scores <- function(ev_log){
       re_map(mapping(ev_log))
   }
   
-  ## Check again for R6, but now taking the self loops into account
+  ## Check again for parallel relationships, but now taking the self loops into account
   rel_df <- discover_parallels_from_log(ev_log,
                                         ev_log %>%
                                           filter(!(!!sym(activity_colname) %in% c("START","END"))) %>%
@@ -87,7 +87,7 @@ calculate_relationship_scores <- function(ev_log){
     ev_log,
     all_activities,
     rel_df,
-    R6_thres = 0.90,
+    par_thres = 0.90,
     cases_per_act_memory = cases_with_act_memory
   )
   
@@ -155,7 +155,8 @@ discover_parallels_from_log <- function(
     
     for(B in c((A+1):length(ev_activities))){
       act_B <- as.character(ev_activities[B])
-      ## R6 score - Concurrent executions
+      
+      ## Parallel scores - Concurrent executions
       
       cases_with_A_and_B <- cases_with_A %>%
         filter_activity_presence(c(act_A, act_B), method = "all")
@@ -211,8 +212,8 @@ discover_parallels_from_log <- function(
 discover_self_loops <- function(
     ev_log,
     duplicated_activities,
-    R56_rel_df,
-    R6_thres = 0.95){
+    rel_par_df,
+    parallel_thres = 0.95){
   
   ## Check if there are immediate repeat activities
   
@@ -231,9 +232,9 @@ discover_self_loops <- function(
     
     print(dup_act)
     
-    R56_relationships <- R56_rel_df %>%
+    par_relationships <- rel_par_df %>%
       filter(antecedent == dup_act,
-             score >= R6_thres) %>%
+             score >= parallel_thres) %>%
       pull(consequent)
     
     cases_with_repeated_A <- ev_log %>%
@@ -245,7 +246,7 @@ discover_self_loops <- function(
       group_by(!!sym(case_colname)) %>%
       mutate(reference_timestamp_first_start = min(reference_timestamp, na.rm = TRUE),
              reference_timestamp_last_end = max(reference_timestamp, na.rm = TRUE)) %>%
-      filter(!(orig_name %in% R56_relationships)) %>%
+      filter(!(orig_name %in% par_relationships)) %>%
       mutate(relevant_repeat = ifelse(orig_name == dup_act, is_repeat - 1, 0)) %>%
       mutate(has_repeated_A = (sum(relevant_repeat) > 0)) %>%
       ungroup %>%
@@ -290,10 +291,10 @@ discover_self_loops <- function(
 discover_R_sequence_relations <- function(
     ev_log,
     ev_activities,
-    rel_R6_df,
-    R6_thres = 0.95,
-    R5_thres = 0.95,
-    R7_theta = 0,
+    rel_par_df,
+    parallel_thres = 0.95,
+    exclusive_thres = 0.95,
+    interrupting_theta = 0,
     cases_per_act_memory = NULL
 ){
   
@@ -315,10 +316,10 @@ discover_R_sequence_relations <- function(
     
     print(prec_act)
     
-    R6_relationships <- rel_R6_df %>%
+    par_relationships <- rel_par_df %>%
       filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
              antecedent == prec_act,
-             score >= R6_thres) %>%
+             score >= parallel_thres) %>%
       pull(consequent)
     
     if(!is.null(cases_per_act_memory)){
@@ -340,11 +341,11 @@ discover_R_sequence_relations <- function(
     
     fromA_event_log <- cases_with_A %>%
       filter(!!sym(timestamp_colname) >= reference_timestamp_start) %>%
-      filter(!(!!sym(activity_colname) %in% R6_relationships))
+      filter(!(!!sym(activity_colname) %in% par_relationships))
     
     afterA_event_log <- cases_with_A %>%
       filter(!!sym(timestamp_colname) >= reference_timestamp_end) %>%
-      filter(!(!!sym(activity_colname) %in% R6_relationships))
+      filter(!(!!sym(activity_colname) %in% par_relationships))
     
     for(succ_act in ev_activities){
       if(prec_act == succ_act) next
@@ -380,16 +381,16 @@ discover_R_sequence_relations <- function(
       expected_together <- ( cases_with_B %>%
                                n_cases )
       
-      if(occurs_together > (R5_thres * expected_together) ){
+      if(occurs_together > (exclusive_thres * expected_together) ){
         EXCL_score <- 0
       } else {
         EXCL_score <- 1 - ( occurs_together / ( cases_with_A %>% n_cases ) )
       }
       
-      R6_relationships_B <- rel_R6_df %>%
+      par_relationships_B <- rel_par_df %>%
         filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
                antecedent == succ_act,
-               score >= R6_thres) %>%
+               score >= parallel_thres) %>%
         pull(consequent)
       
       ## R2 score - Eventual consequent
@@ -490,7 +491,7 @@ discover_R_sequence_relations <- function(
       B_happens_directly_after <- cases_before_B %>%
         as_tibble() %>%
         filter(!!sym(lifecycle_colname) == "complete") %>%
-        filter(!(!!sym(activity_colname) %in% R6_relationships_B)) %>%
+        filter(!(!!sym(activity_colname) %in% par_relationships_B)) %>%
         group_by(!!sym(case_colname)) %>%
         arrange(!!sym(timestamp_colname)) %>%
         mutate(seq = row_number()) %>%
@@ -528,8 +529,8 @@ discover_R_sequence_relations <- function(
       
       ## R7_score - B interrupts A
       events_killing_A <- cases_with_A %>%
-        filter(!!sym(timestamp_colname) >= reference_timestamp_end - R7_theta,
-               !!sym(timestamp_colname) <= reference_timestamp_end + R7_theta,
+        filter(!!sym(timestamp_colname) >= reference_timestamp_end - interrupting_theta,
+               !!sym(timestamp_colname) <= reference_timestamp_end + interrupting_theta,
                !!sym(lifecycle_colname) == "start")
       
       B_killing_A <- events_killing_A %>%
