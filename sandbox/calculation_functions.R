@@ -87,7 +87,7 @@ calculate_relationship_scores <- function(ev_log){
     ev_log,
     all_activities,
     rel_df,
-    par_thres = 0.90,
+    parallel_thres = 0.90,
     cases_per_act_memory = cases_with_act_memory
   )
   
@@ -135,9 +135,6 @@ discover_parallels_from_log <- function(
   
   nr_cases <- ev_log %>%
     n_cases
-  
-  completed_activities_only <- ev_log %>%
-    filter(!!sym(lifecycle_colname) == "complete")
   
   for(A in c(1:(length(ev_activities)-1))){
     act_A <- as.character(ev_activities[A])
@@ -287,6 +284,256 @@ discover_self_loops <- function(
   return(renamed_entries)
 }
 
+calculate_exclusive_relation <- function(
+  act_A,
+  act_B,
+  cases_with_A,
+  cases_with_B,
+  exclusive_thres
+){
+  occurs_together <- cases_with_A %>%
+    filter(!!sym(activity_colname) == act_B) %>%
+    n_cases
+  
+  expected_together <- ( cases_with_B %>%
+                           n_cases )
+  
+  if(occurs_together > (exclusive_thres * expected_together) ){
+    EXCL_score <- 0
+  } else {
+    EXCL_score <- 1 - ( occurs_together / ( cases_with_A %>% n_cases ) )
+  }
+  
+  return(EXCL_score)
+}
+
+calculate_requirement_score <- function(
+    act_A,
+    act_B,
+    cases_with_A){
+  B_before_A <- cases_with_A %>%
+    filter(
+      !!sym(activity_colname) == act_B,
+      !!sym(lifecycle_colname) == "complete",
+      !!sym(timestamp_colname) <= reference_timestamp_start) %>%
+    n_cases()
+  
+  REQ_score <- B_before_A / cases_with_A %>% n_cases()
+  
+  return(REQ_score)
+}
+
+calculate_directly_follows_relation <- function(
+  actA,
+  actB,
+  cases_with_A,
+  afterA_event_log){
+  
+  score <- 0
+  
+  B_happens_directly_after <- afterA_event_log %>%
+    as_tibble() %>%
+    filter(!!sym(lifecycle_colname) == "start") %>%
+    group_by(!!sym(case_colname)) %>%
+    arrange(!!sym(timestamp_colname)) %>%
+    mutate(seq = row_number()) %>%
+    filter(!!sym(activity_colname) == actB,
+           seq == 1)
+  
+  score <- (B_happens_directly_after %>% 
+                         pull(!!sym(case_colname)) %>% 
+                         n_distinct) / 
+    (cases_with_A %>% 
+       pull(!!sym(case_colname)) %>% 
+       n_distinct)
+  
+  return(score)
+}
+
+calculate_eventually_follows_relation <- function(
+    actA,
+    actB,
+    cases_with_A,
+    afterA_event_log){
+  
+  score <- 0
+  
+  B_happens_after <- afterA_event_log %>%
+    filter(!!sym(activity_colname) == actB,
+           !!sym(lifecycle_colname) == "start")
+  
+  score <- (B_happens_after %>% 
+                         pull(!!sym(case_colname)) %>% 
+                         n_distinct) / 
+    (cases_with_A %>% 
+       pull(!!sym(case_colname)) %>% 
+       n_distinct)
+  
+  return(score)
+}
+
+calculate_sometimes_directly_follows_relation <- function(
+    act_A,
+    act_B,
+    cases_with_A,
+    cases_with_B,
+    afterA_event_log,
+    cases_before_B,
+    par_relationships_B,
+    nr_cases){
+  
+  B_happens_directly_after <- cases_before_B %>%
+    as_tibble() %>%
+    filter(!!sym(lifecycle_colname) == "complete") %>%
+    filter(!(!!sym(activity_colname) %in% par_relationships_B)) %>%
+    group_by(!!sym(case_colname)) %>%
+    arrange(!!sym(timestamp_colname)) %>%
+    mutate(seq = row_number()) %>%
+    filter(!!sym(activity_colname) == act_A,
+           seq == max(seq))
+  
+  SOMETIMES_DIRECT_1 <- (B_happens_directly_after %>% 
+                           pull(!!sym(case_colname)) %>% 
+                           n_distinct) / 
+    (cases_with_B %>% 
+       pull(!!sym(case_colname)) %>% 
+       n_distinct)
+  
+  SOMETIMES_DIRECT_2 <- (afterA_event_log %>%
+                           as_tibble() %>%
+                           filter(!!sym(lifecycle_colname) == "start") %>%
+                           group_by(!!sym(case_colname)) %>%
+                           arrange(!!sym(timestamp_colname)) %>%
+                           mutate(seq = row_number()) %>%
+                           filter(!!sym(activity_colname) == act_B,
+                                  seq == 1) %>%
+                           pull(!!sym(case_colname)) %>% 
+                           n_distinct) / 
+    (cases_with_A %>% 
+       pull(!!sym(case_colname)) %>% 
+       n_distinct)
+  
+  SOMETIMES_DIRECT_3 <- (cases_with_B %>%
+                           pull(!!sym(case_colname)) %>% 
+                           n_distinct) / nr_cases
+  
+  SOMETIMES_DIRECT <- SOMETIMES_DIRECT_1 * (1 - abs(SOMETIMES_DIRECT_2 - SOMETIMES_DIRECT_3))
+  
+  return(SOMETIMES_DIRECT)
+}
+
+calculate_sometime_follows_relation <- function(
+    act_A,
+    act_B,
+    cases_with_A,
+    cases_with_B,
+    fromA_event_log,
+    cases_before_B,
+    nr_cases){
+  
+  tryCatch(
+    {
+      SOMETIMES_FOL_1 <- 0
+      B_happens_after <- cases_before_B %>%
+        filter_activity_presence(act_A)
+      
+      SOMETIMES_FOL_1 <- (B_happens_after %>% 
+                            pull(!!sym(case_colname)) %>% 
+                            n_distinct) / 
+        (cases_with_B %>% 
+           pull(!!sym(case_colname)) %>% 
+           n_distinct)
+      
+    },
+    error = function(e){
+      SOMETIMES_FOL_1 <- 0
+    },
+    warning = function(w){
+    },
+    finally = {
+    }
+  )
+  
+  tryCatch(
+    {
+      SOMETIMES_FOL_2 <- 0
+      SOMETIMES_FOL_2 <- (fromA_event_log %>%
+                            filter_activity_presence(act_B) %>% 
+                            pull(!!sym(case_colname)) %>% 
+                            n_distinct) / 
+        (cases_with_A %>% 
+           pull(!!sym(case_colname)) %>% 
+           n_distinct)
+    },
+    error = function(e){
+      SOMETIMES_FOL_2 <- 0
+    },
+    warning = function(w){
+    },
+    finally = {
+    }
+  )
+  
+  SOMETIMES_FOL_3 <- (cases_with_B %>%
+                        pull(!!sym(case_colname)) %>% 
+                        n_distinct) / nr_cases
+  
+  SOMETIMES_FOL <- SOMETIMES_FOL_1 * (1 - abs(SOMETIMES_FOL_2 - SOMETIMES_FOL_3))
+  
+  return(SOMETIMES_FOL)
+}
+
+calculate_terminating_relationship <- function(
+  act_A,
+  act_B,
+  cases_with_A,
+  cases_with_B,
+  interrupting_theta
+){
+  events_killing_A <- cases_with_A %>%
+    filter(!!sym(timestamp_colname) >= reference_timestamp_end - interrupting_theta,
+           !!sym(timestamp_colname) <= reference_timestamp_end + interrupting_theta,
+           !!sym(lifecycle_colname) == "start")
+  
+  B_killing_A <- events_killing_A %>%
+    as_tibble() %>%
+    filter(!!sym(activity_colname) == act_B)
+  
+  INTERRUPTING_score <- (B_killing_A %>% 
+                           pull(!!sym(case_colname)) %>% 
+                           n_distinct) / 
+    (cases_with_B %>% 
+       pull(!!sym(case_colname)) %>% 
+       n_distinct)
+  
+  return(INTERRUPTING_score)
+}
+
+calculate_intermittent_relationship <- function(
+    act_A,
+    act_B,
+    cases_with_A,
+    cases_with_B
+    ){
+  
+  events_started_during_A <- cases_with_A %>%
+    filter(!!sym(timestamp_colname) > reference_timestamp_start,
+           !!sym(timestamp_colname) < reference_timestamp_end,
+           !!sym(lifecycle_colname) == "start")
+  
+  B_started_during_A <- events_started_during_A %>%
+    as_tibble() %>%
+    filter(!!sym(activity_colname) == act_B)
+  
+  DURING_score <- (B_started_during_A %>% 
+                     pull(!!sym(case_colname)) %>% 
+                     n_distinct) / 
+    (cases_with_B %>% 
+       pull(!!sym(case_colname)) %>% 
+       n_distinct)
+  
+  return(DURING_score)
+}
 
 discover_R_sequence_relations <- function(
     ev_log,
@@ -309,11 +556,9 @@ discover_R_sequence_relations <- function(
   
   rel_df <- tibble()
   
-  completed_activities_only <- ev_log %>%
-    filter(!!sym(lifecycle_colname) == "complete")
-  
-  for(prec_act in ev_activities){
+  for(A in c(1:(length(ev_activities)-1))){
     
+    prec_act <-as.character(ev_activities[[A]])
     print(prec_act)
     
     par_relationships <- rel_par_df %>%
@@ -347,9 +592,9 @@ discover_R_sequence_relations <- function(
       filter(!!sym(timestamp_colname) >= reference_timestamp_end) %>%
       filter(!(!!sym(activity_colname) %in% par_relationships))
     
-    for(succ_act in ev_activities){
-      if(prec_act == succ_act) next
+    for(B in c((A+1):length(ev_activities))){
       
+      succ_act <- as.character(ev_activities[[B]])
       
       if(!is.null(cases_per_act_memory)){
         cases_with_B <- ev_log %>%
@@ -358,72 +603,6 @@ discover_R_sequence_relations <- function(
         cases_with_B <- ev_log %>%
           filter_activity_presence(succ_act)
       }
-      
-      ## REQ - The execution of A requires the execution of B as a predecessor
-      B_before_A <- cases_with_A %>%
-        filter(
-          !!sym(activity_colname) == succ_act,
-          !!sym(lifecycle_colname) == "complete",
-          !!sym(timestamp_colname) <= reference_timestamp_start) %>%
-        n_cases()
-      
-      REQ_score <- B_before_A / cases_with_A %>% n_cases()
-      
-      ## R5 - Mutually exclusive 
-      strict_entries <- completed_activities_only %>%
-        filter(!!sym(activity_colname) %in% c(prec_act, succ_act)) %>%
-        as_tibble()
-      
-      occurs_together <- cases_with_A %>%
-        filter(!!sym(activity_colname) == succ_act) %>%
-        n_cases
-      
-      expected_together <- ( cases_with_B %>%
-                               n_cases )
-      
-      if(occurs_together > (exclusive_thres * expected_together) ){
-        EXCL_score <- 0
-      } else {
-        EXCL_score <- 1 - ( occurs_together / ( cases_with_A %>% n_cases ) )
-      }
-      
-      par_relationships_B <- rel_par_df %>%
-        filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
-               antecedent == succ_act,
-               score >= parallel_thres) %>%
-        pull(consequent)
-      
-      ## R2 score - Eventual consequent
-      B_happens_after <- afterA_event_log %>%
-        filter(!!sym(activity_colname) == succ_act,
-               !!sym(lifecycle_colname) == "start")
-      
-      EVENTUALLY_score <- (B_happens_after %>% 
-                     pull(!!sym(case_colname)) %>% 
-                     n_distinct) / 
-        (cases_with_A %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
-      
-      ## R1 score - Immediate consequent
-      B_happens_directly_after <- afterA_event_log %>%
-        as_tibble() %>%
-        filter(!!sym(lifecycle_colname) == "start") %>%
-        group_by(!!sym(case_colname)) %>%
-        arrange(!!sym(timestamp_colname)) %>%
-        mutate(seq = row_number()) %>%
-        filter(!!sym(activity_colname) == succ_act,
-               seq == 1)
-      
-      DIRECT_FOL_score <- (B_happens_directly_after %>% 
-                     pull(!!sym(case_colname)) %>% 
-                     n_distinct) / 
-        (cases_with_A %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
-      
-      
-      ## R4 Score - Sometimes eventually happens
       
       cases_with_B <- cases_with_B %>%
         mutate(reference_timestamp = ifelse(!!sym(activity_colname) == succ_act,
@@ -434,134 +613,160 @@ discover_R_sequence_relations <- function(
                reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
         re_map(mapping(ev_log))
       
+      ## REQ - The execution of A requires the execution of B as a predecessor
+      REQ_score <- calculate_requirement_score(
+        prec_act,
+        succ_act,
+        cases_with_A)
+      
+      REQ_score_reverse <- calculate_requirement_score(
+        succ_act,
+        prec_act,
+        cases_with_B)
+      
+      ## Mutually exclusive 
+      EXCL_score <- calculate_exclusive_relation(
+        prec_act,
+        succ_act,
+        cases_with_A,
+        cases_with_B,
+        exclusive_thres
+      )
+      
+      EXCL_score_reverse <- calculate_exclusive_relation(
+        succ_act,
+        prec_act,
+        cases_with_B,
+        cases_with_A,
+        exclusive_thres
+      )
+      
+      fromB_event_log <- cases_with_B %>%
+        filter(!!sym(timestamp_colname) >= reference_timestamp_start) %>%
+        filter(!(!!sym(activity_colname) %in% par_relationships))
+      
+      afterB_event_log <- cases_with_B %>%
+        filter(!!sym(timestamp_colname) >= reference_timestamp_end) %>%
+        filter(!(!!sym(activity_colname) %in% par_relationships))
+      
+      ## R2 score - Eventual consequent
+      
+      EVENTUALLY_score <- calculate_eventually_follows_relation(
+        prec_act,
+        succ_act,
+        cases_with_A,
+        afterA_event_log
+        ) 
+      
+      EVENTUALLY_score_reverse <- calculate_eventually_follows_relation(
+        succ_act,
+        prec_act,
+        cases_with_B,
+        afterB_event_log
+      ) 
+      
+      ## R1 score - Immediate consequent
+      DIRECT_FOL_score <- calculate_directly_follows_relation(
+        prec_act,
+        succ_act,
+        cases_with_A,
+        afterA_event_log
+        )
+      
+      DIRECT_FOL_score_reverse <- calculate_directly_follows_relation(
+        succ_act,
+        prec_act,
+        cases_with_B,
+        afterB_event_log
+      )
+      
+      ## R4 Score - Sometimes eventually happens
+      
+      par_relationships_B <- rel_par_df %>%
+        filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
+               antecedent == succ_act,
+               score >= parallel_thres) %>%
+        pull(consequent)
+      
       cases_before_B <- cases_with_B %>%
         filter(!!sym(timestamp_colname) <= reference_timestamp_start)
       
-      tryCatch(
-        {
-          SOMETIMES_FOL_1 <- 0
-          B_happens_after <- cases_before_B %>%
-            filter_activity_presence(prec_act)
-          
-          SOMETIMES_FOL_1 <- (B_happens_after %>% 
-                           pull(!!sym(case_colname)) %>% 
-                           n_distinct) / 
-            (cases_with_B %>% 
-               pull(!!sym(case_colname)) %>% 
-               n_distinct)
-          
-        },
-        error = function(e){
-          SOMETIMES_FOL_1 <- 0
-        },
-        warning = function(w){
-        },
-        finally = {
-        }
-      )
+      cases_before_A <- cases_with_A %>%
+        filter(!!sym(timestamp_colname) <= reference_timestamp_start)
       
-      tryCatch(
-        {
-          SOMETIMES_FOL_2 <- 0
-          SOMETIMES_FOL_2 <- (fromA_event_log %>%
-                           filter_activity_presence(succ_act) %>% 
-                           pull(!!sym(case_colname)) %>% 
-                           n_distinct) / 
-            (cases_with_A %>% 
-               pull(!!sym(case_colname)) %>% 
-               n_distinct)
-        },
-        error = function(e){
-          SOMETIMES_FOL_2 <- 0
-        },
-        warning = function(w){
-        },
-        finally = {
-        }
-      )
+      SOMETIMES_FOL <- calculate_sometime_follows_relation(
+        prec_act,
+        succ_act,
+        cases_with_A,
+        cases_with_B,
+        fromA_event_log,
+        cases_before_B,
+        nr_cases)
       
-      SOMETIMES_FOL_3 <- (cases_with_B %>%
-                       pull(!!sym(case_colname)) %>% 
-                       n_distinct) / nr_cases
-      
-      SOMETIMES_FOL <- SOMETIMES_FOL_1 * (1 - abs(SOMETIMES_FOL_2 - SOMETIMES_FOL_3))
+      SOMETIMES_FOL_reverse <- calculate_sometime_follows_relation(
+        succ_act,
+        prec_act,
+        cases_with_B,
+        cases_with_A,
+        fromB_event_log,
+        cases_before_A,
+        nr_cases)
       
       ## R3 Score - Sometimes immediately happens
       
-      B_happens_directly_after <- cases_before_B %>%
-        as_tibble() %>%
-        filter(!!sym(lifecycle_colname) == "complete") %>%
-        filter(!(!!sym(activity_colname) %in% par_relationships_B)) %>%
-        group_by(!!sym(case_colname)) %>%
-        arrange(!!sym(timestamp_colname)) %>%
-        mutate(seq = row_number()) %>%
-        filter(!!sym(activity_colname) == prec_act,
-               seq == max(seq))
+      SOMETIMES_DIRECT <- calculate_sometimes_directly_follows_relation(
+        prec_act,
+        succ_act,
+        cases_with_A,
+        cases_with_B,
+        afterA_event_log,
+        cases_before_B,
+        par_relationships_B,
+        nr_cases)
       
-      SOMETIMES_DIRECT_1 <- (B_happens_directly_after %>% 
-                       pull(!!sym(case_colname)) %>% 
-                       n_distinct) / 
-        (cases_with_B %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
+      SOMETIMES_DIRECT_reverse <- calculate_sometimes_directly_follows_relation(
+        succ_act,
+        prec_act,
+        cases_with_B,
+        cases_with_A,
+        afterB_event_log,
+        cases_before_A,
+        par_relationships,
+        nr_cases)
       
-      SOMETIMES_DIRECT_2 <- (afterA_event_log %>%
-                       as_tibble() %>%
-                       filter(!!sym(lifecycle_colname) == "start") %>%
-                       group_by(!!sym(case_colname)) %>%
-                       arrange(!!sym(timestamp_colname)) %>%
-                       mutate(seq = row_number()) %>%
-                       filter(!!sym(activity_colname) == succ_act,
-                              seq == 1) %>%
-                       pull(!!sym(case_colname)) %>% 
-                       n_distinct) / 
-        (cases_with_A %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
+      ## B interrupts A
       
-      SOMETIMES_DIRECT_3 <- (cases_with_B %>%
-                       pull(!!sym(case_colname)) %>% 
-                       n_distinct) / nr_cases
+      INTERRUPTING_score <- calculate_terminating_relationship(
+        prec_act,
+        succ_act,
+        cases_with_A,
+        cases_with_B,
+        interrupting_theta
+      )
       
-      SOMETIMES_DIRECT <- SOMETIMES_DIRECT_1 * (1 - abs(SOMETIMES_DIRECT_2 - SOMETIMES_DIRECT_3))
+      INTERRUPTING_score_reverse <- calculate_terminating_relationship(
+        succ_act,
+        prec_act,
+        cases_with_B,
+        cases_with_A,
+        interrupting_theta
+      )
       
+      ## B starts during A
+      DURING_score <- calculate_intermittent_relationship(
+        prec_act,
+        succ_act,
+        cases_with_A,
+        cases_with_B
+      )
+      DURING_score_reverse <- calculate_intermittent_relationship(
+        succ_act,
+        prec_act,
+        cases_with_B,
+        cases_with_A
+      )
       
-      
-      ## R7_score - B interrupts A
-      events_killing_A <- cases_with_A %>%
-        filter(!!sym(timestamp_colname) >= reference_timestamp_end - interrupting_theta,
-               !!sym(timestamp_colname) <= reference_timestamp_end + interrupting_theta,
-               !!sym(lifecycle_colname) == "start")
-      
-      B_killing_A <- events_killing_A %>%
-        as_tibble() %>%
-        filter(!!sym(activity_colname) == succ_act)
-      
-      INTERRUPTING_score <- (B_killing_A %>% 
-                     pull(!!sym(case_colname)) %>% 
-                     n_distinct) / 
-        (cases_with_B %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
-      
-      ## R8_score - B starts during A
-      events_started_during_A <- cases_with_A %>%
-        filter(!!sym(timestamp_colname) > reference_timestamp_start,
-               !!sym(timestamp_colname) < reference_timestamp_end,
-               !!sym(lifecycle_colname) == "start")
-      
-      B_started_during_A <- events_started_during_A %>%
-        as_tibble() %>%
-        filter(!!sym(activity_colname) == succ_act)
-      
-      DURING_score <- (B_started_during_A %>% 
-                     pull(!!sym(case_colname)) %>% 
-                     n_distinct) / 
-        (cases_with_B %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
-      
-      new_row <- data.frame(
+      new_row_AB <- data.frame(
         "antecedent" = prec_act,
         "consequent" = succ_act,
         "rel" = c(RScoreDict$DIRECTLY_FOLLOWS, 
@@ -581,8 +786,30 @@ discover_R_sequence_relations <- function(
                     DURING_score, 
                     REQ_score))
       
+      
+      new_row_BA <- data.frame(
+        "antecedent" = succ_act,
+        "consequent" = prec_act,
+        "rel" = c(RScoreDict$DIRECTLY_FOLLOWS, 
+                  RScoreDict$EVENTUALLY_FOLLOWS,
+                  RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                  RScoreDict$MAYBE_EVENTUALLY_FOLLOWS, 
+                  RScoreDict$MUTUALLY_EXCLUSIVE, 
+                  RScoreDict$TERMINATING,
+                  RScoreDict$HAPPENS_DURING,
+                  RScoreDict$REQUIRES),
+        "score" = c(DIRECT_FOL_score_reverse, 
+                    EVENTUALLY_score_reverse, 
+                    SOMETIMES_DIRECT_reverse, 
+                    SOMETIMES_FOL_reverse, 
+                    EXCL_score_reverse, 
+                    INTERRUPTING_score_reverse, 
+                    DURING_score_reverse, 
+                    REQ_score_reverse))
+      
       rel_df <- rel_df %>%
-        bind_rows(new_row)
+        bind_rows(new_row_AB) %>%
+        bind_rows(new_row_BA)
     }
   }
   
