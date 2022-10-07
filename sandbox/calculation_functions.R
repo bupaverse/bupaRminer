@@ -579,6 +579,7 @@ discover_R_sequence_relations <- function(
       mutate(reference_timestamp = ifelse(!!sym(activity_colname) == prec_act,
                                           !!sym(timestamp_colname),
                                           NA)) %>% 
+      as_tibble() %>%
       group_by(!!sym(case_colname)) %>%
       mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
              reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
@@ -608,6 +609,7 @@ discover_R_sequence_relations <- function(
         mutate(reference_timestamp = ifelse(!!sym(activity_colname) == succ_act,
                                             !!sym(timestamp_colname),
                                             NA)) %>% 
+        as_tibble() %>%
         group_by(!!sym(case_colname)) %>%
         mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
                reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
