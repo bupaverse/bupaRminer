@@ -1,22 +1,26 @@
 source("sandbox/construction_functions.R")
 
-I_WANT_INTERRUPTIONS <- FALSE
+I_WANT_INTERRUPTIONS <- TRUE
 
 rel_notebook_df <- assigned_rel_df %>%
   filter(!(rel == RScoreDict$ALWAYS_PARALLEL &
           antecedent %in% c("START","END") &
           consequent %in% c("START","END"))) %>%
   filter(antecedent != "END",
-         consequent != "START")
+         consequent != "START") %>%
+  mutate(
+    score=ifelse(consequent=="END",0,score),
+    importance=ifelse(consequent=="END",0,importance)
+    )
 
 R_levels <- c(RScoreDict$DIRECT_JOIN,
               RScoreDict$DIRECTLY_FOLLOWS,
               RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-              RScoreDict$ALWAYS_PARALLEL,
+              RScoreDict$EVENTUALLY_FOLLOWS,
               RScoreDict$PARALLEL_IF_PRESENT,
+              RScoreDict$ALWAYS_PARALLEL,
               RScoreDict$TERMINATING,
               RScoreDict$HAPPENS_DURING,
-              RScoreDict$EVENTUALLY_FOLLOWS,
               RScoreDict$MUTUALLY_EXCLUSIVE,
               RScoreDict$REQUIRES,
               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS, 
@@ -48,7 +52,9 @@ solve_apriori_conflicts <- function(rel_df){
   
   conflict_rel <- follows_rel %>%
     filter(rel.x == rel.y) %>%
-    mutate(rel = RScoreDict$PARALLEL_IF_PRESENT) %>%
+    mutate(rel = RScoreDict$PARALLEL_IF_PRESENT,
+           importance = 0,
+           score = 0.5) %>%
     select(antecedent, consequent, rel)
   
   rel_df <- rel_df %>%
@@ -60,19 +66,19 @@ solve_apriori_conflicts <- function(rel_df){
 
 rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df)
 
-completed_R78 <- FALSE
+completed_interrupt <- FALSE
 while(rel_notebook_df %>% 
       filter(rel %in% c(
         RScoreDict$TERMINATING,
         RScoreDict$HAPPENS_DURING)) %>% 
-      nrow() > 0 & completed_R78 == FALSE){
+      nrow() > 0 & completed_interrupt == FALSE){
   sampled_pair <- sample_pair(
     rel_notebook_df,
     c(
       RScoreDict$TERMINATING,
       RScoreDict$HAPPENS_DURING))
   
-  result <- solve_R78_relationship(
+  result <- solve_interrupt_relationship(
     sampled_pair,
     rel_notebook_df
   )
@@ -94,16 +100,16 @@ while(rel_notebook_df %>%
   
 }
 
-completed_R1 <- FALSE
+completed_DF <- FALSE
 while(rel_notebook_df %>% 
       filter(rel == RScoreDict$DIRECTLY_FOLLOWS) %>% 
-      nrow() > 0 & completed_R1 == FALSE){
+      nrow() > 0 & completed_DF == FALSE){
   
   sampled_pair <- sample_pair(
     rel_notebook_df,
     RScoreDict$DIRECTLY_FOLLOWS)
   
-  result <- solve_R1_relationship(
+  result <- solve_DF_relationship(
     sampled_pair,
     rel_notebook_df
   )
@@ -125,15 +131,15 @@ while(rel_notebook_df %>%
   
 }
 
-completed_R6 <- FALSE
+completed_PAR <- FALSE
 while(rel_notebook_df %>% 
       filter(rel == RScoreDict$ALWAYS_PARALLEL) %>% 
-      nrow() > 0 & completed_R6 == FALSE){
+      nrow() > 0 & completed_PAR == FALSE){
   sampled_pair <- sample_pair(
     rel_notebook_df,
-    RScoreDict$ALWAYS_PARALLE)
+    RScoreDict$ALWAYS_PARALLEL)
   
-  result <- solve_R6_relationship(
+  result <- solve_PAR_relationship(
     sampled_pair,
     rel_notebook_df
   )
@@ -155,13 +161,34 @@ while(rel_notebook_df %>%
   
 }
 
-completed_R2 <- FALSE
+completed_FOL <- FALSE
 while(rel_notebook_df %>% 
       filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
                         RScoreDict$EVENTUALLY_FOLLOWS,
                         RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                         RScoreDict$MAYBE_EVENTUALLY_FOLLOWS) ) %>% 
-      nrow() > 0 & completed_R2 == FALSE){
+      nrow() > 0 & completed_FOL == FALSE){
+  
+  result <- explore_soft_PAR_relationship(rel_notebook_df)
+  
+  if(!is.null(result$snippet)){
+    rel_notebook_df <- result$rel_df
+    
+    rel_notebook_df <- merge_relationships(
+      result$snippet,
+      result$activities,
+      rel_notebook_df
+    )
+    
+    print("SOFT PAR ESTABLISHED")
+    print(result$messages)
+    
+    if(I_WANT_INTERRUPTIONS){
+      readline(prompt="Press [enter] to continue")
+    }
+  }
+  
+  result <- NULL
   
   ## We fetch early activities in branches
   relevant_antec <- fetch_sequence_antecedents(rel_notebook_df)
@@ -196,6 +223,17 @@ while(rel_notebook_df %>%
       rel_notebook_df
     )
   }
+  
+  if(rel_notebook_df %>%
+      filter(
+        rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                   RScoreDict$EVENTUALLY_FOLLOWS,
+                   RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                   RScoreDict$MAYBE_EVENTUALLY_FOLLOWS),
+        antecedent == "START",
+        consequent != "END") %>% nrow() == 1){
+    completed_FOL = TRUE
+  } 
   
   if(I_WANT_INTERRUPTIONS){
     readline(prompt="Press [enter] to continue")

@@ -4,7 +4,7 @@ library(tidyverse)
 library(rlang)
 
 # event_log <- readRDS(file = "../data/Road_Traffic_Fine_Management_Process.rds")
-event_log <- patients
+event_log <- traffic_fines
 
 activity_colname <- activity_id(event_log)
 activity_instance_colname <- activity_instance_id(event_log)

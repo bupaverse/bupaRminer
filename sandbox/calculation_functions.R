@@ -142,6 +142,7 @@ discover_parallels_from_log <- function(
     
     cases_with_A <-  ev_log %>%
       filter_activity_presence(act_A) %>%
+      as_tibble() %>%
       mutate(reference_timestamp = ifelse(!!sym(activity_colname) == act_A,
                                           !!sym(timestamp_colname),
                                           NA)) %>% 
@@ -289,7 +290,8 @@ calculate_exclusive_relation <- function(
   act_B,
   cases_with_A,
   cases_with_B,
-  exclusive_thres
+  exclusive_thres,
+  nr_cases
 ){
   occurs_together <- cases_with_A %>%
     filter(!!sym(activity_colname) == act_B) %>%
@@ -304,13 +306,21 @@ calculate_exclusive_relation <- function(
     EXCL_score <- 1 - ( occurs_together / ( cases_with_A %>% n_cases ) )
   }
   
-  return(EXCL_score)
+  EXCL_importance <- (1- occurs_together) / nr_cases
+  
+  EXCL_return <- list(
+    "score" = EXCL_score,
+    "importance" = EXCL_importance
+  )
+  
+  return(EXCL_return)
 }
 
 calculate_requirement_score <- function(
     act_A,
     act_B,
-    cases_with_A){
+    cases_with_A,
+    nr_cases){
   B_before_A <- cases_with_A %>%
     filter(
       !!sym(activity_colname) == act_B,
@@ -320,14 +330,23 @@ calculate_requirement_score <- function(
   
   REQ_score <- B_before_A / cases_with_A %>% n_cases()
   
-  return(REQ_score)
+  REQ_importance <- B_before_A / nr_cases
+  
+  REQ_return <- list(
+    "score" = REQ_score,
+    "importance" = REQ_importance
+  )
+  
+  
+  return(REQ_return)
 }
 
 calculate_directly_follows_relation <- function(
   actA,
   actB,
   cases_with_A,
-  afterA_event_log){
+  afterA_event_log,
+  nr_cases){
   
   score <- 0
   
@@ -341,20 +360,28 @@ calculate_directly_follows_relation <- function(
            seq == 1)
   
   score <- (B_happens_directly_after %>% 
-                         pull(!!sym(case_colname)) %>% 
-                         n_distinct) / 
+                         pull(!!sym(case_colname)) %>% n_distinct()) / 
     (cases_with_A %>% 
        pull(!!sym(case_colname)) %>% 
        n_distinct)
   
-  return(score)
+  DF_importance <- (B_happens_directly_after %>% 
+                      pull(!!sym(case_colname)) %>% n_distinct()) / nr_cases
+  
+  DF_return <- list(
+    "score" = score,
+    "importance" = DF_importance
+  )
+  
+  return(DF_return)
 }
 
 calculate_eventually_follows_relation <- function(
     actA,
     actB,
     cases_with_A,
-    afterA_event_log){
+    afterA_event_log,
+    nr_cases){
   
   score <- 0
   
@@ -363,13 +390,20 @@ calculate_eventually_follows_relation <- function(
            !!sym(lifecycle_colname) == "start")
   
   score <- (B_happens_after %>% 
-                         pull(!!sym(case_colname)) %>% 
-                         n_distinct) / 
+                         n_cases) / 
     (cases_with_A %>% 
        pull(!!sym(case_colname)) %>% 
        n_distinct)
   
-  return(score)
+  EF_importance <- (B_happens_after %>% 
+    n_cases) / nr_cases
+  
+  EF_return <- list(
+    "score" = score,
+    "importance" = EF_importance
+  )
+  
+  return(EF_return)
 }
 
 calculate_sometimes_directly_follows_relation <- function(
@@ -576,10 +610,10 @@ discover_R_sequence_relations <- function(
     }
     
     cases_with_A <- cases_with_A %>%
+      as_tibble() %>%
       mutate(reference_timestamp = ifelse(!!sym(activity_colname) == prec_act,
                                           !!sym(timestamp_colname),
                                           NA)) %>% 
-      as_tibble() %>%
       group_by(!!sym(case_colname)) %>%
       mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
              reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
@@ -606,10 +640,10 @@ discover_R_sequence_relations <- function(
       }
       
       cases_with_B <- cases_with_B %>%
+        as_tibble() %>%
         mutate(reference_timestamp = ifelse(!!sym(activity_colname) == succ_act,
                                             !!sym(timestamp_colname),
                                             NA)) %>% 
-        as_tibble() %>%
         group_by(!!sym(case_colname)) %>%
         mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
                reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
@@ -619,12 +653,20 @@ discover_R_sequence_relations <- function(
       REQ_score <- calculate_requirement_score(
         prec_act,
         succ_act,
-        cases_with_A)
+        cases_with_A,
+        nr_cases)
+      
+      REQ_importance <- REQ_score$importance
+      REQ_score <- REQ_score$score
       
       REQ_score_reverse <- calculate_requirement_score(
         succ_act,
         prec_act,
-        cases_with_B)
+        cases_with_B,
+        nr_cases)
+      
+      REQ_importance_reverse <- REQ_score_reverse$importance
+      REQ_score_reverse <- REQ_score_reverse$score
       
       ## Mutually exclusive 
       EXCL_score <- calculate_exclusive_relation(
@@ -632,16 +674,24 @@ discover_R_sequence_relations <- function(
         succ_act,
         cases_with_A,
         cases_with_B,
-        exclusive_thres
+        exclusive_thres,
+        nr_cases
       )
+      
+      EXCL_importance <- EXCL_score$importance
+      EXCL_score <- EXCL_score$score
       
       EXCL_score_reverse <- calculate_exclusive_relation(
         succ_act,
         prec_act,
         cases_with_B,
         cases_with_A,
-        exclusive_thres
+        exclusive_thres,
+        nr_cases
       )
+      
+      EXCL_importance_reverse <- EXCL_score_reverse$importance
+      EXCL_score_reverse <- EXCL_score_reverse$score
       
       fromB_event_log <- cases_with_B %>%
         filter(!!sym(timestamp_colname) >= reference_timestamp_start) %>%
@@ -657,30 +707,46 @@ discover_R_sequence_relations <- function(
         prec_act,
         succ_act,
         cases_with_A,
-        afterA_event_log
+        afterA_event_log,
+        nr_cases
         ) 
+      
+      EVENTUALLY_importance <- EVENTUALLY_score$importance
+      EVENTUALLY_score <- EVENTUALLY_score$score
       
       EVENTUALLY_score_reverse <- calculate_eventually_follows_relation(
         succ_act,
         prec_act,
         cases_with_B,
-        afterB_event_log
+        afterB_event_log,
+        nr_cases
       ) 
+      
+      EVENTUALLY_importance_reverse <- EVENTUALLY_score_reverse$importance
+      EVENTUALLY_score_reverse <- EVENTUALLY_score_reverse$score
       
       ## R1 score - Immediate consequent
       DIRECT_FOL_score <- calculate_directly_follows_relation(
         prec_act,
         succ_act,
         cases_with_A,
-        afterA_event_log
+        afterA_event_log,
+        nr_cases
         )
+      
+      DIRECT_FOL_importance <- DIRECT_FOL_score$importance
+      DIRECT_FOL_score <- DIRECT_FOL_score$score
       
       DIRECT_FOL_score_reverse <- calculate_directly_follows_relation(
         succ_act,
         prec_act,
         cases_with_B,
-        afterB_event_log
+        afterB_event_log,
+        nr_cases
       )
+      
+      DIRECT_FOL_importance_reverse <- DIRECT_FOL_score_reverse$importance
+      DIRECT_FOL_score_reverse <- DIRECT_FOL_score_reverse$score
       
       ## R4 Score - Sometimes eventually happens
       
@@ -786,7 +852,15 @@ discover_R_sequence_relations <- function(
                     EXCL_score, 
                     INTERRUPTING_score, 
                     DURING_score, 
-                    REQ_score))
+                    REQ_score),
+        "importance" = c(DIRECT_FOL_importance,
+                         EVENTUALLY_importance,
+                         DIRECT_FOL_importance,
+                         EVENTUALLY_importance,
+                         EXCL_importance,
+                         DIRECT_FOL_importance,
+                         DIRECT_FOL_importance,
+                         REQ_importance))
       
       
       new_row_BA <- data.frame(
@@ -807,7 +881,15 @@ discover_R_sequence_relations <- function(
                     EXCL_score_reverse, 
                     INTERRUPTING_score_reverse, 
                     DURING_score_reverse, 
-                    REQ_score_reverse))
+                    REQ_score_reverse),
+        "importance" = c(DIRECT_FOL_importance_reverse,
+                         EVENTUALLY_importance_reverse,
+                         DIRECT_FOL_importance_reverse,
+                         EVENTUALLY_importance_reverse,
+                         EXCL_importance_reverse,
+                         DIRECT_FOL_importance_reverse,
+                         DIRECT_FOL_importance_reverse,
+                         REQ_importance_reverse))
       
       rel_df <- rel_df %>%
         bind_rows(new_row_AB) %>%
