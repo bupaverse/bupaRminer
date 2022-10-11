@@ -149,6 +149,7 @@ discover_parallels_from_log <- function(
       group_by(!!sym(case_colname)) %>%
       mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
              reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
+      ungroup() %>%
       re_map(mapping(ev_log))
     
     for(B in c((A+1):length(ev_activities))){
@@ -247,7 +248,7 @@ discover_self_loops <- function(
       filter(!(orig_name %in% par_relationships)) %>%
       mutate(relevant_repeat = ifelse(orig_name == dup_act, is_repeat - 1, 0)) %>%
       mutate(has_repeated_A = (sum(relevant_repeat) > 0)) %>%
-      ungroup %>%
+      ungroup() %>%
       filter(has_repeated_A == TRUE) %>%
       re_map(mapping(ev_log))
     
@@ -356,6 +357,7 @@ calculate_directly_follows_relation <- function(
     group_by(!!sym(case_colname)) %>%
     arrange(!!sym(timestamp_colname)) %>%
     mutate(seq = row_number()) %>%
+    ungroup() %>%
     filter(!!sym(activity_colname) == actB,
            seq == 1)
   
@@ -424,7 +426,8 @@ calculate_sometimes_directly_follows_relation <- function(
     arrange(!!sym(timestamp_colname)) %>%
     mutate(seq = row_number()) %>%
     filter(!!sym(activity_colname) == act_A,
-           seq == max(seq))
+           seq == max(seq)) %>%
+    ungroup()
   
   SOMETIMES_DIRECT_1 <- (B_happens_directly_after %>% 
                            pull(!!sym(case_colname)) %>% 
@@ -439,6 +442,7 @@ calculate_sometimes_directly_follows_relation <- function(
                            group_by(!!sym(case_colname)) %>%
                            arrange(!!sym(timestamp_colname)) %>%
                            mutate(seq = row_number()) %>%
+                           ungroup() %>%
                            filter(!!sym(activity_colname) == act_B,
                                   seq == 1) %>%
                            pull(!!sym(case_colname)) %>% 
@@ -599,7 +603,8 @@ discover_R_sequence_relations <- function(
       filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
              antecedent == prec_act,
              score >= parallel_thres) %>%
-      pull(consequent)
+      pull(consequent) %>%
+      unique
     
     if(!is.null(cases_per_act_memory)){
       cases_with_A <- ev_log %>%
@@ -617,6 +622,7 @@ discover_R_sequence_relations <- function(
       group_by(!!sym(case_colname)) %>%
       mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
              reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
+      ungroup() %>%
       re_map(mapping(ev_log))
     
     fromA_event_log <- cases_with_A %>%
@@ -647,6 +653,7 @@ discover_R_sequence_relations <- function(
         group_by(!!sym(case_colname)) %>%
         mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
                reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
+        ungroup() %>%
         re_map(mapping(ev_log))
       
       ## REQ - The execution of A requires the execution of B as a predecessor
@@ -834,7 +841,7 @@ discover_R_sequence_relations <- function(
         cases_with_A
       )
       
-      new_row_AB <- data.frame(
+      new_row_AB <- tibble(
         "antecedent" = prec_act,
         "consequent" = succ_act,
         "rel" = c(RScoreDict$DIRECTLY_FOLLOWS, 
@@ -863,7 +870,7 @@ discover_R_sequence_relations <- function(
                          REQ_importance))
       
       
-      new_row_BA <- data.frame(
+      new_row_BA <- tibble(
         "antecedent" = succ_act,
         "consequent" = prec_act,
         "rel" = c(RScoreDict$DIRECTLY_FOLLOWS, 

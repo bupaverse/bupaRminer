@@ -508,7 +508,7 @@ fetch_sequence_antecedents <- function(
   ## We are searching for starting points of a sequence relationship
   
   ## We start by fetching the starting points (antecedents) of R2 relationships
-  if(rel_notebook_df %>%
+  if(rel_df %>%
      filter(rel == RScoreDict$EVENTUALLY_FOLLOWS) %>%
      nrow() > 0){
     
@@ -1461,6 +1461,42 @@ solve_XOR_relationship <- function(
     messages = c()
   )
   
+  ## Sanity check
+  ## The root should be REQUIRED for the branches
+  ## Given a root A and branches B, C, D and E:
+  ## If B and C require A but D and E do not,
+  ## then we create a structure
+  ## >X>[A >X>[B,C]>X> ]>X> >X>[D, E]>X>
+  ## If neither of B, C, D or E require A
+  ## then we create a structure
+  ## >X>[A]>X> >X>[B,C,D,E]>X>
+  ## If B, C, D and E require A,
+  ## then we create
+  ## A >X>[B,C,D,E]>X>
+  
+  OPTIONAL_ROOT <- FALSE
+  
+  if(XOR_root != ""){
+    reverse_branch_relations <- rel_df %>%
+      filter(antecedent %in% XOR_branches,
+             consequent == XOR_root)
+    
+    branches_requiring_root <- reverse_branch_relations %>%
+      filter(rel == RScoreDict$REQUIRES) %>%
+      pull(antecedent)
+    
+    branches_not_requiring_root <- XOR_branches[!(XOR_branches %in% branches_requiring_root)]
+    
+    XOR_branches <- branches_requiring_root
+    
+    if(length(XOR_branches) == 0){
+      XOR_branches <- branches_not_requiring_root
+      
+      OPTIONAL_ROOT <- TRUE
+    }
+  }
+  
+  
   acts <- XOR_branches
   
   closing_snippet <- ""
@@ -1501,9 +1537,7 @@ solve_XOR_relationship <- function(
     closing_snippet <- split_symbol
   }
   
-  ## If our branches start and end with a >X>, then we
-  ## do not need double <X>
-  new_branches <- gsub('^\\>X\\>\\" "\\[|\\]" "\\>X\\>$', '', XOR_branches)
+  new_branches <- XOR_branches
   
   XOR_split_snippet = paste(split_symbol, "[",paste(new_branches, collapse = ","),"]", sep = "")
   snippet_name <- paste(XOR_split_snippet, closing_snippet, sep = "")
@@ -1516,7 +1550,14 @@ solve_XOR_relationship <- function(
     filter(! consequent %in% XOR_branches)
   
   if(length(XOR_branches) == 1 || other_branches_from_root %>% nrow == 0){
-    snippet_name <- paste(XOR_root, snippet_name, sep = " ")
+    
+    root_snippet <- XOR_root
+    
+    if(OPTIONAL_ROOT==TRUE & XOR_root != "" & !startsWith(XOR_root, "START ")){
+      root_snippet <- paste(">X>[", root_snippet, "]>X>")
+    }
+    
+    snippet_name <- paste(root_snippet, snippet_name, sep = " ")
     acts <- c(acts, XOR_root)
   }
   

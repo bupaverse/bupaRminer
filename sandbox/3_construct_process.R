@@ -1,6 +1,6 @@
 source("sandbox/construction_functions.R")
 
-I_WANT_INTERRUPTIONS <- TRUE
+I_WANT_INTERRUPTIONS <- FALSE
 
 rel_notebook_df <- assigned_rel_df %>%
   filter(!(rel == RScoreDict$ALWAYS_PARALLEL &
