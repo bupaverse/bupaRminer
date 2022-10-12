@@ -94,6 +94,20 @@ calculate_relationship_scores <- function(ev_log){
   rel_df <- rel_df %>%
     bind_rows(rel_df_2)
   
+  act_frequency <- ev_log %>%
+    activities
+  
+  rel_df <- rel_df %>%
+    left_join(act_frequency %>% select(!!sym(activity_colname), absolute_frequency), by =c("antecedent"=activity_colname)) %>%
+    mutate(freq = absolute_frequency / ev_log %>% n_cases) %>%
+    mutate(freq = ifelse(is.na(freq),0,freq)) %>%
+    mutate(or_importance = importance) %>%
+    mutate(importance = importance * score * freq)
+  
+  rel_df <- rel_df %>%
+    filter(!startsWith(antecedent, paste(consequent,"REP", collapse = "_"))) %>%
+    filter(!startsWith(consequent, paste(antecedent,"REP", collapse = "_")))
+  
   return(rel_df)
 }
 
@@ -580,7 +594,8 @@ discover_R_sequence_relations <- function(
     parallel_thres = 0.95,
     exclusive_thres = 0.95,
     interrupting_theta = 0,
-    cases_per_act_memory = NULL
+    cases_per_act_memory = NULL,
+    GENERAL_THRES = 0.99
 ){
   
   activity_colname <- activity_id(ev_log)
@@ -605,6 +620,8 @@ discover_R_sequence_relations <- function(
              score >= parallel_thres) %>%
       pull(consequent) %>%
       unique
+    
+    
     
     if(!is.null(cases_per_act_memory)){
       cases_with_A <- ev_log %>%
@@ -636,6 +653,15 @@ discover_R_sequence_relations <- function(
     for(B in c((A+1):length(ev_activities))){
       
       succ_act <- as.character(ev_activities[[B]])
+      
+      if(rel_par_df %>%
+         filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
+               antecedent == prec_act,
+               consequent == succ_act,
+               score > GENERAL_THRES) %>% nrow > 0){
+        next
+      }
+      
       
       if(!is.null(cases_per_act_memory)){
         cases_with_B <- ev_log %>%
@@ -676,138 +702,192 @@ discover_R_sequence_relations <- function(
       REQ_score_reverse <- REQ_score_reverse$score
       
       ## Mutually exclusive 
-      EXCL_score <- calculate_exclusive_relation(
-        prec_act,
-        succ_act,
-        cases_with_A,
-        cases_with_B,
-        exclusive_thres,
-        nr_cases
-      )
-      
-      EXCL_importance <- EXCL_score$importance
-      EXCL_score <- EXCL_score$score
-      
-      EXCL_score_reverse <- calculate_exclusive_relation(
-        succ_act,
-        prec_act,
-        cases_with_B,
-        cases_with_A,
-        exclusive_thres,
-        nr_cases
-      )
-      
-      EXCL_importance_reverse <- EXCL_score_reverse$importance
-      EXCL_score_reverse <- EXCL_score_reverse$score
-      
-      fromB_event_log <- cases_with_B %>%
-        filter(!!sym(timestamp_colname) >= reference_timestamp_start) %>%
-        filter(!(!!sym(activity_colname) %in% par_relationships))
-      
-      afterB_event_log <- cases_with_B %>%
-        filter(!!sym(timestamp_colname) >= reference_timestamp_end) %>%
-        filter(!(!!sym(activity_colname) %in% par_relationships))
-      
-      ## R2 score - Eventual consequent
-      
-      EVENTUALLY_score <- calculate_eventually_follows_relation(
-        prec_act,
-        succ_act,
-        cases_with_A,
-        afterA_event_log,
-        nr_cases
-        ) 
-      
-      EVENTUALLY_importance <- EVENTUALLY_score$importance
-      EVENTUALLY_score <- EVENTUALLY_score$score
-      
-      EVENTUALLY_score_reverse <- calculate_eventually_follows_relation(
-        succ_act,
-        prec_act,
-        cases_with_B,
-        afterB_event_log,
-        nr_cases
-      ) 
-      
-      EVENTUALLY_importance_reverse <- EVENTUALLY_score_reverse$importance
-      EVENTUALLY_score_reverse <- EVENTUALLY_score_reverse$score
-      
-      ## R1 score - Immediate consequent
-      DIRECT_FOL_score <- calculate_directly_follows_relation(
-        prec_act,
-        succ_act,
-        cases_with_A,
-        afterA_event_log,
-        nr_cases
+      if(REQ_score < GENERAL_THRES){
+        
+        EXCL_score <- calculate_exclusive_relation(
+          prec_act,
+          succ_act,
+          cases_with_A,
+          cases_with_B,
+          exclusive_thres,
+          nr_cases
         )
+        
+        EXCL_importance <- EXCL_score$importance
+        EXCL_score <- EXCL_score$score
+      } else {
+        EXCL_importance <- 0
+        EXCL_score <- 0
+      }
       
-      DIRECT_FOL_importance <- DIRECT_FOL_score$importance
-      DIRECT_FOL_score <- DIRECT_FOL_score$score
+      if(REQ_score_reverse < GENERAL_THRES){
+        
+        EXCL_score_reverse <- calculate_exclusive_relation(
+          succ_act,
+          prec_act,
+          cases_with_B,
+          cases_with_A,
+          exclusive_thres,
+          nr_cases
+        )
+        
+        EXCL_importance_reverse <- EXCL_score_reverse$importance
+        EXCL_score_reverse <- EXCL_score_reverse$score
+      } else {
+        EXCL_importance_reverse <- 0
+        EXCL_score_reverse <- 0
+      }
+        
+      if(EXCL_score < GENERAL_THRES & EXCL_score_reverse < GENERAL_THRES){
+        
+        fromB_event_log <- cases_with_B %>%
+          filter(!!sym(timestamp_colname) >= reference_timestamp_start) %>%
+          filter(!(!!sym(activity_colname) %in% par_relationships))
+        
+        afterB_event_log <- cases_with_B %>%
+          filter(!!sym(timestamp_colname) >= reference_timestamp_end) %>%
+          filter(!(!!sym(activity_colname) %in% par_relationships))
+        
+        ## R2 score - Eventual consequent
+        
+        EVENTUALLY_score <- calculate_eventually_follows_relation(
+          prec_act,
+          succ_act,
+          cases_with_A,
+          afterA_event_log,
+          nr_cases
+        ) 
+        
+        EVENTUALLY_importance <- EVENTUALLY_score$importance
+        EVENTUALLY_score <- EVENTUALLY_score$score
+        
+        EVENTUALLY_score_reverse <- calculate_eventually_follows_relation(
+          succ_act,
+          prec_act,
+          cases_with_B,
+          afterB_event_log,
+          nr_cases
+        ) 
+        
+        EVENTUALLY_importance_reverse <- EVENTUALLY_score_reverse$importance
+        EVENTUALLY_score_reverse <- EVENTUALLY_score_reverse$score
+        
+        ## R1 score - Immediate consequent
+        DIRECT_FOL_score <- calculate_directly_follows_relation(
+          prec_act,
+          succ_act,
+          cases_with_A,
+          afterA_event_log,
+          nr_cases
+        )
+        
+        DIRECT_FOL_importance <- DIRECT_FOL_score$importance
+        DIRECT_FOL_score <- DIRECT_FOL_score$score
+        
+        DIRECT_FOL_score_reverse <- calculate_directly_follows_relation(
+          succ_act,
+          prec_act,
+          cases_with_B,
+          afterB_event_log,
+          nr_cases
+        )
+        
+        DIRECT_FOL_importance_reverse <- DIRECT_FOL_score_reverse$importance
+        DIRECT_FOL_score_reverse <- DIRECT_FOL_score_reverse$score
+        
+        ## R4 Score - Sometimes eventually happens
+        
+        par_relationships_B <- rel_par_df %>%
+          filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
+                 antecedent == succ_act,
+                 score >= parallel_thres) %>%
+          pull(consequent)
+        
+        if(DIRECT_FOL_score < GENERAL_THRES | EVENTUALLY_score < GENERAL_THRES){
+          
+          cases_before_B <- cases_with_B %>%
+            filter(!!sym(timestamp_colname) <= reference_timestamp_start)
+          
+          SOMETIMES_DIRECT <- calculate_sometimes_directly_follows_relation(
+            prec_act,
+            succ_act,
+            cases_with_A,
+            cases_with_B,
+            afterA_event_log,
+            cases_before_B,
+            par_relationships_B,
+            nr_cases)
+          
+          if(SOMETIMES_DIRECT < GENERAL_THRES){
       
-      DIRECT_FOL_score_reverse <- calculate_directly_follows_relation(
-        succ_act,
-        prec_act,
-        cases_with_B,
-        afterB_event_log,
-        nr_cases
-      )
-      
-      DIRECT_FOL_importance_reverse <- DIRECT_FOL_score_reverse$importance
-      DIRECT_FOL_score_reverse <- DIRECT_FOL_score_reverse$score
-      
-      ## R4 Score - Sometimes eventually happens
-      
-      par_relationships_B <- rel_par_df %>%
-        filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
-               antecedent == succ_act,
-               score >= parallel_thres) %>%
-        pull(consequent)
-      
-      cases_before_B <- cases_with_B %>%
-        filter(!!sym(timestamp_colname) <= reference_timestamp_start)
-      
-      cases_before_A <- cases_with_A %>%
-        filter(!!sym(timestamp_colname) <= reference_timestamp_start)
-      
-      SOMETIMES_FOL <- calculate_sometime_follows_relation(
-        prec_act,
-        succ_act,
-        cases_with_A,
-        cases_with_B,
-        fromA_event_log,
-        cases_before_B,
-        nr_cases)
-      
-      SOMETIMES_FOL_reverse <- calculate_sometime_follows_relation(
-        succ_act,
-        prec_act,
-        cases_with_B,
-        cases_with_A,
-        fromB_event_log,
-        cases_before_A,
-        nr_cases)
-      
-      ## R3 Score - Sometimes immediately happens
-      
-      SOMETIMES_DIRECT <- calculate_sometimes_directly_follows_relation(
-        prec_act,
-        succ_act,
-        cases_with_A,
-        cases_with_B,
-        afterA_event_log,
-        cases_before_B,
-        par_relationships_B,
-        nr_cases)
-      
-      SOMETIMES_DIRECT_reverse <- calculate_sometimes_directly_follows_relation(
-        succ_act,
-        prec_act,
-        cases_with_B,
-        cases_with_A,
-        afterB_event_log,
-        cases_before_A,
-        par_relationships,
-        nr_cases)
+            SOMETIMES_FOL <- calculate_sometime_follows_relation(
+              prec_act,
+              succ_act,
+              cases_with_A,
+              cases_with_B,
+              fromA_event_log,
+              cases_before_B,
+              nr_cases)
+          } else{
+            SOMETIMES_FOL <- 0
+          }
+        } else {
+          SOMETIMES_DIRECT <- 0
+          SOMETIMES_FOL <- 0
+        }
+        
+        if(DIRECT_FOL_score_reverse < GENERAL_THRES | EVENTUALLY_score_reverse < GENERAL_THRES){
+          
+          cases_before_A <- cases_with_A %>%
+            filter(!!sym(timestamp_colname) <= reference_timestamp_start)
+          
+          SOMETIMES_DIRECT_reverse <- calculate_sometimes_directly_follows_relation(
+            succ_act,
+            prec_act,
+            cases_with_B,
+            cases_with_A,
+            afterB_event_log,
+            cases_before_A,
+            par_relationships,
+            nr_cases)
+          
+          if(SOMETIMES_DIRECT_reverse < GENERAL_THRES){
+            
+            SOMETIMES_FOL_reverse <- calculate_sometime_follows_relation(
+              succ_act,
+              prec_act,
+              cases_with_B,
+              cases_with_A,
+              fromB_event_log,
+              cases_before_A,
+              nr_cases)
+          } else {
+            SOMETIMES_FOL_reverse <- 0
+          }
+          
+        } else {
+          SOMETIMES_DIRECT_reverse <- 0
+          SOMETIMES_FOL_reverse <- 0
+        }
+        
+        ## R3 Score - Sometimes immediately happens
+        
+        
+      } else{
+        DIRECT_FOL_score <- 0
+        EVENTUALLY_score <- 0 
+        SOMETIMES_DIRECT <- 0 
+        SOMETIMES_FOL <- 0
+        DIRECT_FOL_importance <- 0
+        EVENTUALLY_importance <- 0
+        
+        DIRECT_FOL_score_reverse <- 0
+        EVENTUALLY_score_reverse <- 0 
+        SOMETIMES_DIRECT_reverse <- 0 
+        SOMETIMES_FOL_reverse <- 0
+        DIRECT_FOL_importance_reverse <- 0
+        EVENTUALLY_importance_reverse <- 0
+      }
       
       ## B interrupts A
       

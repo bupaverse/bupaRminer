@@ -17,8 +17,7 @@ R_levels <- c(RScoreDict$DIRECT_JOIN,
               RScoreDict$EVENTUALLY_FOLLOWS,
               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
               RScoreDict$MUTUALLY_EXCLUSIVE,
-              RScoreDict$REQUIRES,
-              "R6-")
+              RScoreDict$REQUIRES)
 
 smart_thres_df <- tibble(
   rel = c(  RScoreDict$DIRECTLY_FOLLOWS,

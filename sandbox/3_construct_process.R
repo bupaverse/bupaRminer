@@ -23,46 +23,22 @@ R_levels <- c(RScoreDict$DIRECT_JOIN,
               RScoreDict$HAPPENS_DURING,
               RScoreDict$MUTUALLY_EXCLUSIVE,
               RScoreDict$REQUIRES,
-              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS, 
-              "R6-")
+              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
+              )
 
-solve_apriori_conflicts <- function(rel_df){
-  
-  ## Solve preliminary conflicts
-  follows_rel <- rel_df %>%
-    filter(rel %in% c(
-      RScoreDict$DIRECT_JOIN,
-      RScoreDict$DIRECTLY_FOLLOWS,
-      RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-      RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-      RScoreDict$TERMINATING,
-      RScoreDict$HAPPENS_DURING,
-      RScoreDict$EVENTUALLY_FOLLOWS))
-  
-  follows_rel <- follows_rel %>%
-    inner_join(follows_rel, by = c("antecedent"="consequent",'consequent'="antecedent")) %>%
-    mutate(prevailing_rel = pmin(rel.x, rel.y)) %>%
-    mutate(must_remove = (rel.x != prevailing_rel))
-  
-  removed_rels <- follows_rel %>%
-    filter(must_remove == TRUE)
-  
-  rel_df <- rel_df %>%
-    anti_join(removed_rels, by=c("antecedent","consequent"))
-  
-  conflict_rel <- follows_rel %>%
-    filter(rel.x == rel.y) %>%
-    mutate(rel = RScoreDict$PARALLEL_IF_PRESENT,
-           importance = 0,
-           score = 0.5) %>%
-    select(antecedent, consequent, rel)
-  
-  rel_df <- rel_df %>%
-    anti_join(conflict_rel, by=c("antecedent","consequent")) %>%
-    bind_rows(conflict_rel)
-  
-  return(rel_df)
-}
+
+R_levels <- c(RScoreDict$DIRECT_JOIN,
+              RScoreDict$DIRECTLY_FOLLOWS,
+              RScoreDict$PARALLEL_IF_PRESENT,
+              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+              RScoreDict$EVENTUALLY_FOLLOWS,
+              RScoreDict$REQUIRES,
+              RScoreDict$MUTUALLY_EXCLUSIVE,
+              RScoreDict$ALWAYS_PARALLEL,
+              RScoreDict$TERMINATING,
+              RScoreDict$HAPPENS_DURING,
+              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
+              )
 
 rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df)
 
@@ -169,22 +145,29 @@ while(rel_notebook_df %>%
                         RScoreDict$MAYBE_EVENTUALLY_FOLLOWS) ) %>% 
       nrow() > 0 & completed_FOL == FALSE){
   
-  result <- explore_soft_PAR_relationship(rel_notebook_df)
+  SOFT_PAR_POSSIBLE <- TRUE
   
-  if(!is.null(result$snippet)){
-    rel_notebook_df <- result$rel_df
+  while(SOFT_PAR_POSSIBLE & rel_notebook_df %>% count(rel) %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>% nrow > 0){
     
-    rel_notebook_df <- merge_relationships(
-      result$snippet,
-      result$activities,
-      rel_notebook_df
-    )
+    result <- explore_soft_PAR_relationship(rel_notebook_df)
     
-    print("SOFT PAR ESTABLISHED")
-    print(result$messages)
-    
-    if(I_WANT_INTERRUPTIONS){
-      readline(prompt="Press [enter] to continue")
+    if(!is.null(result$snippet)){
+      rel_notebook_df <- result$rel_df
+      
+      rel_notebook_df <- merge_relationships(
+        result$snippet,
+        result$activities,
+        rel_notebook_df
+      )
+      
+      print("SOFT PAR ESTABLISHED")
+      print(result$messages)
+      
+      if(I_WANT_INTERRUPTIONS){
+        readline(prompt="Press [enter] to continue")
+      }
+    } else {
+      SOFT_PAR_POSSIBLE <- FALSE
     }
   }
   

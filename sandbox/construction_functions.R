@@ -16,6 +16,46 @@ sample_pair <- function(
   return(sampled_pair)
 }
 
+
+solve_apriori_conflicts <- function(rel_df){
+  
+  ## Solve preliminary conflicts
+  follows_rel <- rel_df %>%
+    filter(rel %in% c(
+      RScoreDict$DIRECT_JOIN,
+      RScoreDict$DIRECTLY_FOLLOWS,
+      RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+      RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+      RScoreDict$TERMINATING,
+      RScoreDict$HAPPENS_DURING,
+      RScoreDict$EVENTUALLY_FOLLOWS))
+  
+  follows_rel <- follows_rel %>%
+    inner_join(follows_rel, by = c("antecedent"="consequent",'consequent'="antecedent")) %>%
+    mutate(prevailing_rel = pmin(rel.x, rel.y)) %>%
+    mutate(must_remove = (rel.x != prevailing_rel))
+  
+  removed_rels <- follows_rel %>%
+    filter(must_remove == TRUE)
+  
+  rel_df <- rel_df %>%
+    anti_join(removed_rels, by=c("antecedent","consequent"))
+  
+  conflict_rel <- follows_rel %>%
+    filter(rel.x == rel.y) %>%
+    mutate(rel = RScoreDict$PARALLEL_IF_PRESENT,
+           importance = 0,
+           score = 0.5) %>%
+    select(antecedent, consequent, rel)
+  
+  rel_df <- rel_df %>%
+    anti_join(conflict_rel, by=c("antecedent","consequent")) %>%
+    bind_rows(conflict_rel)
+  
+  return(rel_df)
+}
+
+
 solve_interrupt_relationship <- function(
     rel_pair,
     rel_df){
@@ -141,24 +181,21 @@ merge_relationships <- function(
   ## We do not want to remove the END event from the log
   real_activities <- activities[! activities %in% c('END')]
   
+  HAS_END <- "END" %in% activities | endsWith(snippet_name, " END")
+  HAS_START <- "START" %in% activities | startsWith(snippet_name, "START ")
+  
   ## If we have added an END event, we want to remove
   ## all relationships between the activities in the block
   ## and the end event
-  if("END" %in% activities | endsWith(snippet_name, " END")){
+  if(HAS_END){
     rel_df <- rel_df %>%
       filter(!(antecedent %in% real_activities & consequent == "END") )
   }
   
   
-  if("START" %in% activities | startsWith(snippet_name, "START ")){
+  if(HAS_START){
     rel_df <- rel_df %>%
-      filter(!(consequent %in% real_activities & rel %in% c(
-        RScoreDict$DIRECTLY_FOLLOWS,
-        RScoreDict$EVENTUALLY_FOLLOWS,
-        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-        RScoreDict$DIRECT_JOIN
-      )) )
+      filter(!(consequent %in% real_activities & rel != RScoreDict$REQUIRES))
     rel_df <- rel_df %>%
       filter(!(antecedent %in% real_activities & rel == RScoreDict$REQUIRES))
   }
@@ -183,9 +220,11 @@ merge_relationships <- function(
     consequent_rel <- consequent_rel %>%
       group_by(antecedent) %>%
       summarize(rel = min(rel, na.rm = TRUE),
-                score = min(score, na.rm = TRUE),
-                importance = min(importance, na.rm = TRUE)) %>%
+                score = min(score, na.rm=TRUE),
+                importance = min(importance, na.rm =TRUE)) %>%
+      ungroup() %>%
       mutate(consequent = snippet_name)
+    
     
     rel_df <- rel_df %>%
       bind_rows(consequent_rel)
@@ -195,8 +234,9 @@ merge_relationships <- function(
     antecedent_rel <- antecedent_rel %>% 
       group_by(consequent) %>%
       summarize(rel = min(rel, na.rm = TRUE),
-                score = min(score, na.rm = TRUE),
-                importance = min(importance, na.rm = TRUE)) %>%
+                score = min(score, na.rm=TRUE),
+                importance = min(importance, na.rm =TRUE)) %>%
+      ungroup() %>%
       mutate(antecedent = snippet_name)
     
     rel_df <- rel_df %>%
@@ -391,7 +431,7 @@ solve_PAR_relationship <- function(
           new_rows <- rel_df %>%
             filter(antecedent %in% invalid_R6_acts,
                    consequent %in% R6_acts) %>%
-            mutate(rel = "R6-")
+            mutate(rel = RScoreDict$PARALLEL_IF_PRESENT)
           rel_df <- rel_df %>%
             filter(!(antecedent %in% invalid_R6_acts & consequent %in% R6_acts)) %>%
             bind_rows(new_rows)
@@ -401,7 +441,7 @@ solve_PAR_relationship <- function(
                                           new_rows %>%
                                             nrow(),
                                           RScoreDict$ALWAYS_PARALLEL,
-                                          "relationships to R6-."))
+                                          "relationships to SOFT PAR."))
           
           return_list$rel_df <- rel_df
           
@@ -460,24 +500,32 @@ solve_PAR_relationship <- function(
   ## If we want to parallellize with an already existing parallel split
   ## we can just incorporate the new addition into the existing one.
   
+  PAR_SYMBOL_START = "++["
+  PAR_SYMBOL_END = "]++"
+  
   if(mode == "SOFT"){
     ## branches that aren't required from START are made optional
     rels_from_start <- rel_df %>%
-      filter((antecedent == "START" | startsWith(antecedent, "START ") ) & consequent %in% R6_acts) %>%
+      filter((antecedent == "START" | startsWith(antecedent, "START ") ),
+             consequent %in% R6_acts) %>%
       filter(rel == RScoreDict$EVENTUALLY_FOLLOWS)
     
     required_from_start <- rels_from_start$consequent
     
     if(length(required_from_start) > 0){
       optional_acts <- setdiff(R6_acts, required_from_start)
+      
       if(length(optional_acts) > 0){
         optional_acts <- paste(">X>[",optional_acts,"]>X>", sep="")
         new_acts <- c(required_from_start, optional_acts)
       }
+    } else {
+      PAR_SYMBOL_START = ">O>["
+      PAR_SYMBOL_END = "]>O>"
     }
   }
   
-  return_list$snippet <- paste("++[",paste(new_acts, collapse = ","),"]++",sep="")
+  return_list$snippet <- paste(PAR_SYMBOL_START,paste(new_acts, collapse = ","),PAR_SYMBOL_END,sep="")
   return_list$activities <- R6_acts
   return_list$rel_df <- rel_df
   return_list$messages <- c(return_list$messages,
@@ -716,8 +764,7 @@ solve_sequence_relationship <- function(
       ## If all direct precedents are Rx
       ## Then we actually need to look for a split
       ## We try to create a new pair using one of the branches.
-      if(closest_antecedents %>% filter(rel == "Rx") %>% nrow > 0 &&
-         closest_antecedents %>% filter(rel != "Rx") %>% nrow == 0){
+      if(closest_antecedents %>% count(rel) %>% filter(rel != RScoreDict$DIRECT_JOIN) %>% nrow == 0){
         new_pair <- rel_df %>%
           filter(consequent %in% closest_antecedents$antecedent,
                  rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
@@ -737,16 +784,17 @@ solve_sequence_relationship <- function(
       
       ## We will give preference to R1, R3 relationships if
       ## they exist
-      R13_closest <- closest_antecedents %>%
-        filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                          RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
-      
-      if(R13_closest %>% nrow > 0) closest_antecedents <- R13_closest
       
       R2_closest <- closest_antecedents %>%
         filter(rel == RScoreDict$EVENTUALLY_FOLLOWS)
       
       if(R2_closest %>% nrow > 0) closest_antecedents <- R2_closest
+      
+      R13_closest <- closest_antecedents %>%
+        filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                          RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
+      
+      if(R13_closest %>% nrow > 0) closest_antecedents <- R13_closest
       
       if(closest_antecedents %>% nrow == 1){
         seq_pair <- closest_antecedents
@@ -780,7 +828,7 @@ solve_sequence_relationship <- function(
           return(return_list)
         }
         
-        if("Rx" %in% mutual_antec_relations$rel){
+        if(RScoreDict$DIRECT_JOIN %in% mutual_antec_relations$rel){
           
           selected_branches <- mutual_antec_relations %>%
             filter(rel == RScoreDict$DIRECT_JOIN) %>%
@@ -830,7 +878,7 @@ solve_sequence_relationship <- function(
             arrange(-importance,
                     -score
                     ) %>%
-            sample_n(1)
+            head(1)
           
           SEQ_pair <- rel_df %>%
             filter(antecedent == REQ_pair$consequent,
@@ -845,12 +893,25 @@ solve_sequence_relationship <- function(
             rel_df <- rel_df %>%
               bind_rows(SEQ_pair)
           }
-          if(SEQ_pair$rel == RScoreDict$MUTUALLY_EXCLUSIVE){
+          if(SEQ_pair$rel %in% c(RScoreDict$MUTUALLY_EXCLUSIVE, RScoreDict$PARALLEL_IF_PRESENT)){
             SEQ_pair$rel <- RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
             rel_df <- rel_df %>%
-              filter(antecedent == SEQ_pair$antecedent,
-                     consequent == SEQ_pair$consequent) %>%
-              filter(rel == RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
+              filter(!(antecedent == SEQ_pair$antecedent & consequent == SEQ_pair$consequent)) %>%
+              bind_rows(rel_df %>% 
+                          filter(antecedent == SEQ_pair$antecedent,
+                                 consequent == SEQ_pair$consequent) %>%
+                          mutate(rel = RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
+          }
+          if(SEQ_pair$rel %in% c(RScoreDict$ALWAYS_PARALLEL, RScoreDict$REQUIRES)){
+            return_list <- solve_PAR_relationship(
+              SEQ_pair %>% mutate(rel == RScoreDict$ALWAYS_PARALLEL),
+              rel_df %>%
+                filter(antecedent %in% c(SEQ_pair$antecedent, SEQ_pair$consequent),
+                       consequent %in% c(SEQ_pair$antecedent, SEQ_pair$consequent)) %>%
+                mutate(rel = RScoreDict$ALWAYS_PARALLEL)
+            )
+            return_list$rel_df <- rel_df
+            return(return_list)
           }
           antec <- SEQ_pair$antecedent
           conseq <- SEQ_pair$consequent
@@ -1053,7 +1114,7 @@ solve_directly_follows <- function(
       mutate(rel = RScoreDict$ALWAYS_PARALLEL)
     
     PAR_mode <- "HARD"
-    if(reverse_rel ==  RScoreDict$PARALLEL_IF_PRESENT){
+    if(reverse_rel != RScoreDict$ALWAYS_PARALLEL){
       PAR_mode == "SOFT"
     }
     
@@ -1074,6 +1135,63 @@ solve_directly_follows <- function(
     return(return_list)
   }
   
+  if(reverse_rel == RScoreDict$DIRECT_JOIN){
+    ## Check if there are others that need to join here
+    other_pre_joins <- rel_df %>%
+      filter(consequent == act_a,
+             rel == RScoreDict$DIRECT_JOIN)
+    
+    if(other_pre_joins %>% nrow > 0){
+      mutual_pre_join_rels <- rel_df %>%
+        filter(antecedent %in% other_pre_joins$antecedent,
+               consequent %in% other_pre_joins$antecedent
+               )
+      
+      mutual_join_rel_count <- mutual_pre_join_rels %>%
+        count(rel)
+      
+      if(mutual_join_rel_count %>% filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow == 0){
+        return_list <- solve_XOR_relationship(
+          XOR_root="",
+          XOR_branches=other_pre_joins$antecedent,
+          rel_df)
+        
+        return(return_list)
+      }
+      
+      if(mutual_join_rel_count %>% filter(rel != RScoreDict$PARALLEL_IF_PRESENT) %>% nrow == 0){
+        return_list <- solve_XOR_relationship(
+          XOR_root="",
+          XOR_branches=other_pre_joins$antecedent,
+          rel_df,
+          split_symbol = ">O>")
+        
+        return(return_list)
+      }
+      
+      if(mutual_join_rel_count$rel %in% 
+         c(RScoreDict$DIRECTLY_FOLLOWS,
+           RScoreDict$EVENTUALLY_FOLLOWS,
+           RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+           RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
+        seq_pair <- mutual_pre_join_rels %>% 
+          filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                            RScoreDict$EVENTUALLY_FOLLOWS,
+                            RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>%
+          arrange(-importance, -score) %>%
+          head(1)
+        
+        return_list <- solve_sequence_relationship(
+          seq_pair,
+          rel_df
+        )
+        
+        return(return_list)
+      }
+      
+    }
+  }
   msg <- "UNABLE TO ESTABLISH DIRECTLY FOLLOWS RELATIONSHIP"
   
   return_list <- list(
@@ -1193,9 +1311,8 @@ explore_XOR_split <- function(
   ## If all branches are mutually exclusive, then we can create a XOR split
   ## on them.
   if(mutual_branch_relationships %>%
-     filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow > 0 &&
-    mutual_branch_relationships %>%
-     filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow == 0){
+     count(rel) %>%
+     filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow() == 0){
     
     return_list <- solve_XOR_relationship(
       XOR_pair$antecedent,
@@ -1344,7 +1461,7 @@ explore_XOR_split <- function(
   if(branches_with_only_mutual_relations %>% nrow > 0){
     
     return_list <- solve_XOR_relationship(
-      rel_pair$antecedent,
+      XOR_pair$antecedent,
       branches_with_only_mutual_relations$antecedent %>% unique,
       rel_df)
     
@@ -1475,6 +1592,8 @@ solve_XOR_relationship <- function(
   ## A >X>[B,C,D,E]>X>
   
   OPTIONAL_ROOT <- FALSE
+  
+  if(is.null(XOR_root)) XOR_root <- ""
   
   if(XOR_root != ""){
     reverse_branch_relations <- rel_df %>%
