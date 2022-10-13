@@ -13,47 +13,35 @@ rel_notebook_df <- assigned_rel_df %>%
     importance=ifelse(consequent=="END",0,importance)
     )
 
-R_levels <- c(RScoreDict$DIRECT_JOIN,
-              RScoreDict$DIRECTLY_FOLLOWS,
-              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-              RScoreDict$EVENTUALLY_FOLLOWS,
-              RScoreDict$PARALLEL_IF_PRESENT,
-              RScoreDict$ALWAYS_PARALLEL,
-              RScoreDict$TERMINATING,
-              RScoreDict$HAPPENS_DURING,
-              RScoreDict$MUTUALLY_EXCLUSIVE,
-              RScoreDict$REQUIRES,
-              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
-              )
-
-
-R_levels <- c(RScoreDict$DIRECT_JOIN,
-              RScoreDict$DIRECTLY_FOLLOWS,
-              RScoreDict$PARALLEL_IF_PRESENT,
-              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-              RScoreDict$EVENTUALLY_FOLLOWS,
-              RScoreDict$REQUIRES,
-              RScoreDict$MUTUALLY_EXCLUSIVE,
-              RScoreDict$ALWAYS_PARALLEL,
-              RScoreDict$TERMINATING,
-              RScoreDict$HAPPENS_DURING,
-              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
-              )
-
-R_levels <- c(RScoreDict$DIRECT_JOIN,
-              RScoreDict$DIRECTLY_FOLLOWS,
-              RScoreDict$PARALLEL_IF_PRESENT,
-              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-              RScoreDict$EVENTUALLY_FOLLOWS,
-              RScoreDict$ALWAYS_PARALLEL,
-              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-              RScoreDict$REQUIRES,
-              RScoreDict$MUTUALLY_EXCLUSIVE,
-              RScoreDict$TERMINATING,
-              RScoreDict$HAPPENS_DURING
-)
-
 rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df)
+
+update_rel_notebook <- function(
+    constrc_result,
+    rel_df,
+    verbose = TRUE){
+  
+  if(verbose ==  TRUE & length(constrc_result$messages) > 0){
+    print(constrc_result$messages)
+  }
+  
+  if(!is.null(constrc_result)){
+    rel_df <- constrc_result$rel_df
+  }
+    
+  if(!is.null(constrc_result$snippet)){
+    rel_df <- merge_relationships(
+      constrc_result$snippet,
+      constrc_result$activities,
+      rel_df
+    )
+  }
+  
+  if(I_WANT_INTERRUPTIONS){
+    readline(prompt="Press [enter] to continue")
+  }
+  
+  return(rel_df)
+}
 
 completed_interrupt <- FALSE
 while(rel_notebook_df %>% 
@@ -61,6 +49,7 @@ while(rel_notebook_df %>%
         RScoreDict$TERMINATING,
         RScoreDict$HAPPENS_DURING)) %>% 
       nrow() > 0 & completed_interrupt == FALSE){
+  
   sampled_pair <- sample_pair(
     rel_notebook_df,
     c(
@@ -71,21 +60,11 @@ while(rel_notebook_df %>%
     sampled_pair,
     rel_notebook_df
   )
-  rel_notebook_df <- result$rel_df
   
-  print(result$messages)
-  
-  if(!is.null(result$snippet)){
-    rel_notebook_df <- merge_relationships(
-      result$snippet,
-      result$activities,
-      rel_notebook_df
-    )
-  }
-  
-  if(I_WANT_INTERRUPTIONS){
-    readline(prompt="Press [enter] to continue")
-  }
+  rel_notebook_df <- update_rel_notebook(
+    result,
+    rel_notebook_df
+  )
   
 }
 
@@ -102,21 +81,11 @@ while(rel_notebook_df %>%
     sampled_pair,
     rel_notebook_df
   )
-  rel_notebook_df <- result$rel_df
   
-  print(result$messages)
-  
-  if(!is.null(result$snippet)){
-    rel_notebook_df <- merge_relationships(
-      result$snippet,
-      result$activities,
-      rel_notebook_df
-    )
-  }
-  
-  if(I_WANT_INTERRUPTIONS){
-    readline(prompt="Press [enter] to continue")
-  }
+  rel_notebook_df <- update_rel_notebook(
+    result,
+    rel_notebook_df
+  )
   
 }
 
@@ -132,21 +101,11 @@ while(rel_notebook_df %>%
     sampled_pair,
     rel_notebook_df
   )
-  rel_notebook_df <- result$rel_df
   
-  print(result$messages)
-  
-  if(!is.null(result$snippet)){
-    rel_notebook_df <- merge_relationships(
-      result$snippet,
-      result$activities,
-      rel_notebook_df
-    )
-  }
-  
-  if(I_WANT_INTERRUPTIONS){
-    readline(prompt="Press [enter] to continue")
-  }
+  rel_notebook_df <- update_rel_notebook(
+    result,
+    rel_notebook_df
+  )
   
 }
 
@@ -164,22 +123,12 @@ while(rel_notebook_df %>%
     
     result <- explore_soft_PAR_relationship(rel_notebook_df)
     
-    if(!is.null(result$snippet)){
-      rel_notebook_df <- result$rel_df
-      
-      rel_notebook_df <- merge_relationships(
-        result$snippet,
-        result$activities,
-        rel_notebook_df
-      )
-      
-      print("SOFT PAR ESTABLISHED")
-      print(result$messages)
-      
-      if(I_WANT_INTERRUPTIONS){
-        readline(prompt="Press [enter] to continue")
-      }
-    } else {
+    rel_notebook_df <- update_rel_notebook(
+      result,
+      rel_notebook_df
+    )
+    
+    if(is.null(result$snippet)){
       SOFT_PAR_POSSIBLE <- FALSE
     }
   }
@@ -203,22 +152,14 @@ while(rel_notebook_df %>%
     rel_notebook_df
   )
   
-  if(!is.null(result)){
-    
-    rel_notebook_df <- result$rel_df
-    
-    print(result$messages)
-  } else {
+  if(is.null(result)){
     print("---- No result for sample")
   }
   
-  if(!is.null(result$snippet)){
-    rel_notebook_df <- merge_relationships(
-      result$snippet,
-      result$activities,
-      rel_notebook_df
-    )
-  }
+  rel_notebook_df <- update_rel_notebook(
+    result,
+    rel_notebook_df
+  )
   
   if(rel_notebook_df %>%
       filter(
@@ -230,10 +171,6 @@ while(rel_notebook_df %>%
         consequent != "END") %>% nrow() == 1){
     completed_FOL = TRUE
   } 
-  
-  if(I_WANT_INTERRUPTIONS){
-    readline(prompt="Press [enter] to continue")
-  }
   
 }
 
@@ -267,22 +204,14 @@ while(rel_notebook_df %>%
     seq_pair
   )
   
-  if(!is.null(result)){
-    print(result$messages)
-  } else {
+  if(is.null(result)){
     print("---- No result for sample")
   }
   
-  if(!is.null(result$snippet)){
-    rel_notebook_df <- merge_relationships(
-      result$snippet,
-      result$activities,
-      rel_notebook_df
-    )
-  }
+  rel_notebook_df <- update_rel_notebook(
+    result,
+    rel_notebook_df
+  )
   
-  if(I_WANT_INTERRUPTIONS){
-    readline(prompt="Press [enter] to continue")
-  }
   
 }
