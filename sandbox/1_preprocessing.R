@@ -3,8 +3,8 @@ library(bupaR)
 library(tidyverse)
 library(rlang)
 
-event_log <- readRDS(file = "data/Road_Traffic_Fine_Management_Process.rds")
-# event_log <- patients
+# event_log <- readRDS(file = "data/Road_Traffic_Fine_Management_Process.rds")
+event_log <- patients
 
 activity_colname <- activity_id(event_log)
 activity_instance_colname <- activity_instance_id(event_log)
@@ -12,7 +12,7 @@ case_colname <- case_id(event_log)
 timestamp_colname <- timestamp(event_log)
 lifecycle_colname <- lifecycle_id(event_log)
 
-MAGIC_NUMBER <- 100000
+MAGIC_NUMBER <- 10000
 
 if(event_log %>% n_cases > MAGIC_NUMBER){
   sampled_cases <- event_log %>% pull(!!sym(case_colname)) %>% unique %>% sample(MAGIC_NUMBER)
