@@ -1,4 +1,5 @@
 source("sandbox/construction_functions.R")
+source("sandbox/merge_functions.R")
 
 I_WANT_INTERRUPTIONS <- FALSE
 
@@ -15,48 +16,26 @@ rel_notebook_df <- assigned_rel_df %>%
 
 rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df)
 
-update_rel_notebook <- function(
-    constrc_result,
-    rel_df,
-    verbose = TRUE){
-  
-  if(verbose ==  TRUE & length(constrc_result$messages) > 0){
-    print(constrc_result$messages)
-  }
-  
-  if(!is.null(constrc_result)){
-    rel_df <- constrc_result$rel_df
-  }
-    
-  if(!is.null(constrc_result$snippet)){
-    rel_df <- merge_relationships(
-      constrc_result$snippet,
-      constrc_result$activities,
-      rel_df
-    )
-  }
-  
-  if(I_WANT_INTERRUPTIONS){
-    readline(prompt="Press [enter] to continue")
-  }
-  
-  return(rel_df)
-}
+RELS_IN_FOCUS <- determine_rels_in_focus(
+  rel_notebook_df
+  )
 
-completed_interrupt <- FALSE
-while(rel_notebook_df %>% 
-      filter(rel %in% c(
-        RScoreDict$TERMINATING,
-        RScoreDict$HAPPENS_DURING)) %>% 
-      nrow() > 0 & completed_interrupt == FALSE){
+HAS_COMPLETED <- FALSE
+while(!is.null(RELS_IN_FOCUS) & HAS_COMPLETED == FALSE){
+  
+  if(any(INTERRUPTING_RELS %in% RELS_IN_FOCUS)){
+    rel_solver_function <- solve_interrupt_relationship
+  } else if(RELS_IN_FOCUS == RScoreDict$DIRECTLY_FOLLOWS){
+    rel_solver_function <- solve_DF_relationship
+  } else if(RELS_IN_FOCUS == RScoreDict$ALWAYS_PARALLEL){
+    rel_solver_function <- solve_PAR_relationship
+  }
   
   sampled_pair <- sample_pair(
     rel_notebook_df,
-    c(
-      RScoreDict$TERMINATING,
-      RScoreDict$HAPPENS_DURING))
+    RELS_IN_FOCUS)
   
-  result <- solve_interrupt_relationship(
+  result <- rel_solver_function(
     sampled_pair,
     rel_notebook_df
   )
@@ -66,55 +45,18 @@ while(rel_notebook_df %>%
     rel_notebook_df
   )
   
-}
-
-completed_DF <- FALSE
-while(rel_notebook_df %>% 
-      filter(rel == RScoreDict$DIRECTLY_FOLLOWS) %>% 
-      nrow() > 0 & completed_DF == FALSE){
-  
-  sampled_pair <- sample_pair(
-    rel_notebook_df,
-    RScoreDict$DIRECTLY_FOLLOWS)
-  
-  result <- solve_DF_relationship(
-    sampled_pair,
+  RELS_IN_FOCUS <- determine_rels_in_focus(
     rel_notebook_df
   )
   
-  rel_notebook_df <- update_rel_notebook(
-    result,
-    rel_notebook_df
-  )
-  
-}
-
-completed_PAR <- FALSE
-while(rel_notebook_df %>% 
-      filter(rel == RScoreDict$ALWAYS_PARALLEL) %>% 
-      nrow() > 0 & completed_PAR == FALSE){
-  sampled_pair <- sample_pair(
-    rel_notebook_df,
-    RScoreDict$ALWAYS_PARALLEL)
-  
-  result <- solve_PAR_relationship(
-    sampled_pair,
-    rel_notebook_df
-  )
-  
-  rel_notebook_df <- update_rel_notebook(
-    result,
-    rel_notebook_df
-  )
-  
+  if(is.null(RELS_IN_FOCUS)){
+    HAS_COMPLETED <- TRUE
+  }
 }
 
 completed_FOL <- FALSE
 while(rel_notebook_df %>% 
-      filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                        RScoreDict$EVENTUALLY_FOLLOWS,
-                        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS) ) %>% 
+      filter(rel %in% FOLLOWS_RELS ) %>% 
       nrow() > 0 & completed_FOL == FALSE){
   
   SOFT_PAR_POSSIBLE <- TRUE
@@ -142,10 +84,7 @@ while(rel_notebook_df %>%
   ## and any follows or eventually follows relationship
   sampled_pair <- sample_pair(
     rel_notebook_df, # %>% filter(antecedent %in% relevant_antec),
-    c(RScoreDict$DIRECTLY_FOLLOWS,
-      RScoreDict$EVENTUALLY_FOLLOWS,
-      RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-      RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
+    FOLLOWS_RELS)
   
   result <- solve_sequence_relationship(
     sampled_pair,
@@ -163,10 +102,7 @@ while(rel_notebook_df %>%
   
   if(rel_notebook_df %>%
       filter(
-        rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                   RScoreDict$EVENTUALLY_FOLLOWS,
-                   RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                   RScoreDict$MAYBE_EVENTUALLY_FOLLOWS),
+        rel %in% FOLLOWS_RELS,
         antecedent == "START",
         consequent != "END") %>% nrow() == 1){
     completed_FOL = TRUE
@@ -174,11 +110,9 @@ while(rel_notebook_df %>%
   
 }
 
-
 completed_RxREQ <- FALSE
 while(rel_notebook_df %>% 
-      filter(rel %in%  c(RScoreDict$DIRECT_JOIN,
-                         RScoreDict$REQUIRES)) %>% 
+      filter(rel %in%  OTHER_RELS) %>% 
       nrow() > 0 & completed_RxREQ == FALSE){
   
   ## We sample any pair between an early activity
