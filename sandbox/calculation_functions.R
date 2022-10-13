@@ -105,8 +105,8 @@ calculate_relationship_scores <- function(ev_log){
     mutate(importance = importance * score * freq)
   
   rel_df <- rel_df %>%
-    filter(!startsWith(antecedent, paste(consequent,"REP", collapse = "_"))) %>%
-    filter(!startsWith(consequent, paste(antecedent,"REP", collapse = "_")))
+    filter(!startsWith(antecedent, paste(consequent,"REP", sep = "_"))) %>%
+    filter(!startsWith(consequent, paste(antecedent,"REP", sep = "_")))
   
   return(rel_df)
 }
@@ -595,7 +595,7 @@ discover_R_sequence_relations <- function(
     exclusive_thres = 0.95,
     interrupting_theta = 0,
     cases_per_act_memory = NULL,
-    GENERAL_THRES = 0.99
+    GENERAL_THRES = 0.95
 ){
   
   activity_colname <- activity_id(ev_log)

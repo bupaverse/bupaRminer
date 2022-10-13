@@ -40,6 +40,19 @@ R_levels <- c(RScoreDict$DIRECT_JOIN,
               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
               )
 
+R_levels <- c(RScoreDict$DIRECT_JOIN,
+              RScoreDict$DIRECTLY_FOLLOWS,
+              RScoreDict$PARALLEL_IF_PRESENT,
+              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+              RScoreDict$EVENTUALLY_FOLLOWS,
+              RScoreDict$ALWAYS_PARALLEL,
+              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+              RScoreDict$REQUIRES,
+              RScoreDict$MUTUALLY_EXCLUSIVE,
+              RScoreDict$TERMINATING,
+              RScoreDict$HAPPENS_DURING
+)
+
 rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df)
 
 completed_interrupt <- FALSE
@@ -179,7 +192,7 @@ while(rel_notebook_df %>%
   ## We sample any pair between an early activity
   ## and any follows or eventually follows relationship
   sampled_pair <- sample_pair(
-    rel_notebook_df %>% filter(antecedent %in% relevant_antec),
+    rel_notebook_df, # %>% filter(antecedent %in% relevant_antec),
     c(RScoreDict$DIRECTLY_FOLLOWS,
       RScoreDict$EVENTUALLY_FOLLOWS,
       RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
