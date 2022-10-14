@@ -154,16 +154,29 @@ discover_parallels_from_log <- function(
     act_A <- as.character(ev_activities[A])
     print(act_A)
     
-    cases_with_A <-  ev_log %>%
-      filter_activity_presence(act_A) %>%
+    events_A <- 
+      ev_log %>%
+      filter(!!sym(activity_colname) == act_A,
+             !!sym(lifecycle_colname) == "start") %>%
       as_tibble() %>%
-      mutate(reference_timestamp = ifelse(!!sym(activity_colname) == act_A,
-                                          !!sym(timestamp_colname),
-                                          NA)) %>% 
-      group_by(!!sym(case_colname)) %>%
-      mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
-             reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
-      ungroup() %>%
+      mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
+      select(!!sym(case_colname), reference_timestamp_start) %>%
+      full_join(
+        ev_log %>%
+          filter(!!sym(activity_colname) == act_A,
+                 !!sym(lifecycle_colname) == "complete") %>%
+          as_tibble() %>%
+          mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
+          select(!!sym(case_colname), reference_timestamp_end),
+        by = case_colname
+      )
+      
+    
+    cases_with_A <-  ev_log %>%
+      inner_join(
+        events_A,
+        by = case_colname,
+      ) %>% 
       re_map(mapping(ev_log))
     
     for(B in c((A+1):length(ev_activities))){
@@ -368,21 +381,20 @@ calculate_directly_follows_relation <- function(
   B_happens_directly_after <- afterA_event_log %>%
     as_tibble() %>%
     filter(!!sym(lifecycle_colname) == "start") %>%
+    arrange(!!sym(case_colname), !!sym(timestamp_colname)) %>%
     group_by(!!sym(case_colname)) %>%
-    arrange(!!sym(timestamp_colname)) %>%
-    mutate(seq = row_number()) %>%
-    ungroup() %>%
-    filter(!!sym(activity_colname) == actB,
-           seq == 1)
+    filter(row_number() == 1) %>%
+    filter(!!sym(activity_colname) == actB)
   
-  score <- (B_happens_directly_after %>% 
-                         pull(!!sym(case_colname)) %>% n_distinct()) / 
+  B_happens_directly_after_count <- B_happens_directly_after %>% 
+    pull(!!sym(case_colname)) %>% n_distinct()
+  
+  score <- (B_happens_directly_after_count) / 
     (cases_with_A %>% 
        pull(!!sym(case_colname)) %>% 
        n_distinct)
   
-  DF_importance <- (B_happens_directly_after %>% 
-                      pull(!!sym(case_colname)) %>% n_distinct()) / nr_cases
+  DF_importance <- B_happens_directly_after_count / nr_cases
   
   DF_return <- list(
     "score" = score,
@@ -621,26 +633,38 @@ discover_R_sequence_relations <- function(
       pull(consequent) %>%
       unique
     
-    
-    
-    if(!is.null(cases_per_act_memory)){
-      cases_with_A <- ev_log %>%
-        filter(!!sym(case_colname) %in% cases_per_act_memory[[prec_act]])
-    } else {
-      cases_with_A <- ev_log %>%
-        filter_activity_presence(prec_act)
-    }
-    
-    cases_with_A <- cases_with_A %>%
+    # 
+    # 
+    # if(!is.null(cases_per_act_memory)){
+    #   cases_with_A <- ev_log %>%
+    #     filter(!!sym(case_colname) %in% cases_per_act_memory[[prec_act]])
+    # } else {
+    #   cases_with_A <- ev_log %>%
+    #     filter_activity_presence(prec_act)
+    # }
+    # 
+    events_A <- 
+      ev_log %>%
+      filter(!!sym(activity_colname) == prec_act,
+             !!sym(lifecycle_colname) == "start") %>%
       as_tibble() %>%
-      mutate(reference_timestamp = ifelse(!!sym(activity_colname) == prec_act,
-                                          !!sym(timestamp_colname),
-                                          NA)) %>% 
-      group_by(!!sym(case_colname)) %>%
-      mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
-             reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
-      ungroup() %>%
+      mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
+      select(!!sym(case_colname), reference_timestamp_start) %>%
+      full_join(ev_log %>%
+                  filter(!!sym(activity_colname) == prec_act,
+                         !!sym(lifecycle_colname) == "complete") %>%
+                  as_tibble() %>%
+                  mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
+                  select(!!sym(case_colname), reference_timestamp_end),
+                by = case_colname)
+    
+    cases_with_A <-  ev_log %>%
+      inner_join(
+        events_A,
+        by = case_colname,
+      ) %>% 
       re_map(mapping(ev_log))
+    
     
     fromA_event_log <- cases_with_A %>%
       filter(!!sym(timestamp_colname) >= reference_timestamp_start) %>%
@@ -663,24 +687,36 @@ discover_R_sequence_relations <- function(
       }
       
       
-      if(!is.null(cases_per_act_memory)){
-        cases_with_B <- ev_log %>%
-          filter(!!sym(case_colname) %in% cases_per_act_memory[[succ_act]])
-      } else {
-        cases_with_B <- ev_log %>%
-          filter_activity_presence(succ_act)
-      }
+      # if(!is.null(cases_per_act_memory)){
+      #   cases_with_B <- ev_log %>%
+      #     filter(!!sym(case_colname) %in% cases_per_act_memory[[succ_act]])
+      # } else {
+      #   cases_with_B <- ev_log %>%
+      #     filter_activity_presence(succ_act)
+      # }
       
-      cases_with_B <- cases_with_B %>%
+      events_B <- 
+        ev_log %>%
+        filter(!!sym(activity_colname) == succ_act,
+               !!sym(lifecycle_colname) == "start") %>%
         as_tibble() %>%
-        mutate(reference_timestamp = ifelse(!!sym(activity_colname) == succ_act,
-                                            !!sym(timestamp_colname),
-                                            NA)) %>% 
-        group_by(!!sym(case_colname)) %>%
-        mutate(reference_timestamp_start = min(reference_timestamp, na.rm = TRUE),
-               reference_timestamp_end = max(reference_timestamp, na.rm = TRUE)) %>%
-        ungroup() %>%
+        mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
+        select(!!sym(case_colname), reference_timestamp_start) %>%
+        full_join(ev_log %>%
+                    filter(!!sym(activity_colname) == succ_act,
+                           !!sym(lifecycle_colname) == "complete") %>%
+                    as_tibble() %>%
+                    mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
+                    select(!!sym(case_colname), reference_timestamp_end),
+                  by = case_colname)
+      
+      cases_with_B <-  ev_log %>%
+        inner_join(
+          events_B,
+          by = case_colname,
+        ) %>% 
         re_map(mapping(ev_log))
+      
       
       ## REQ - The execution of A requires the execution of B as a predecessor
       REQ_score <- calculate_requirement_score(

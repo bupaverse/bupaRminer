@@ -165,6 +165,8 @@ solve_DF_relationship <- function(
       messages = msg
     )
   }
+  
+  return(return_list)
 }
 
 explore_soft_PAR_relationship <- function(rel_df){
@@ -394,21 +396,14 @@ solve_PAR_relationship <- function(
     }
   }
   
-  new_acts <- c()
-  
-  for(act in R6_acts){
-    if(startsWith(act,"++[") & endsWith(act,"]++")){
-      new_acts <- c(new_acts, gsub('^\\+\\+\\[|\\]\\+\\+$', '', act))
-    } else{
-      new_acts <- c(new_acts, act)
-    }
-  }
   
   ## If we want to parallellize with an already existing parallel split
   ## we can just incorporate the new addition into the existing one.
   
   PAR_SYMBOL_START = "++["
   PAR_SYMBOL_END = "]++"
+  
+  modified_acts <- R6_acts
   
   if(mode == "SOFT"){
     ## branches that aren't required from START are made optional
@@ -424,13 +419,30 @@ solve_PAR_relationship <- function(
       
       if(length(optional_acts) > 0){
         optional_acts <- paste(">X>[",optional_acts,"]>X>", sep="")
-        new_acts <- c(required_from_start, optional_acts)
+        modified_acts <- c(required_from_start, optional_acts)
       }
     } else {
       PAR_SYMBOL_START = ">O>["
       PAR_SYMBOL_END = "]>O>"
     }
   }
+  
+  new_acts <- c()
+  for(act in modified_acts){
+    if(startsWith(act,PAR_SYMBOL_START) & endsWith(act,PAR_SYMBOL_END)){
+      trimmed_act <- gsub('^\\+\\+\\[|\\]\\+\\+$', '', act)
+      trimmed_act <- gsub('^>O>\\[|\\]>O>$', '', trimmed_act)
+      
+      ## Remove trailing numbers and then remove repetitions
+      trimmed_act <- gsub("_(0|[1-9][0-9]*)$", "",trimmed_act)
+      new_acts <- c(new_acts, trimmed_act)
+    } else{
+      trimmed_act <- gsub("_(0|[1-9][0-9]*)$", "",act)
+      new_acts <- c(new_acts, trimmed_act)
+    }
+  }
+  
+  new_acts <- new_acts %>% unique
   
   return_list$snippet <- paste(PAR_SYMBOL_START,paste(new_acts, collapse = ","),PAR_SYMBOL_END,sep="")
   return_list$activities <- R6_acts
