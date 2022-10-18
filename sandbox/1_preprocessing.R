@@ -4,6 +4,11 @@ library(tidyverse)
 library(rlang)
 
 # event_log <- readRDS(file = "data/Road_Traffic_Fine_Management_Process.rds")
+
+# event_log <- read_xes("data/financial_log.xes") %>%
+#   filter(lifecycle_id == "COMPLETE") %>%
+#   mutate(lifecycle_id = "complete")
+
 event_log <- patients
 
 activity_colname <- activity_id(event_log)

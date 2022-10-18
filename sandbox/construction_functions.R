@@ -902,6 +902,10 @@ solve_join <- function(
   join_pair,
   rel_df
 ){
+  
+  return_list <- list()
+  
+  
   reverse_rel <- rel_df %>%
     filter(antecedent == join_pair$consequent,
            consequent == join_pair$antecedent)
