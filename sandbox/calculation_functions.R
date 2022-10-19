@@ -714,13 +714,11 @@ discover_R_sequence_relations <- function(
       
       succ_act <- ev_activities[[B]]
       
-      # print(paste("--",succ_act))
-      
       if(rel_par_df %>%
          filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
-               antecedent == prec_act,
-               consequent == succ_act,
-               score > GENERAL_THRES) %>% nrow > 0){
+                antecedent == prec_act,
+                consequent == succ_act,
+                score > GENERAL_THRES) %>% nrow > 0){
         next
       }
       
@@ -817,7 +815,7 @@ discover_R_sequence_relations <- function(
       EVENTUALLY_importance_reverse <- 0
       EVENTUALLY_score_reverse <- 
         
-      DIRECT_FOL_importance <- 0
+        DIRECT_FOL_importance <- 0
       DIRECT_FOL_score <- 0
       DIRECT_FOL_importance_reverse <- 0
       DIRECT_FOL_score_reverse <- 0
@@ -852,7 +850,7 @@ discover_R_sequence_relations <- function(
           EVENTUALLY_importance <- EVENTUALLY_score$importance
           EVENTUALLY_score <- EVENTUALLY_score$score
           
-          if(EVENTUALLY_score >= GENERAL_THRES){
+          if(EVENTUALLY_score >= 0.75*GENERAL_THRES){
             
             DIRECT_FOL_score <- calculate_directly_follows_relation(
               prec_act,
@@ -880,7 +878,7 @@ discover_R_sequence_relations <- function(
           EVENTUALLY_score_reverse <- EVENTUALLY_score_reverse$score
           
           
-          if(EVENTUALLY_score_reverse >= GENERAL_THRES){
+          if(EVENTUALLY_score_reverse >= 0.75*GENERAL_THRES){
             
             DIRECT_FOL_score_reverse <- calculate_directly_follows_relation(
               succ_act,
@@ -908,27 +906,30 @@ discover_R_sequence_relations <- function(
           cases_before_B <- cases_with_B %>%
             filter(!!sym(timestamp_colname) <= reference_timestamp_start)
           
-          SOMETIMES_DIRECT <- calculate_sometimes_directly_follows_relation(
+          SOMETIMES_FOL <- calculate_sometime_follows_relation(
             prec_act,
             succ_act,
             cases_with_A,
             cases_with_B,
-            afterA_event_log,
+            fromA_event_log,
             cases_before_B,
-            par_relationships_B,
             nr_cases)
           
-          if(SOMETIMES_DIRECT < GENERAL_THRES){
-      
-            SOMETIMES_FOL <- calculate_sometime_follows_relation(
+          
+          if(SOMETIMES_FOL >= 0.75*GENERAL_THRES){
+            
+            SOMETIMES_DIRECT <- calculate_sometimes_directly_follows_relation(
               prec_act,
               succ_act,
               cases_with_A,
               cases_with_B,
-              fromA_event_log,
+              afterA_event_log,
               cases_before_B,
+              par_relationships_B,
               nr_cases)
+            
           }
+          
         }
         
         if(prec_act!= "START" & succ_act != "END" & DIRECT_FOL_score_reverse < GENERAL_THRES & EVENTUALLY_score_reverse < GENERAL_THRES){
@@ -936,25 +937,26 @@ discover_R_sequence_relations <- function(
           cases_before_A <- cases_with_A %>%
             filter(!!sym(timestamp_colname) <= reference_timestamp_start)
           
-          SOMETIMES_DIRECT_reverse <- calculate_sometimes_directly_follows_relation(
+          SOMETIMES_FOL_reverse <- calculate_sometime_follows_relation(
             succ_act,
             prec_act,
             cases_with_B,
             cases_with_A,
-            afterB_event_log,
+            fromB_event_log,
             cases_before_A,
-            par_relationships,
             nr_cases)
           
-          if(SOMETIMES_DIRECT_reverse < GENERAL_THRES){
+          
+          if(SOMETIMES_FOL_reverse >= 0.75*GENERAL_THRES){
             
-            SOMETIMES_FOL_reverse <- calculate_sometime_follows_relation(
+            SOMETIMES_DIRECT_reverse <- calculate_sometimes_directly_follows_relation(
               succ_act,
               prec_act,
               cases_with_B,
               cases_with_A,
-              fromB_event_log,
+              afterB_event_log,
               cases_before_A,
+              par_relationships,
               nr_cases)
           } 
         }
@@ -1060,6 +1062,7 @@ discover_R_sequence_relations <- function(
         bind_rows(new_row_AB) %>%
         bind_rows(new_row_BA)
     }
+    
   }
   
   return(rel_df)
