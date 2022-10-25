@@ -1,3 +1,11 @@
+source("sandbox/snippet_functions.R")
+## List of snippet that have been created
+## The index is the symbolic snippet name.
+## The value is a list that contains
+## the detailed representation of that snippet.
+snippet_dictionary <- list()
+
+
 sample_pair <- function(
     rel_df,
     rel_vect){
@@ -80,7 +88,15 @@ solve_interrupt_relationship <- function(
   snippet_name <- paste(antec, intermed_symbol, conseq, " >O> ", sep = "")
     
   msg <- paste("Created process snippet:", snippet_name, sep = " ")
-    
+  
+  snippet_dictionary[[snippet_name]] <<- 
+    create_snippet(
+      if(antec %in% names(snippet_dictionary)) snippet_dictionary[[antec]] else antec,
+      if(conseq %in% names(snippet_dictionary)) snippet_dictionary[[conseq]] else conseq,
+      c(),
+      "SEQ"
+    )
+  
   return_list <- list(
     snippet = snippet_name,
     activities = c(antec, conseq),
@@ -157,6 +173,14 @@ solve_DF_relationship <- function(
     snippet_name <- paste(antec, conseq, sep = " >> ")
     
     msg <- paste("Created process snippet:", snippet_name, sep = " ")
+    
+    snippet_dictionary[[snippet_name]] <<- 
+      create_snippet(
+        if(antec %in% names(snippet_dictionary)) snippet_dictionary[[antec]] else antec,
+        if(conseq %in% names(snippet_dictionary)) snippet_dictionary[[conseq]] else conseq,
+        c(),
+        "SEQ"
+      )
     
     return_list <- list(
       snippet = snippet_name,
@@ -444,7 +468,26 @@ solve_PAR_relationship <- function(
   
   new_acts <- new_acts %>% unique
   
-  return_list$snippet <- paste(PAR_SYMBOL_START,paste(new_acts, collapse = ","),PAR_SYMBOL_END,sep="")
+  snippet_name <- paste(PAR_SYMBOL_START,paste(new_acts, collapse = ","),PAR_SYMBOL_END,sep="")
+  
+  snippet_acts = list()
+  i <- 1
+  for(act in R6_acts){
+    snippet_acts[i] <- act
+    if(act %in% names(snippet_dictionary)){
+      snippet_acts[[i]] <- snippet_dictionary[[act]]
+    }
+    i <- i+1
+  }
+  snippet_dictionary[[snippet_name]] <<- 
+    create_snippet(
+      NULL,
+      NULL,
+      snippet_acts,
+      if(mode == "SOFT") "OR" else "AND"
+    )
+  
+  return_list$snippet <- snippet_name
   return_list$activities <- R6_acts
   return_list$rel_df <- rel_df
   return_list$messages <- c(return_list$messages,
@@ -536,6 +579,28 @@ solve_sequence_relationship <- function(
     rel_df
 ){
   
+  return_list <- list(
+    snippet = NULL,
+    activities = c(),
+    rel_df = rel_df,
+    messages = c()
+  )
+  
+  antec <- rel_pair$antecedent
+  conseq <- rel_pair$consequent
+  relevant_relation <- rel_pair$rel
+  
+  ## We check if what activities are likely to preceed
+  ## the current end_point
+  others_preceeding_conseq <- rel_df %>%
+    filter(consequent == conseq) %>%
+    filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                      RScoreDict$EVENTUALLY_FOLLOWS,
+                      RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                      RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                      RScoreDict$DIRECT_JOIN))
+  
+  SEQ_FOUND <- TRUE
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -1002,6 +1067,15 @@ solve_directly_follows <- function(
     
     msg <- paste("Created process snippet:", snippet_name, sep = " ")
     
+    snippet_dictionary[[snippet_name]] <<- 
+      create_snippet(
+        if(act_a %in% names(snippet_dictionary)) snippet_dictionary[[act_a]] else act_a,
+        if(act_b %in% names(snippet_dictionary)) snippet_dictionary[[act_b]] else act_b,
+        c(),
+        "SEQ"
+      )
+    
+    
     return_list <- list(
       snippet = snippet_name,
       activities = c(act_a, act_b),
@@ -1185,6 +1259,24 @@ explore_XOR_split <- function(
       ## not already happen
       if(!startsWith(branch_names, split_symbol)){
         snippet_name <- paste(split_symbol,"[", branch_names, "]", split_symbol, sep ="")
+        
+        snippet_acts = list()
+        i <- 1
+        for(act in branch_names){
+          snippet_acts[i] <- act
+          if(act %in% names(snippet_dictionary)){
+            snippet_acts[[i]] <- snippet_dictionary[[act]]
+          }
+          i <- i+1
+        }
+        snippet_dictionary[[snippet_name]] <<- 
+          create_snippet(
+            NULL,
+            NULL,
+            snippet_acts,
+            if(split_symbol == ">O>") "OR" else "XOR"
+          )
+        
         return_list$snippet <-  snippet_name
         
         return_list$activities <- branch_names
@@ -1531,9 +1623,9 @@ explore_XOR_split <- function(
 }
 
 solve_XOR_relationship <- function(
-    XOR_root,
-    XOR_branches,
-    rel_df,
+    XOR_root = NULL,
+    XOR_branches = c(),
+    rel_df = tibble(),
     split_symbol = ">X>"){
   
   return_list <- list(
@@ -1639,11 +1731,38 @@ solve_XOR_relationship <- function(
     
     if(OPTIONAL_ROOT==TRUE & XOR_root != "" & !startsWith(XOR_root, "START ")){
       root_snippet <- paste(">X>[", root_snippet, "]>X>")
+      
+      snippet_dictionary[[XOR_root]] <<- 
+        create_snippet(
+          NULL,
+          NULL,
+          list(if(XOR_root %in% names(snippet_dictionary)) snippet_dictionary[[XOR_root]], XOR_root),
+          "XOR"
+        )
     }
     
     snippet_name <- paste(root_snippet, snippet_name, sep = " ")
     acts <- c(acts, XOR_root)
   }
+  
+  snippet_acts = list()
+  i <- 1
+  for(act in XOR_branches){
+    snippet_acts[i] <- act
+    if(act %in% names(snippet_dictionary)){
+      snippet_acts[[i]] <- snippet_dictionary[[act]]
+    }
+    i <- i+1
+  }
+  
+  join_point_snip <- if(join_points %>% nrow() > 0) join_points$consequent[1] else NULL
+  snippet_dictionary[[snippet_name]] <<- 
+    create_snippet(
+      if(XOR_root %in% names(snippet_dictionary)) snippet_dictionary[[XOR_root]] else XOR_root,
+      if(!is.null(join_point_snip) && join_point_snip %in% names(snippet_dictionary)) snippet_dictionary[[join_point_snip]] else join_point_snip,
+      snippet_acts,
+      if(split_symbol == ">O>") "OR" else "XOR"
+    )
   
   return_list <- list(
     snippet = snippet_name,

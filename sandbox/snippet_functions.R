@@ -1,0 +1,395 @@
+
+end_counter <- 1
+
+create_snippet <- function(
+  start_point,
+  end_point,
+  branches = list(),
+  connection_type = c("SEQ","XOR","AND","OR","INTER","NONINTER"),
+  start_event_name = c("START","__START__"),
+  end_event_name = c("END","__END__")
+){
+  
+  new_snippet <- list(
+    tasks = tibble(),
+    seqs = tibble(),
+    gateways = tibble(),
+    start_events = tibble(),
+    end_events = tibble(),
+    init = c(),
+    close = c()
+  )
+  
+  start_point <- decode_task(start_point,
+                             start_event_name,
+                             end_event_name)
+  incoming_connection_A <- start_point$init
+  outgoing_connection_A <- start_point$close
+  
+  new_snippet <- start_point
+  
+  ## If we already end in an END, then we must create a separate split in front of this END
+  if(!is.null(start_point$close) && start_point$end_events %>% nrow > 0 && start_point$close %in% (start_point$end_events$id)){
+    
+    gateway_before_end <- tibble(
+      id = paste("XOR_SPLIT_INSERTED", as.numeric(Sys.time()), sep = "_"),
+      name = "To end?",
+      gatewayType = "ExclusiveGateway",
+      gatewayDirection = "diverging"
+    )
+    new_snippet$gateways <- new_snippet$gateways %>%
+      bind_rows(gateway_before_end)
+    new_snippet$seqs <- new_snippet$seqs %>%
+      mutate(targetRef = ifelse(targetRef == start_point$close, gateway_before_end$id, targetRef))
+    
+    new_snippet$seqs <- new_snippet$seqs %>%
+      bind_rows(
+        tibble(
+          id = paste("XOR_SPLIT_INSERTED", as.numeric(Sys.time()), sep = "_"),
+          name = "",
+          sourceRef = gateway_before_end$id,
+          targetRef = start_point$close
+        )
+      )
+    
+    start_point$close <- gateway_before_end$id
+    outgoing_connection_A <- start_point$close
+  }
+  
+  end_point <- decode_task(end_point,
+                             start_event_name,
+                             end_event_name)
+  incoming_connection_B <- end_point$init
+  outgoing_connection_B <- end_point$close
+  
+  new_snippet <- new_snippet %>% 
+    expand_snippet(end_point)
+  
+  
+  if(connection_type == "SEQ"){
+    new_sequence <- establish_sequence(
+      outgoing_connection_A,
+      incoming_connection_B
+    )
+    
+    new_snippet$seqs <- new_snippet$seqs %>%
+      bind_rows(new_sequence)
+  }
+  
+  branch_snippet <- NULL
+  if(connection_type %in% c("XOR","AND","OR")){
+    
+    gatewayType <- case_when(
+      connection_type == "XOR" ~"ExclusiveGateway",
+      connection_type == "AND" ~"ParallelGateway",
+      connection_type == "OR" ~"InclusiveGateway",
+      TRUE ~ connection_type
+    )
+    
+    ## Check if there are branches that start and end
+    ## with the same type of gateway. If so, we can merge
+    ## them.
+    same_type_branches <- list()
+    other_type_branches <- list()
+    
+    for(branch in branches){
+      
+      same_type <- FALSE
+      
+      branch <- decode_task(branch,
+                            start_event_name,
+                            end_event_name)
+      
+      if(!is.null(branch$gateways) & branch$gateways %>% nrow() > 0){
+        
+        branch_gateways_start <- branch$gateways %>%
+          filter(gatewayType == gatewayType,
+                 id == branch$init)
+        
+        if (branch_gateways_start %>% nrow() > 0) {
+          branch_gateways_end <- branch$gateways %>%
+            filter(gatewayType == gatewayType,
+                   id == branch$close)
+          
+          if (branch_gateways_end %>% nrow > 0) {
+            branch_to_branch <- branch$seqs %>%
+              filter(sourceRef == branch_gateways_start$id,
+                     targetRef == branch_gateways_end$id)
+            
+            if (branch_to_branch %>% nrow > 0) {
+              print("SAME BRANCH CAN BE MERGED")
+              same_type_branches[[length(same_type_branches) + 1]] <-
+                branch
+              same_type <- TRUE
+            }
+          }
+        }
+      }
+      if(same_type == FALSE){
+        other_type_branches[[length(other_type_branches)+1]] <- branch
+      }
+    }
+    
+    new_gateway_A <- tibble(
+      id = paste(connection_type, "SPLIT", outgoing_connection_A, as.numeric(Sys.time()), sep = "__"),
+      name = "SPLIT",
+      gatewayType = gatewayType,
+      gatewayDirection = "diverging"
+    )
+    new_gateway_B <- tibble(
+      id = paste(connection_type, "MERGE", incoming_connection_B, as.numeric(Sys.time()), sep = "__"),
+      name = "MERGE",
+      gatewayType = gatewayType,
+      gatewayDirection = "converging"
+    )
+    
+    new_snippet$gateways <- new_snippet$gateways %>%
+      bind_rows(new_gateway_A) %>%
+      bind_rows(new_gateway_B)
+    
+    direct_seq <- establish_sequence(
+      new_gateway_A$id,
+      new_gateway_B$id)
+      
+    new_snippet$seqs <- new_snippet$seqs %>%
+      bind_rows(direct_seq)
+    
+    if(!is.null(outgoing_connection_A)){
+      
+      new_sequence <- establish_sequence(
+        outgoing_connection_A,
+        new_gateway_A$id)
+      
+      new_snippet$seqs <- new_snippet$seqs %>%
+        bind_rows(new_sequence)
+      
+    }
+    
+    if(!is.null(incoming_connection_B)){
+      
+      new_sequence <- establish_sequence(
+        new_gateway_B$id,
+        incoming_connection_B)
+      
+      new_snippet$seqs <- new_snippet$seqs %>%
+        bind_rows(new_sequence)
+      
+    } 
+    
+    branch_snippet <- list()
+    for(branch in other_type_branches){
+      
+      if(dead_end_check(branch) == FALSE){
+        clean_branch <- branch
+        if(is.list(clean_branch)){
+          clean_branch$seqs <- tibble()
+        }
+        
+        branch_in <- create_snippet(
+          start_point = list(
+            init = new_gateway_A$id,
+            close = new_gateway_A$id),
+          end_point = clean_branch,
+          branches = list(),
+          connection_type = "SEQ")
+        
+        branch_snippet <- branch_snippet %>%
+          expand_snippet(branch_in)
+        
+        branch_out <- create_snippet(
+          start_point = branch,
+          end_point = list(
+            init = new_gateway_B$id,
+            close = new_gateway_B$id),
+          branches = list(),
+          connection_type = "SEQ")
+          
+          
+          branch_snippet <- branch_snippet %>%
+            expand_snippet(branch_out)
+      } else {
+        
+        branch_in <- create_snippet(
+          start_point = list(
+            init = new_gateway_A$id,
+            close = new_gateway_A$id),
+          end_point = branch,
+          branches = list(),
+          connection_type = "SEQ")
+        
+        branch_snippet <- branch_snippet %>%
+          expand_snippet(branch_in)
+      }
+      
+      
+      
+      branch_snippet$seqs <- unique(branch_snippet$seqs)
+    }
+    
+    for(branch in same_type_branches){
+      old_start <- branch$init
+      old_end <- branch$close
+      
+      
+      branch$seqs <- branch$seqs %>%
+        filter(!(sourceRef == old_start & targetRef == old_end)) %>%
+        mutate(sourceRef = ifelse(sourceRef == old_start, new_gateway_A$id, sourceRef))
+      
+      if(dead_end_check(branch) == FALSE){
+        branch$seqs <- branch$seqs %>%
+          mutate(targetRef = ifelse(targetRef == old_end, new_gateway_B$id, targetRef))
+      }
+      
+      branch_snippet <- branch_snippet %>%
+        expand_snippet(branch)
+    }
+    
+  }
+  
+  if(is.null(incoming_connection_A)){
+    new_snippet$init <- new_gateway_A$id
+  } else {
+    new_snippet$init <- incoming_connection_A
+  }
+  
+  if(is.null(outgoing_connection_B)){
+    new_snippet$close <- new_gateway_B$id
+  } else {
+    new_snippet$close <- outgoing_connection_B
+  }
+  
+  if(!is.null(branch_snippet)){
+    new_snippet <- new_snippet %>%
+      expand_snippet(branch_snippet)
+    
+    used_gateways <- c(new_snippet$seqs %>% pull(sourceRef),new_snippet$seqs %>% pull(targetRef) )
+    new_snippet$gateways <- new_snippet$gateways %>%
+      filter(id %in% used_gateways)
+  }
+  
+  return(new_snippet)
+}
+
+end_event_counter <- 1
+decode_task <- function(task_name,
+                        start_event_name,
+                        end_event_name){
+  
+  if(is.list(task_name)){
+    return(task_name)
+  } else {
+    if(is.character(task_name) && task_name != ""){
+      if(task_name %in% start_event_name){
+        
+        start_snippet <- list(
+          tasks = tibble(),
+          seqs = tibble(),
+          gateways = tibble(),
+          start_events = tibble(id = task_name,
+                                name = task_name),
+          end_events = tibble(),
+          init = task_name,
+          close = task_name
+        )
+        
+        return(start_snippet)
+      }
+      
+      if(task_name %in% end_event_name){
+        
+        end_id <- paste(task_name, end_event_counter, sep = "_")
+        end_event_counter <<- end_event_counter + 1
+        
+        end_snippet <- list(
+          tasks = tibble(),
+          seqs = tibble(),
+          gateways = tibble(),
+          start_events = tibble(),
+          end_events = tibble(id = end_id,
+                              name = task_name),
+          init = end_id,
+          close = end_id
+        )
+        
+        return(end_snippet)
+      }
+      task_id = str_replace_all(task_name, " ", "_")
+      
+      atomic_task_snippet <- list(
+        tasks = tibble(id = task_id,
+                       name = task_name),
+        seqs = tibble(),
+        gateways = tibble(),
+        start_events = tibble(),
+        end_events = tibble(),
+        init = task_id,
+        close = task_id
+      )
+      
+      return(atomic_task_snippet)
+    } else {
+      return(list(
+        init = NULL,
+        close = NULL,
+        tasks = tibble(),
+        seqs = tibble(),
+        gateways = tibble(),
+        start_events = tibble(),
+        end_events = tibble()
+        )
+        )
+    }
+  }
+}
+
+dead_end_check <- function(snippet){
+  dead_end <- FALSE
+  if(snippet$close %in% snippet$end_events$id){
+    dead_end <- TRUE
+  }
+  
+  return(dead_end)
+}
+
+establish_sequence <- function(
+    out_A,
+    in_B){
+  new_sequence <- tibble(
+    id = paste(out_A,in_B,sep = "__"),
+    name = "",
+    sourceRef = out_A,
+    targetRef = in_B
+  )
+  
+  return(new_sequence)
+  
+}
+
+expand_snippet <- function(old_snippet, extra_snippet){
+  expanded_snippet <- old_snippet
+  
+  if(!is.null(extra_snippet$tasks)){
+    expanded_snippet$tasks <- old_snippet$tasks %>%
+      bind_rows(extra_snippet$tasks)
+    
+    expanded_snippet$tasks <- expanded_snippet$tasks %>% unique
+  }
+  if(!is.null(extra_snippet$seqs)){
+    expanded_snippet$seqs <- old_snippet$seqs %>%
+      bind_rows(extra_snippet$seqs)
+  }
+  if(!is.null(extra_snippet$gateways)){
+    expanded_snippet$gateways <- old_snippet$gateways %>%
+      bind_rows(extra_snippet$gateways)
+  }
+  if(!is.null(extra_snippet$start_events)){
+    expanded_snippet$start_events <- old_snippet$start_events %>%
+      bind_rows(extra_snippet$start_events)
+  }
+  if(!is.null(extra_snippet$end_events)){
+    expanded_snippet$end_events <- old_snippet$end_events %>%
+      bind_rows(extra_snippet$end_events)
+  }
+  
+  return(expanded_snippet)
+}
