@@ -54,7 +54,6 @@ merge_relationships <- function(
     rel_df
 ){
   
-  
   ## Reset factor levels
   rel_df <- rel_df %>%
     mutate(rel = factor(rel, levels = R_levels, ordered = TRUE))
@@ -93,11 +92,52 @@ merge_relationships <- function(
            !(consequent %in% real_activities) ) 
   
   ## Remove old relationships
+  original_rel_df <- rel_df
   rel_df <- rel_df %>%
     filter(!(antecedent %in% real_activities),
            !(consequent %in% real_activities))
   
   if(consequent_rel %>% nrow() > 0){
+    
+    ## If we only have one activity,
+    ## then we have to reduce the importance
+    ## further in otder to avoid a loop.
+    if(length(activities[activities != ""])==1){
+      
+      direct_antecedents <- original_rel_df %>%
+        filter(consequent %in% activities,
+               rel %in% c(RScoreDict$DIRECTLY_FOLLOWS, RScoreDict$DIRECT_JOIN,
+                          RScoreDict$EVENTUALLY_FOLLOWS, RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                          RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
+      
+      closest_direct_antecedents <- original_rel_df %>%
+        filter(consequent %in% c(direct_antecedents$antecedent, activities),
+               rel %in% c(RScoreDict$DIRECTLY_FOLLOWS, RScoreDict$DIRECT_JOIN,
+                          RScoreDict$EVENTUALLY_FOLLOWS, RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                          RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>%
+        group_by(antecedent) %>%
+        mutate(n = n()) %>%
+        filter(n == min(n))
+      
+      closest_direct_XOR_roots <- closest_direct_antecedents %>%
+        filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
+      
+      if(closest_direct_XOR_roots %>% nrow > 0){
+        closest_direct_XOR_roots <- closest_direct_XOR_roots %>%
+          mutate(rel = RScoreDict$EVENTUALLY_FOLLOWS)
+        
+        consequent_rel <- consequent_rel %>%
+          filter(!(antecedent %in% closest_direct_XOR_roots$antecedent & consequent  %in% activities)) %>%
+          bind_rows(closest_direct_XOR_roots)
+        
+      } else {
+        consequent_rel <- consequent_rel %>%
+          mutate(importance = importance/10)
+        
+      }
+      
+    }
+    
     consequent_rel <- consequent_rel %>%
       group_by(antecedent) %>%
       summarize(rel = min(rel, na.rm = TRUE),
@@ -105,7 +145,6 @@ merge_relationships <- function(
                 importance = min(importance, na.rm =TRUE)) %>%
       ungroup() %>%
       mutate(consequent = snippet_name)
-    
     
     rel_df <- rel_df %>%
       bind_rows(consequent_rel)

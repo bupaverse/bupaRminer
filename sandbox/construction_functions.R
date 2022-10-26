@@ -601,28 +601,6 @@ solve_sequence_relationship <- function(
                       RScoreDict$DIRECT_JOIN))
   
   SEQ_FOUND <- TRUE
-  return_list <- list(
-    snippet = NULL,
-    activities = c(),
-    rel_df = rel_df,
-    messages = c()
-  )
-  
-  antec <- rel_pair$antecedent
-  conseq <- rel_pair$consequent
-  relevant_relation <- rel_pair$rel
-  
-  ## We check if what activities are likely to preceed
-  ## the current end_point
-  others_preceeding_conseq <- rel_df %>%
-    filter(consequent == conseq) %>%
-    filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                      RScoreDict$EVENTUALLY_FOLLOWS,
-                      RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                      RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-                      RScoreDict$DIRECT_JOIN))
-  
-  SEQ_FOUND <- TRUE
   ## If there is only one predecessor, then antec and conseq 
   ## are the pair that we want to connect
   ## If not, we need to perform further analysis
@@ -891,15 +869,50 @@ solve_sequence_relationship <- function(
             return_list$rel_df <- rel_df
             return(return_list)
           }
+          
           antec <- SEQ_pair$antecedent
           conseq <- SEQ_pair$consequent
           relevant_relation <- SEQ_pair$rel
           SEQ_FOUND <- TRUE
         }
         
-        ## If they are concurrent or do not agree
-        ## among each other
-        ## AND them together
+        ## If there is a combination of parallel and exlusive relations
+        ## that do not contain pairwise disagreements, then
+        ## we create an inclusive AND that has some mutual exlusive
+        ## choices in them.
+        if(RScoreDict$MUTUALLY_EXCLUSIVE %in% mutual_antec_relations$rel){
+          mutual_exclusions <- mutual_antec_relations %>%
+            filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE)
+          
+          ## Check if the mutual exclusions are indeed mutual
+          
+          non_mutual_exclusions <- mutual_antec_relations %>% 
+            filter(antecedent %in% c(mutual_exclusions$antecedent, mutual_exclusions$consequent),
+                   consequent %in% c(mutual_exclusions$antecedent, mutual_exclusions$consequent)) %>%
+            filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE)
+          
+          if(non_mutual_exclusions %>% nrow == 0){
+            return_list <- solve_XOR_relationship(
+              XOR_root = "",
+              XOR_branches = mutual_exclusions$antecedent %>% unique,
+              rel_df = rel_df
+            )
+            return(return_list)
+          }
+          
+          ## If they are concurrent or do not agree
+          ## among each other
+          ## soft AND them together
+          return_list <- solve_PAR_relationship(
+            mutual_antec_relations %>% 
+              sample_pair(c(RScoreDict$PARALLEL_IF_PRESENT)),
+            mutual_antec_relations %>%
+              mutate(rel == RScoreDict$PARALLEL_IF_PRESENT),
+            mode = "SOFT"
+          )
+          return_list$rel_df <- rel_df
+          return(return_list)
+        }
       }
     }
     

@@ -109,7 +109,9 @@ create_snippet <- function(
         if (branch_gateways_start %>% nrow() > 0) {
           branch_gateways_end <- branch$gateways %>%
             filter(gatewayType == gatewayType,
-                   id == branch$close)
+                   gatewayDirection == "converging",
+                   id == branch$close
+                   )
           
           if (branch_gateways_end %>% nrow > 0) {
             branch_to_branch <- branch$seqs %>%
@@ -314,6 +316,8 @@ decode_task <- function(task_name,
         return(end_snippet)
       }
       task_id = str_replace_all(task_name, " ", "_")
+      task_id = str_replace_all(task_id, "\\(", "_")
+      task_id = str_replace_all(task_id, "\\)", "_")
       
       atomic_task_snippet <- list(
         tasks = tibble(id = task_id,
@@ -392,4 +396,41 @@ expand_snippet <- function(old_snippet, extra_snippet){
   }
   
   return(expanded_snippet)
+}
+
+add_start_end <- function(bpmn_obj){
+  if(bpmn_obj$start_events %>% nrow == 0){
+    bpmn_obj$start_events <- data.frame(
+      id="START",
+      name="START"
+    )
+  }
+  if(bpmn_obj$end_events %>% nrow == 0){
+    bpmn_obj$end_events <- data.frame(
+      id="END",
+      name="END"
+    )
+  }
+  if(!is.null(bpmn_obj$init) & !(bpmn_obj$init %in% bpmn_obj$start_events$id)){
+    bpmn_obj$seqs <- bpmn_obj$seqs %>%
+      bind_rows(
+        data.frame(
+          id = "newstart",
+          name = "",
+          sourceRef = bpmn_obj$start_events$id[1],
+          targetRef = bpmn_obj$init)
+      )
+  }
+  if(!is.null(bpmn_obj$close) & !(bpmn_obj$close %in% bpmn_obj$end_events$id)){
+    bpmn_obj$seqs <- bpmn_obj$seqs %>%
+      bind_rows(
+        data.frame(
+          id = "newend",
+          name = "",
+          sourceRef = bpmn_obj$close,
+          targetRef = bpmn_obj$end_events$id[bpmn_obj$end_events %>% nrow()]
+        )
+      )
+  }  
+  return(bpmn_obj)
 }
