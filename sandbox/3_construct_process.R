@@ -25,6 +25,8 @@ RELS_IN_FOCUS <- determine_rels_in_focus(
   rel_notebook_df
   )
 
+snippet_dictionary <- list()
+
 HAS_COMPLETED <- FALSE
 while(!is.null(RELS_IN_FOCUS) & HAS_COMPLETED == FALSE){
   
@@ -42,13 +44,16 @@ while(!is.null(RELS_IN_FOCUS) & HAS_COMPLETED == FALSE){
   
   result <- rel_solver_function(
     sampled_pair,
-    rel_notebook_df
+    rel_notebook_df,
+    snippet_dictionary
   )
   
   rel_notebook_df <- update_rel_notebook(
     result,
     rel_notebook_df
   )
+  
+  snippet_dictionary <- result$snippet_dictionary
   
   RELS_IN_FOCUS <- determine_rels_in_focus(
     rel_notebook_df
@@ -68,7 +73,8 @@ while(rel_notebook_df %>%
   
   while(SOFT_PAR_POSSIBLE & rel_notebook_df %>% count(rel) %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>% nrow > 0){
     
-    result <- explore_soft_PAR_relationship(rel_notebook_df)
+    result <- explore_soft_PAR_relationship(rel_notebook_df,
+                                            snippet_dictionary)
     
     rel_notebook_df <- update_rel_notebook(
       result,
@@ -77,6 +83,8 @@ while(rel_notebook_df %>%
     
     if(is.null(result$snippet)){
       SOFT_PAR_POSSIBLE <- FALSE
+    } else {
+      snippet_dictionary <- result$snippet_dictionary
     }
   }
   
@@ -93,11 +101,14 @@ while(rel_notebook_df %>%
   
   result <- solve_sequence_relationship(
     sampled_pair,
-    rel_notebook_df
+    rel_notebook_df,
+    snippet_dictionary
   )
   
   if(is.null(result)){
     print("---- No result for sample")
+  } else {
+    snippet_dictionary <- result$snippet_dictionary
   }
   
   rel_notebook_df <- update_rel_notebook(
@@ -122,9 +133,9 @@ while(rel_notebook_df %>%
   
   ## We sample any pair between an early activity
   ## and any follows or eventually follows relationship
-  sampled_pair <- rel_notebook_df %>% 
-    filter(rel %in%  c(RScoreDict$DIRECT_JOIN,
-                       RScoreDict$REQUIRES) )
+  sampled_pair <- rel_notebook_df %>% sample_pair(
+    c(RScoreDict$DIRECT_JOIN,
+      RScoreDict$REQUIRES) )
   
   if(sampled_pair$rel == RScoreDict$REQUIRES){
     seq_pair <- tibble(
@@ -140,11 +151,14 @@ while(rel_notebook_df %>%
   
   result <- solve_directly_follows(
     seq_pair,
-    seq_pair
+    seq_pair,
+    snippet_dictionary
   )
   
   if(is.null(result)){
     print("---- No result for sample")
+  } else {
+    snippet_dictionary <- result$snippet_dictionary
   }
   
   rel_notebook_df <- update_rel_notebook(

@@ -6,6 +6,7 @@ create_snippet <- function(
   end_point,
   branches = list(),
   connection_type = c("SEQ","XOR","AND","OR","INTER","NONINTER"),
+  snippet_dict = list(),
   start_event_name = c("START","__START__"),
   end_event_name = c("END","__END__")
 ){
@@ -21,6 +22,7 @@ create_snippet <- function(
   )
   
   start_point <- decode_task(start_point,
+                             snippet_dict,
                              start_event_name,
                              end_event_name)
   incoming_connection_A <- start_point$init
@@ -57,8 +59,9 @@ create_snippet <- function(
   }
   
   end_point <- decode_task(end_point,
-                             start_event_name,
-                             end_event_name)
+                           snippet_dict,
+                           start_event_name,
+                           end_event_name)
   incoming_connection_B <- end_point$init
   outgoing_connection_B <- end_point$close
   
@@ -97,6 +100,7 @@ create_snippet <- function(
       same_type <- FALSE
       
       branch <- decode_task(branch,
+                            snippet_dict,
                             start_event_name,
                             end_event_name)
       
@@ -274,65 +278,71 @@ create_snippet <- function(
 
 end_event_counter <- 1
 decode_task <- function(task_name,
+                        snippet_dict,
                         start_event_name,
                         end_event_name){
   
   if(is.list(task_name)){
     return(task_name)
-  } else {
-    if(is.character(task_name) && task_name != ""){
-      if(task_name %in% start_event_name){
-        
-        start_snippet <- list(
-          tasks = tibble(),
-          seqs = tibble(),
-          gateways = tibble(),
-          start_events = tibble(id = task_name,
-                                name = task_name),
-          end_events = tibble(),
-          init = task_name,
-          close = task_name
-        )
-        
-        return(start_snippet)
-      }
-      
-      if(task_name %in% end_event_name){
-        
-        end_id <- paste(task_name, end_event_counter, sep = "_")
-        end_event_counter <<- end_event_counter + 1
-        
-        end_snippet <- list(
-          tasks = tibble(),
-          seqs = tibble(),
-          gateways = tibble(),
-          start_events = tibble(),
-          end_events = tibble(id = end_id,
+  } 
+  
+  if(!is.null(task_name) && task_name %in% names(snippet_dict)){
+    task_name <- snippet_dict[[task_name]]
+    return(task_name)
+  }
+  
+  if (is.character(task_name) && task_name != "") {
+    if (task_name %in% start_event_name) {
+      start_snippet <- list(
+        tasks = tibble(),
+        seqs = tibble(),
+        gateways = tibble(),
+        start_events = tibble(id = task_name,
                               name = task_name),
-          init = end_id,
-          close = end_id
-        )
-        
-        return(end_snippet)
-      }
-      task_id = str_replace_all(task_name, " ", "_")
-      task_id = str_replace_all(task_id, "\\(", "_")
-      task_id = str_replace_all(task_id, "\\)", "_")
+        end_events = tibble(),
+        init = task_name,
+        close = task_name
+      )
       
-      atomic_task_snippet <- list(
-        tasks = tibble(id = task_id,
-                       name = task_name),
+      return(start_snippet)
+    }
+    
+    if (task_name %in% end_event_name) {
+      end_id <- paste(task_name, end_event_counter, sep = "_")
+      end_event_counter <<- end_event_counter + 1
+      
+      end_snippet <- list(
+        tasks = tibble(),
         seqs = tibble(),
         gateways = tibble(),
         start_events = tibble(),
-        end_events = tibble(),
-        init = task_id,
-        close = task_id
+        end_events = tibble(id = end_id,
+                            name = task_name),
+        init = end_id,
+        close = end_id
       )
       
-      return(atomic_task_snippet)
-    } else {
-      return(list(
+      return(end_snippet)
+    }
+    task_id = str_replace_all(task_name, " ", "_")
+    task_id = str_replace_all(task_id, "\\(", "_")
+    task_id = str_replace_all(task_id, "\\)", "_")
+    
+    atomic_task_snippet <- list(
+      tasks = tibble(id = task_id,
+                     name = task_name),
+      seqs = tibble(),
+      gateways = tibble(),
+      start_events = tibble(),
+      end_events = tibble(),
+      init = task_id,
+      close = task_id
+    )
+    
+    return(atomic_task_snippet)
+  } else {
+    return(
+      list(
         init = NULL,
         close = NULL,
         tasks = tibble(),
@@ -340,9 +350,8 @@ decode_task <- function(task_name,
         gateways = tibble(),
         start_events = tibble(),
         end_events = tibble()
-        )
-        )
-    }
+      )
+    )
   }
 }
 
@@ -380,19 +389,24 @@ expand_snippet <- function(old_snippet, extra_snippet){
   }
   if(!is.null(extra_snippet$seqs)){
     expanded_snippet$seqs <- old_snippet$seqs %>%
-      bind_rows(extra_snippet$seqs)
+      bind_rows(extra_snippet$seqs) %>%
+      unique
+    
   }
   if(!is.null(extra_snippet$gateways)){
     expanded_snippet$gateways <- old_snippet$gateways %>%
-      bind_rows(extra_snippet$gateways)
+      bind_rows(extra_snippet$gateways) %>%
+      unique
   }
   if(!is.null(extra_snippet$start_events)){
     expanded_snippet$start_events <- old_snippet$start_events %>%
-      bind_rows(extra_snippet$start_events)
+      bind_rows(extra_snippet$start_events) %>%
+      unique
   }
   if(!is.null(extra_snippet$end_events)){
     expanded_snippet$end_events <- old_snippet$end_events %>%
-      bind_rows(extra_snippet$end_events)
+      bind_rows(extra_snippet$end_events) %>%
+      unique
   }
   
   return(expanded_snippet)
