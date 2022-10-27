@@ -9,10 +9,10 @@ library(rlang)
 #   filter(lifecycle_id == "COMPLETE") %>%
 #   mutate(lifecycle_id = "complete")
 
-# event_log <- read_xes("data/repairExample.xes") %>%
-#   filter(lifecycle_id  == "complete")
+event_log <- read_xes("data/repairExample.xes") %>%
+  filter(lifecycle_id  == "complete")
 
-event_log <- patients
+# event_log <- patients
 
 activity_colname <- activity_id(event_log)
 activity_instance_colname <- activity_instance_id(event_log)

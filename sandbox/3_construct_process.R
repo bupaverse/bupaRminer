@@ -6,7 +6,7 @@ library(rlang)
 source("sandbox/construction_functions.R")
 source("sandbox/merge_functions.R")
 
-I_WANT_INTERRUPTIONS <- FALSE
+I_WANT_INTERRUPTIONS <- TRUE
 
 rel_notebook_df <- assigned_rel_df %>%
   filter(!(rel == RScoreDict$ALWAYS_PARALLEL &

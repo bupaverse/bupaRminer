@@ -798,7 +798,8 @@ solve_sequence_relationship <- function(
            nrow== 0){
           
           return_list <- solve_XOR_relationship("",
-                                                mutual_antec_relations$antecedent %>% unique,
+                                                c(mutual_antec_relations$antecedent,
+                                                  mutual_antec_relations$consequent) %>% unique,
                                                 mutual_antec_relations,
                                                 snippet_dict)
           return_list$rel_df <- rel_df
