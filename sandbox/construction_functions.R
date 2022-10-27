@@ -23,7 +23,9 @@ sample_pair <- function(
 }
 
 
-solve_apriori_conflicts <- function(rel_df){
+solve_apriori_conflicts <- function(
+    rel_df,
+    strict = FALSE){
   
   ## Solve preliminary conflicts
   follows_rel <- rel_df %>%
@@ -40,6 +42,11 @@ solve_apriori_conflicts <- function(rel_df){
     inner_join(follows_rel, by = c("antecedent"="consequent",'consequent'="antecedent")) %>%
     mutate(prevailing_rel = pmin(rel.x, rel.y)) %>%
     mutate(must_remove = (rel.x != prevailing_rel))
+  
+  if(strict == TRUE){
+    follows_rel <- follows_rel %>%
+      filter(must_remove == FALSE)
+  }
   
   removed_rels <- follows_rel %>%
     filter(must_remove == TRUE)
@@ -89,7 +96,7 @@ solve_interrupt_relationship <- function(
     
   msg <- paste("Created process snippet:", snippet_name, sep = " ")
   
-  snipped_dict[[snippet_name]] <- 
+  snippet_dict[[snippet_name]] <- 
     create_snippet(
       antec,
       conseq,
@@ -670,7 +677,9 @@ solve_sequence_relationship <- function(
         if(mutual_relationships %>% nrow == 1){
           return_list <- solve_sequence_relationship(
             mutual_relationships,
-            rel_df
+            rel_df,
+            snippet_dict
+            
           )
           return(return_list)
         }
@@ -1009,8 +1018,13 @@ solve_join <- function(
   snippet_dict
 ){
   
-  return_list <- list()
-  
+  return_list <- list(
+    snippet = NULL,
+    activities = c(),
+    rel_df = rel_df,
+    snippet_dictionary = snippet_dict,
+    messages = c()
+  )
   
   reverse_rel <- rel_df %>%
     filter(antecedent == join_pair$consequent,

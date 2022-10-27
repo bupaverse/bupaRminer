@@ -53,7 +53,6 @@ merge_relationships <- function(
     activities,
     rel_df
 ){
-  
   ## Reset factor levels
   rel_df <- rel_df %>%
     mutate(rel = factor(rel, levels = R_levels, ordered = TRUE))

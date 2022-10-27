@@ -6,7 +6,7 @@ library(rlang)
 source("sandbox/construction_functions.R")
 source("sandbox/merge_functions.R")
 
-I_WANT_INTERRUPTIONS <- TRUE
+I_WANT_INTERRUPTIONS <- FALSE
 
 rel_notebook_df <- assigned_rel_df %>%
   filter(!(rel == RScoreDict$ALWAYS_PARALLEL &
@@ -19,7 +19,7 @@ rel_notebook_df <- assigned_rel_df %>%
     importance=ifelse(consequent=="END",0,importance)
     )
 
-rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df)
+rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df, strict = FALSE)
 
 RELS_IN_FOCUS <- determine_rels_in_focus(
   rel_notebook_df

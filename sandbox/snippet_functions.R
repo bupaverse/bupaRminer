@@ -82,7 +82,7 @@ create_snippet <- function(
   branch_snippet <- NULL
   if(connection_type %in% c("XOR","AND","OR")){
     
-    gatewayType <- case_when(
+    gw_type <- case_when(
       connection_type == "XOR" ~"ExclusiveGateway",
       connection_type == "AND" ~"ParallelGateway",
       connection_type == "OR" ~"InclusiveGateway",
@@ -107,12 +107,12 @@ create_snippet <- function(
       if(!is.null(branch$gateways) & branch$gateways %>% nrow() > 0){
         
         branch_gateways_start <- branch$gateways %>%
-          filter(gatewayType == gatewayType,
+          filter(gatewayType == gw_type,
                  id == branch$init)
         
         if (branch_gateways_start %>% nrow() > 0) {
           branch_gateways_end <- branch$gateways %>%
-            filter(gatewayType == gatewayType,
+            filter(gatewayType == gw_type,
                    gatewayDirection == "converging",
                    id == branch$close
                    )
@@ -139,13 +139,13 @@ create_snippet <- function(
     new_gateway_A <- tibble(
       id = paste(connection_type, "SPLIT", outgoing_connection_A, as.numeric(Sys.time()), sep = "__"),
       name = "SPLIT",
-      gatewayType = gatewayType,
+      gatewayType = gw_type,
       gatewayDirection = "diverging"
     )
     new_gateway_B <- tibble(
       id = paste(connection_type, "MERGE", incoming_connection_B, as.numeric(Sys.time()), sep = "__"),
       name = "MERGE",
-      gatewayType = gatewayType,
+      gatewayType = gw_type,
       gatewayDirection = "converging"
     )
     
