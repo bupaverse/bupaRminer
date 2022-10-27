@@ -18,7 +18,7 @@ library(rlang)
 # event_log <- read_xes("data/exercise6.xes") %>%
 #   filter(lifecycle_id  == "start")
   
-event_log <- traffic_fines
+event_log <- patients
 
 activity_colname <- activity_id(event_log)
 activity_instance_colname <- activity_instance_id(event_log)
