@@ -799,6 +799,34 @@ solve_sequence_relationship <- function(
           filter(antecedent %in% closest_antecedents$antecedent,
                  consequent %in% closest_antecedents$antecedent)
         
+        ## If there is no mutual relationship between the antecedents
+        ## we will artificially create a join towards the consequent.
+        ## If the relationship towards the consequent is a maybe follows
+        ## we will also create an exclusive branch for this.
+        if(mutual_antec_relations %>% nrow() == 0){
+          relevant_relations <- closest_antecedents$rel %>%
+            unique
+          
+          closest_antecedents <- closest_antecedents %>%
+            mutate(rel = RScoreDict$DIRECT_JOIN)
+          
+          rel_df <- rel_df %>%
+            filter(!(antecedent %in% closest_antecedents$antecedent & consequent %in% closest_antecedents$consequent)) %>%
+            bind_rows(closest_antecedents)
+          
+          return_list$rel_df <- rel_df
+          
+          if(length(relevant_relations)==1){
+            if(relevant_relations %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
+              return_list <- solve_XOR_relationship("",
+                                                    closest_antecedents$consequent,
+                                                    rel_df,
+                                                    snippet_dict)
+            }
+          }
+          return(return_list)
+        }
+        
         ## If the antecedents are mutually exclusive
         ## XOR them together
         if(mutual_antec_relations %>% 
@@ -1066,6 +1094,23 @@ solve_join <- function(
     return_list$snippet_dictionary <- snippet_dict
     return_list$rel_df <- rel_df
     return_list$messages <- c(return_list$messages,"Removed conflicting MAYBE EVENTUALLY FOLLOWS relation")
+    
+    return(return_list)
+  }
+  
+  
+  if(reverse_rel == RScoreDict$PARALLEL_IF_PRESENT){
+    par_pair <- join_pair %>%
+      mutate(rel = RScoreDict$PARALLEL_IF_PRESENT)
+    
+    return_list <- solve_PAR_relationship(
+      par_pair,
+      rel_df %>%
+        filter(!(antecedent == par_pair$antecedent & consequent == par_pair$consequent)) %>%
+        bind_rows(par_pair),
+      snippet_dict,
+      mode = "SOFT"
+    )
     
     return(return_list)
   }
@@ -1469,6 +1514,18 @@ explore_XOR_split <- function(
                    consequent == seq_pair$consequent)) %>%
         bind_rows(seq_pair)
     }
+    
+    if(seq_pair$rel == RScoreDict$DIRECT_JOIN){
+      
+      return_list <- solve_join(
+        seq_pair,
+        rel_df,
+        snippet_dict
+      )
+      
+      return(return_list)
+    }
+    
     
     return_list <- solve_sequence_relationship(
       seq_pair,
