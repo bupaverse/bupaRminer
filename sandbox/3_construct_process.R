@@ -102,7 +102,8 @@ while(rel_notebook_df %>%
   result <- solve_sequence_relationship(
     sampled_pair,
     rel_notebook_df,
-    snippet_dictionary
+    snippet_dictionary,
+    reset = TRUE
   )
   
   if(is.null(result)){

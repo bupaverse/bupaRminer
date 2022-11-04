@@ -18,6 +18,22 @@ library(rlang)
 # event_log <- read_xes("data/exercise6.xes") %>%
 #   filter(lifecycle_id  == "start")
   
+# event_log <- read.csv("data/gert_log.csv") %>%
+#   mutate(lifecycle_id = "start") %>%
+# #  unique() %>%
+#   group_by(case_id) %>%
+#   mutate(seq = row_number()) %>%
+#   ungroup() %>%
+#   mutate(timestamp = Sys.Date() + seq,
+#          resource = "Gert",
+#          seq = paste(case_id, seq)) %>%
+#   eventlog("case_id", 
+#            "act_name",
+#            "seq",
+#            "lifecycle_id",
+#            "timestamp",
+#            "resource")
+
 event_log <- patients
 
 activity_colname <- activity_id(event_log)

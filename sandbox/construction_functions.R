@@ -593,11 +593,17 @@ fetch_sequence_antecedents <- function(
 }
 
 
+sequence_solution_counter <- 0
+sequence_memory_antec <- NULL
+sequence_memory_conseq <- NULL
+
 solve_sequence_relationship <- function(
     rel_pair,
     rel_df,
-    snippet_dict
+    snippet_dict,
+    reset=FALSE
 ){
+  
   
   return_list <- list(
     snippet = NULL,
@@ -606,6 +612,29 @@ solve_sequence_relationship <- function(
     snippet_dictionary = snippet_dict,
     messages = c()
   )
+  
+  if(reset == TRUE){
+    sequence_solution_counter <- 0
+    sequence_memory_antec <- NULL
+    sequence_memory_conseq <- NULL
+  }
+  if(!is.null(sequence_memory_antec)){
+    if(sequence_memory_antec == rel_pair$antecedent & sequence_memory_conseq == rel_pair$consequent){
+      sequence_solution_counter <<- sequence_solution_counter + 1
+    } else {
+      sequence_solution_counter <<- 0
+    }
+  }
+  if(sequence_solution_counter > 2){
+    return_list$rel_df <- rel_df %>%
+      filter(!(antecedent == rel_pair$antecedent & consequent == rel_pair$consequent))
+    return_list$messages <- c(return_list$messages, "ATTEMPTED TO BREAK LOOP BY REMOVING REL")
+    return(return_list)
+  }
+  
+  sequence_memory_antec <<- rel_pair$antecedent
+  sequence_memory_conseq <<- rel_pair$consequent
+  
   
   antec <- rel_pair$antecedent
   conseq <- rel_pair$consequent
@@ -674,6 +703,29 @@ solve_sequence_relationship <- function(
           filter(antecedent %in% closest_antecedents$antecedent,
                  consequent %in% closest_antecedents$antecedent)
         
+        if(mutual_relationships %>% nrow == 0){
+          antecedent_rels <- closest_antecedents$rel %>% unique
+          if(length(antecedent_rels) == 1 & antecedent_rels %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                                                                    RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
+            return_list <- solve_XOR_relationship("",
+                                   closest_antecedents$consequent %>% unique,
+                                   rel_df = rel_df,
+                                   snippet_dict =  snippet_dict)
+            return(return_list)
+          } else {
+            closest_antecedents <- closest_antecedents %>%
+              mutate(rel=RScoreDict$DIRECT_JOIN)
+            
+            rel_df <- rel_df %>%
+              filter(!(antecedent %in% closest_antecedents$antecedent & consequent == closest_antecedents$consequent)) %>%
+              bind_rows(closest_antecedents)
+            
+            return_list$rel_df <- rel_df
+            return_list$messages <- c(return_list$messages,
+                                      paste("Morphed relationships to Rx"))
+            return(return_list)
+          }
+        }
         if(mutual_relationships %>% nrow == 1){
           return_list <- solve_sequence_relationship(
             mutual_relationships,
@@ -819,7 +871,7 @@ solve_sequence_relationship <- function(
           if(length(relevant_relations)==1){
             if(relevant_relations %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
               return_list <- solve_XOR_relationship("",
-                                                    closest_antecedents$consequent,
+                                                    closest_antecedents$consequent %>% unique,
                                                     rel_df,
                                                     snippet_dict)
             }
@@ -1067,7 +1119,7 @@ solve_join <- function(
   if(reverse_rel %in% c("", RScoreDict$MUTUALLY_EXCLUSIVE)){
     return_list <- solve_XOR_relationship(
       XOR_root = "",
-      XOR_branches = join_pair$antecedent,
+      XOR_branches = join_pair$antecedent %>% unique,
       rel_df = rel_df,
       snippet_dict
     )
@@ -1266,7 +1318,7 @@ solve_directly_follows <- function(
       if(mutual_join_rel_count %>% filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow == 0){
         return_list <- solve_XOR_relationship(
           XOR_root="",
-          XOR_branches=other_pre_joins$antecedent,
+          XOR_branches=other_pre_joins$antecedent %>% unique,
           rel_df,
           snippet_dict)
         
@@ -1276,7 +1328,7 @@ solve_directly_follows <- function(
       if(mutual_join_rel_count %>% filter(rel != RScoreDict$PARALLEL_IF_PRESENT) %>% nrow == 0){
         return_list <- solve_XOR_relationship(
           XOR_root="",
-          XOR_branches=other_pre_joins$antecedent,
+          XOR_branches=other_pre_joins$antecedent %>% unique,
           rel_df,
           snippet_dict,
           split_symbol = ">O>")
@@ -1329,6 +1381,7 @@ explore_XOR_split <- function(
     snippet_dict,
     XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS),
     split_symbol = ">X>"){
+  
   
   return_list <- list(
     snippet = NULL,
@@ -1425,7 +1478,7 @@ explore_XOR_split <- function(
                           RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
       return_list <- solve_XOR_relationship(
         "",
-        c(XOR_pair$antecedent, XOR_pair$consequent),
+        c(XOR_pair$antecedent, XOR_pair$consequent) %>% unique,
         tibble(
           antecedent = c(XOR_pair$antecedent, XOR_pair$consequent),
           consequent = c(XOR_pair$consequent, XOR_pair$antecedent),
@@ -1732,7 +1785,7 @@ explore_XOR_split <- function(
         head(1)
       
       return_list <- solve_XOR_relationship("",
-                             sampled_conflict$antecedent,
+                             sampled_conflict$antecedent %>% unique,
                              rel_df,
                              snippet_dict)
       

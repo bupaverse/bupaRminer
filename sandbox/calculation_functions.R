@@ -80,7 +80,6 @@ calculate_relationship_scores <- function(ev_log){
   rel_df <- rel_df %>%
     bind_rows(rel_df_temp)
   
-  
   ## Then we calculate the other scores
   cases_with_act_memory <- obtain_case_ids_per_activity(ev_log)
   
@@ -92,7 +91,7 @@ calculate_relationship_scores <- function(ev_log){
     as.character() %>%
     unique()
   
-  all_activities <- c("START",all_activities,"END")
+  all_activities <- c("START",all_activities)
   
   rel_df_2 <- discover_R_sequence_relations(
     ev_log,
@@ -102,8 +101,18 @@ calculate_relationship_scores <- function(ev_log){
     cases_per_act_memory = cases_with_act_memory
   )
   
+  ## There is always an end
+  always_end <- tibble(
+    antecedent = all_activities,
+    consequent = "END",
+    rel="R2",
+    score = 1,
+    importance = 0.01
+  )
+  
   rel_df <- rel_df %>%
-    bind_rows(rel_df_2)
+    bind_rows(rel_df_2) %>%
+    bind_rows(always_end)
   
   act_frequency <- ev_log %>%
     activities
@@ -216,7 +225,7 @@ discover_parallels_from_log <- function(
       ## Parallel scores - Concurrent executions
       
       cases_with_A_and_B <- cases_with_A %>%
-        filter_activity_presence(c(act_A, act_B), method = "all")
+        filter_activity_presence(act_B)
       
       if(cases_with_A_and_B %>% nrow() == 0){
         full_par_score <- 0
@@ -531,48 +540,32 @@ calculate_sometime_follows_relation <- function(
     cases_before_B,
     nr_cases){
   
-  tryCatch(
-    {
-      SOMETIMES_FOL_1 <- 0
-      B_happens_after <- cases_before_B %>%
-        filter_activity_presence(act_A)
-      
-      SOMETIMES_FOL_1 <- (B_happens_after %>% 
-                            pull(!!sym(case_colname)) %>% 
-                            n_distinct) / 
-        (cases_with_B %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
-      
-    },
-    error = function(e){
-      SOMETIMES_FOL_1 <- 0
-    },
-    warning = function(w){
-    },
-    finally = {
-    }
-  )
+  SOMETIMES_FOL_1 <- 0
+  B_happens_after <- cases_before_B %>%
+    filter_activity_presence(c(act_A, "JIBBERFOETEL"), method = "one_of")
   
-  tryCatch(
-    {
-      SOMETIMES_FOL_2 <- 0
-      SOMETIMES_FOL_2 <- (fromA_event_log %>%
-                            filter_activity_presence(act_B) %>% 
-                            pull(!!sym(case_colname)) %>% 
-                            n_distinct) / 
-        (cases_with_A %>% 
-           pull(!!sym(case_colname)) %>% 
-           n_distinct)
-    },
-    error = function(e){
-      SOMETIMES_FOL_2 <- 0
-    },
-    warning = function(w){
-    },
-    finally = {
-    }
-  )
+  if(B_happens_after %>% nrow > 0){
+    
+    SOMETIMES_FOL_1 <- (B_happens_after %>% 
+                          pull(!!sym(case_colname)) %>% 
+                          n_distinct) / 
+      (cases_with_B %>% 
+         pull(!!sym(case_colname)) %>% 
+         n_distinct)
+  }
+  
+  SOMETIMES_FOL_2 <- 0
+  A_happens_before <- fromA_event_log %>%
+                        filter_activity_presence(c(act_B, "JIBBERFOETEL"), method = "one_of")
+  if(A_happens_before %>% nrow > 0){
+    
+    SOMETIMES_FOL_2 <- (A_happens_before %>% 
+                           pull(!!sym(case_colname)) %>% 
+                           n_distinct) / 
+      (cases_with_A %>% 
+         pull(!!sym(case_colname)) %>% 
+         n_distinct)
+  }
   
   SOMETIMES_FOL_3 <- (cases_with_B %>%
                         pull(!!sym(case_colname)) %>% 
@@ -753,7 +746,6 @@ discover_R_sequence_relations <- function(
         ) %>% 
         re_map(mapping(ev_log))
       
-      
       ## REQ - The execution of A requires the execution of B as a predecessor
       REQ_score <- calculate_requirement_score(
         prec_act,
@@ -815,7 +807,7 @@ discover_R_sequence_relations <- function(
       EVENTUALLY_importance_reverse <- 0
       EVENTUALLY_score_reverse <- 
         
-        DIRECT_FOL_importance <- 0
+      DIRECT_FOL_importance <- 0
       DIRECT_FOL_score <- 0
       DIRECT_FOL_importance_reverse <- 0
       DIRECT_FOL_score_reverse <- 0
