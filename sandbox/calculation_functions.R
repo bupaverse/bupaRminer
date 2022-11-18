@@ -9,6 +9,8 @@ RScoreDict <- list(
   MUTUALLY_EXCLUSIVE = "R7",
   HAPPENS_DURING = "R8",
   TERMINATING = "R9",
+  LOOP_BACK = "R10",
+  LOOP_BLOCK = "LOOP",
   REQUIRES = "REQ"
 )
 
@@ -20,6 +22,33 @@ calculate_relationship_scores <- function(ev_log){
   case_colname <- case_id(ev_log)
   timestamp_colname <- timestamp(ev_log)
   lifecycle_colname <- lifecycle_id(ev_log)
+  
+  ## We compute the correlations between acitivities
+  ## based on how ften they repeay in the same case.
+  ## If they often repeat together, then we assume
+  ## that they are part of a repeating block.
+  
+  # repeat_correlations <- ev_log %>%
+  #   as_tibble() %>% filter(!!sym(lifecycle_colname) == "start") %>%
+  #   count(!!sym(case_colname), orig_name) %>%
+  #   group_by(orig_name) %>%
+  #   filter(max(n) > 1) %>%
+  #   ungroup %>%
+  #   pivot_wider(names_from = orig_name,
+  #               values_from = n,
+  #               values_fill = 0) %>%
+  #   select(-!!sym(case_colname)) %>%
+  #   cor %>%
+  #   as_tibble() %>%
+  #   mutate(., antecedent = colnames(.)) %>%
+  #   select(antecedent, everything())  %>%
+  #   pivot_longer(
+  #     cols = -c(antecedent),
+  #     names_to = "consequent",
+  #     values_to = "score"
+  #   ) %>%
+  #   filter(antecedent != consequent) %>%
+  #   mutate(rel = RScoreDict$LOOP_BLOCK)
   
   ## First we must establish parallel activities as they clutter 
   ## our perception of the sequence of activities.
@@ -191,22 +220,30 @@ discover_parallels_from_log <- function(
     
     events_A <- 
       ev_log %>%
-      filter(!!sym(activity_colname) == act_A,
-             !!sym(lifecycle_colname) == "start") %>%
       as_tibble() %>%
-      mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
-      select(!!sym(case_colname), reference_timestamp_start) %>%
-      full_join(
-        ev_log %>%
-          filter(!!sym(activity_colname) == act_A,
-                 !!sym(lifecycle_colname) == "complete") %>%
-          as_tibble() %>%
-          mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
-          select(!!sym(case_colname), reference_timestamp_end),
-        by = case_colname
-      )
+      filter(!!sym(activity_colname) == act_A) %>%
+      select(!!sym(case_colname), !!sym(lifecycle_colname), !!sym(timestamp_colname)) %>%
+      pivot_wider(names_from=!!sym(lifecycle_colname), values_from=!!sym(timestamp_colname)) %>%
+      rename(reference_timestamp_start = start,
+             reference_timestamp_end = complete)
+    # 
+    # events_A <- 
+    #   ev_log %>%
+    #   filter(!!sym(activity_colname) == act_A,
+    #          !!sym(lifecycle_colname) == "start") %>%
+    #   as_tibble() %>%
+    #   mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
+    #   select(!!sym(case_colname), reference_timestamp_start) %>%
+    #   full_join(
+    #     ev_log %>%
+    #       filter(!!sym(activity_colname) == act_A,
+    #              !!sym(lifecycle_colname) == "complete") %>%
+    #       as_tibble() %>%
+    #       mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
+    #       select(!!sym(case_colname), reference_timestamp_end),
+    #     by = case_colname
+    #   )
       
-    
     cases_with_A <-  ev_log %>%
       inner_join(
         events_A,
@@ -672,20 +709,30 @@ discover_R_sequence_relations <- function(
     #     filter_activity_presence(prec_act)
     # }
     # 
+    # events_A <- 
+    #   ev_log %>%
+    #   filter(!!sym(activity_colname) == prec_act,
+    #          !!sym(lifecycle_colname) == "start") %>%
+    #   as_tibble() %>%
+    #   mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
+    #   select(!!sym(case_colname), reference_timestamp_start) %>%
+    #   full_join(ev_log %>%
+    #               filter(!!sym(activity_colname) == prec_act,
+    #                      !!sym(lifecycle_colname) == "complete") %>%
+    #               as_tibble() %>%
+    #               mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
+    #               select(!!sym(case_colname), reference_timestamp_end),
+    #             by = case_colname)
+    
+    
     events_A <- 
       ev_log %>%
-      filter(!!sym(activity_colname) == prec_act,
-             !!sym(lifecycle_colname) == "start") %>%
       as_tibble() %>%
-      mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
-      select(!!sym(case_colname), reference_timestamp_start) %>%
-      full_join(ev_log %>%
-                  filter(!!sym(activity_colname) == prec_act,
-                         !!sym(lifecycle_colname) == "complete") %>%
-                  as_tibble() %>%
-                  mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
-                  select(!!sym(case_colname), reference_timestamp_end),
-                by = case_colname)
+      filter(!!sym(activity_colname) == prec_act) %>%
+      select(!!sym(case_colname), !!sym(lifecycle_colname), !!sym(timestamp_colname)) %>%
+      pivot_wider(names_from=!!sym(lifecycle_colname), values_from=!!sym(timestamp_colname)) %>%
+      rename(reference_timestamp_start = start,
+             reference_timestamp_end = complete)
     
     cases_with_A <-  ev_log %>%
       inner_join(
@@ -724,20 +771,29 @@ discover_R_sequence_relations <- function(
       #     filter_activity_presence(succ_act)
       # }
       
+      # events_B <- 
+      #   ev_log %>%
+      #   filter(!!sym(activity_colname) == succ_act,
+      #          !!sym(lifecycle_colname) == "start") %>%
+      #   as_tibble() %>%
+      #   mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
+      #   select(!!sym(case_colname), reference_timestamp_start) %>%
+      #   full_join(ev_log %>%
+      #               filter(!!sym(activity_colname) == succ_act,
+      #                      !!sym(lifecycle_colname) == "complete") %>%
+      #               as_tibble() %>%
+      #               mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
+      #               select(!!sym(case_colname), reference_timestamp_end),
+      #             by = case_colname)
+      
       events_B <- 
         ev_log %>%
-        filter(!!sym(activity_colname) == succ_act,
-               !!sym(lifecycle_colname) == "start") %>%
         as_tibble() %>%
-        mutate(reference_timestamp_start = !!sym(timestamp_colname)) %>%
-        select(!!sym(case_colname), reference_timestamp_start) %>%
-        full_join(ev_log %>%
-                    filter(!!sym(activity_colname) == succ_act,
-                           !!sym(lifecycle_colname) == "complete") %>%
-                    as_tibble() %>%
-                    mutate(reference_timestamp_end = !!sym(timestamp_colname)) %>%
-                    select(!!sym(case_colname), reference_timestamp_end),
-                  by = case_colname)
+        filter(!!sym(activity_colname) == succ_act) %>%
+        select(!!sym(case_colname), !!sym(lifecycle_colname), !!sym(timestamp_colname)) %>%
+        pivot_wider(names_from=!!sym(lifecycle_colname), values_from=!!sym(timestamp_colname)) %>%
+        rename(reference_timestamp_start = start,
+               reference_timestamp_end = complete)
       
       cases_with_B <-  ev_log %>%
         inner_join(

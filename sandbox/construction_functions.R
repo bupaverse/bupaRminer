@@ -817,7 +817,7 @@ solve_sequence_relationship <- function(
           snippet_dict)
         return(return_list)
       }
-      
+     
       ## We will give preference to R1, R3 relationships if
       ## they exist
       
@@ -894,6 +894,8 @@ solve_sequence_relationship <- function(
           return_list$rel_df <- rel_df
           return(return_list)
         }
+        
+        
         
         if(RScoreDict$DIRECT_JOIN %in% mutual_antec_relations$rel){
           
@@ -1011,6 +1013,38 @@ solve_sequence_relationship <- function(
             )
             return(return_list)
           }
+          
+          
+          # ## TODO experimental
+          # ## If there are multiple direct predecessors
+          # ## then the consequent probably occurs at multiple
+          # ## places in the process
+          # new_consequent_names <- paste(conseq, "FROM", closest_antecedents$antecedent, sep = "_")
+          # new_relations <- closest_antecedents
+          # new_relations$consequent <- new_consequent_names
+          # rel_df <- rel_df %>%
+          #   anti_join(closest_antecedents, by = c("antecedent","consequent")) %>%
+          #   bind_rows(new_relations)
+          # 
+          # for(new_name in new_consequent_names){
+          #   new_antec_rels <- rel_df %>%
+          #     filter(antecedent == conseq) %>%
+          #     mutate(antecedent = new_name)
+          #   
+          #   new_conseq_rels <- rel_df %>%
+          #     filter(consequent == conseq) %>%
+          #     mutate(consequent = new_name)
+          #   
+          #   rel_df <- rel_df %>%
+          #     bind_rows(new_antec_rels) %>%
+          #     bind_rows(new_conseq_rels)
+          # }
+          # 
+          # rel_df <- rel_df %>%
+          #   filter(antecedent != conseq,
+          #          consequent != conseq)
+          # return_list$rel_df <- rel_df
+          # return(return_list)
           
           ## If they are concurrent or do not agree
           ## among each other
@@ -1615,7 +1649,7 @@ explore_XOR_split <- function(
       relation_to_root <- relation_to_root$rel
     }
     
-    if(relation_to_root != RScoreDict$REQUIRES){
+    if(relation_to_root != RScoreDict$REQUIRES & !startsWith(XOR_pair$antecedent, "START")){
       
       rel_df <- rel_df %>%
         filter(!(antecedent == XOR_pair$antecedent & consequent == seq_pair$consequent)) %>%
@@ -1850,7 +1884,7 @@ solve_XOR_relationship <- function(
   
   if(is.null(XOR_root)) XOR_root <- ""
   
-  if(XOR_root != ""){
+  if(XOR_root != "" & XOR_root != "START"){
     reverse_branch_relations <- rel_df %>%
       filter(antecedent %in% XOR_branches,
              consequent == XOR_root)

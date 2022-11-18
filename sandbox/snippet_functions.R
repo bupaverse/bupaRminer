@@ -448,3 +448,40 @@ add_start_end <- function(bpmn_obj){
   }  
   return(bpmn_obj)
 }
+
+## TODO Check this
+add_loop_back <- function(bpmn_obj){
+  init_gateway <- data.frame(
+    id = paste("LOOPBACK_MERGE",as.numeric(Sys.time()), sep = "_"),
+    name = "merge",
+    gatewayType = "ExclusiveGateway",
+    gatewayDirection= "converging"
+  ) 
+  close_gateway <- data.frame(
+    id = paste("LOOPBACK",as.numeric(Sys.time()), sep = "_"),
+    name = "split",
+    gatewayType = "ExclusiveGateway",
+    gatewayDirection= "diverging"
+  ) 
+  
+  bpmn_obj$gateways <- bpmn_obj$gateways %>%
+      bind_rows(init_gateway) %>%
+      bind_rows(close_gateway)
+  
+  bpmn_obj$seqs <- bpmn_obj$seqs %>%
+    bind_rows(
+      data.frame(
+        id = c(paste("init", as.numeric(Sys.time()), sep = "_"), 
+               paste("close", as.numeric(Sys.time()), sep = "_"), 
+               paste("back", as.numeric(Sys.time()), sep = "_")),
+        name = c("","",""),
+        sourceRef = c(init_gateway$id, bpmn_obj$close, close_gateway$id),
+        targetRef = c(bpmn_obj$init, close_gateway$id, init_gateway$id)
+      )
+    )
+  
+  bpmn_obj$init <- init_gateway$id
+  bpmn_obj$close <- close_gateway$id
+  
+  return(bpmn_obj)
+}

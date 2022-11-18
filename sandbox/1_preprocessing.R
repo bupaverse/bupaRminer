@@ -3,7 +3,7 @@ library(bupaR)
 library(tidyverse)
 library(rlang)
 
-# event_log <- readRDS(file = "data/Road_Traffic_Fine_Management_Process.rds")
+# event_log <- eventlog(readRDS(file = "data/Road_Traffic_Fine_Management_Process.rds"))
 
 # event_log <- read_xes("data/financial_log.xes") %>%
 #  filter(lifecycle_id == "COMPLETE") %>%
@@ -17,24 +17,42 @@ library(rlang)
 # 
 # event_log <- read_xes("data/exercise6.xes") %>%
 #   filter(lifecycle_id  == "start")
-  
+#   
 # event_log <- read.csv("data/gert_log.csv") %>%
 #   mutate(lifecycle_id = "start") %>%
-# #  unique() %>%
+#   # unique() %>%
 #   group_by(case_id) %>%
 #   mutate(seq = row_number()) %>%
 #   ungroup() %>%
 #   mutate(timestamp = Sys.Date() + seq,
 #          resource = "Gert",
 #          seq = paste(case_id, seq)) %>%
-#   eventlog("case_id", 
+#   eventlog("case_id",
 #            "act_name",
 #            "seq",
 #            "lifecycle_id",
 #            "timestamp",
 #            "resource")
 
-event_log <- patients
+
+# event_log <- read.csv("data/system_2_7_1_1_0.csv") %>%
+#   mutate(lifecycle_id = "start") %>%
+#   # unique() %>%
+#   group_by(case_id) %>%
+#   mutate(seq = row_number()) %>%
+#   ungroup() %>%
+#   mutate(timestamp = Sys.Date() + seq,
+#          resource = "Gert",
+#          seq = paste(case_id, seq)) %>%
+#   eventlog("case_id",
+#            "act_name",
+#            "seq",
+#            "lifecycle_id",
+#            "timestamp",
+#            "resource")
+# 
+
+event_log <- sepsis
 
 activity_colname <- activity_id(event_log)
 activity_instance_colname <- activity_instance_id(event_log)
@@ -42,7 +60,7 @@ case_colname <- case_id(event_log)
 timestamp_colname <- timestamp(event_log)
 lifecycle_colname <- lifecycle_id(event_log)
 
-MAGIC_NUMBER <- 10000
+MAGIC_NUMBER <- 100000
 
 if(event_log %>% n_cases > MAGIC_NUMBER){
   sampled_cases <- event_log %>% pull(!!sym(case_colname)) %>% unique %>% sample(MAGIC_NUMBER)
