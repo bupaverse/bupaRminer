@@ -167,25 +167,24 @@ if (repeat_correlations %>% nrow > 0 & repeat_correlations$orig_name %>% unique 
       ) %>%
       ungroup
     
+    rel_df <- rel_df %>%
+      filter(!(antec_counter >= 1 & orig_antecedent %in% looped_activities)) %>%
+      filter(!(conseq_counter >= 1 & orig_consequent %in% looped_activities)) %>%
+      # rowwise() %>%
+      # filter(antecedent %in% names(current_dict) ||
+      #          !any(startsWith(
+      #            antecedent, loop_blocks$antecedent %>% unique
+      #          ))) %>%
+      # rowwise() %>%
+      # filter(consequent %in% names(current_dict) ||
+      #          !any(startsWith(
+      #            consequent, loop_blocks$antecedent %>% unique
+      #          ))) %>%
+      # ungroup() %>%
+    filter(antecedent != consequent)
+    
     print("Loops added")
   }
-  
-  
-  rel_df <- rel_df %>%
-    filter(!(antec_counter >= 1 & orig_antecedent %in% looped_activities)) %>%
-    filter(!(conseq_counter >= 1 & orig_consequent %in% looped_activities)) %>%
-    # rowwise() %>%
-    # filter(antecedent %in% names(current_dict) ||
-    #          !any(startsWith(
-    #            antecedent, loop_blocks$antecedent %>% unique
-    #          ))) %>%
-    # rowwise() %>%
-    # filter(consequent %in% names(current_dict) ||
-    #          !any(startsWith(
-    #            consequent, loop_blocks$antecedent %>% unique
-    #          ))) %>%
-    # ungroup() %>%
-    filter(antecedent != consequent)
   
 }
 
