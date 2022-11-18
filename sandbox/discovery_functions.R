@@ -33,12 +33,12 @@ discover_process <- function(
       snippet_dictionary
     )
     
+    snippet_dictionary <- result$snippet_dictionary
+    
     rel_notebook_df <- update_rel_notebook(
       result,
       rel_notebook_df
     )
-    
-    snippet_dictionary <- result$snippet_dictionary
     
     RELS_IN_FOCUS <- determine_rels_in_focus(
       rel_notebook_df
@@ -61,16 +61,17 @@ discover_process <- function(
       result <- explore_soft_PAR_relationship(rel_notebook_df,
                                               snippet_dictionary)
       
-      rel_notebook_df <- update_rel_notebook(
-        result,
-        rel_notebook_df
-      )
       
       if(is.null(result$snippet)){
         SOFT_PAR_POSSIBLE <- FALSE
       } else {
         snippet_dictionary <- result$snippet_dictionary
       }
+      
+      rel_notebook_df <- update_rel_notebook(
+        result,
+        rel_notebook_df
+      )
     }
     
     result <- NULL
@@ -119,16 +120,17 @@ discover_process <- function(
     result <- explore_soft_PAR_relationship(rel_notebook_df,
                                             snippet_dictionary)
     
-    rel_notebook_df <- update_rel_notebook(
-      result,
-      rel_notebook_df
-    )
-    
     if(is.null(result$snippet)){
       SOFT_PAR_POSSIBLE <- FALSE
     } else {
       snippet_dictionary <- result$snippet_dictionary
     }
+    
+    rel_notebook_df <- update_rel_notebook(
+      result,
+      rel_notebook_df
+    )
+    
   }
   
   completed_RxREQ <- FALSE

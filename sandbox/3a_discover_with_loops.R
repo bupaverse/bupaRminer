@@ -31,14 +31,15 @@ rel_df <- rel_df %>%
   )
 
 repeat_correlations <- event_log %>%
-  as_tibble() %>% filter(!!sym(lifecycle_colname) == "start") %>%
+  as_tibble() %>% 
+  filter(!!sym(lifecycle_colname) == "start") %>%
   count(!!sym(case_colname), orig_name) %>%
   group_by(orig_name) %>%
   filter(max(n) > 1)
 
 current_dict <- list()
 
-if (repeat_correlations %>% nrow > 0) {
+if (repeat_correlations %>% nrow > 0 & repeat_correlations$orig_name %>% unique %>% length > 1) {
   repeat_correlations <- repeat_correlations %>%
     ungroup %>%
     pivot_wider(
@@ -124,7 +125,7 @@ if (repeat_correlations %>% nrow > 0) {
       anti_join(looped_rel_df, by = c("antecedent", "consequent")) %>%
       mutate(
         antecedent = ifelse(
-          antec_counter >= 1 &
+          antec_counter == 1 &
             orig_antecedent %in% looped_activities,
           discovered_snippet,
           antecedent
@@ -133,7 +134,7 @@ if (repeat_correlations %>% nrow > 0) {
       mutate(antecedent = ifelse(is.na(antecedent), orig_antecedent, antecedent )) %>%
       mutate(
         orig_antecedent = ifelse(
-          antec_counter >= 1 &
+          antec_counter == 1 &
             orig_antecedent  %in% looped_activities,
           discovered_snippet,
           orig_antecedent
@@ -141,7 +142,7 @@ if (repeat_correlations %>% nrow > 0) {
       ) %>%
       mutate(
         consequent = ifelse(
-          conseq_counter >= 1 &
+          conseq_counter == 1 &
             orig_consequent %in% looped_activities,
           discovered_snippet,
           consequent
@@ -150,7 +151,7 @@ if (repeat_correlations %>% nrow > 0) {
       mutate(consequent = ifelse(is.na(consequent), orig_consequent, consequent )) %>%
       mutate(
         orig_consequent = ifelse(
-          conseq_counter >= 1 &
+          conseq_counter == 1 &
             orig_consequent %in% looped_activities,
           discovered_snippet,
           orig_consequent
@@ -171,6 +172,8 @@ if (repeat_correlations %>% nrow > 0) {
   
   
   rel_df <- rel_df %>%
+    filter(!(antec_counter >= 1 & orig_antecedent %in% looped_activities)) %>%
+    filter(!(conseq_counter >= 1 & orig_consequent %in% looped_activities)) %>%
     # rowwise() %>%
     # filter(antecedent %in% names(current_dict) ||
     #          !any(startsWith(

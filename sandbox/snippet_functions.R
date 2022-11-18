@@ -30,8 +30,12 @@ create_snippet <- function(
   
   new_snippet <- start_point
   
+  END_SKIPPED <- FALSE
   ## If we already end in an END, then we must create a separate split in front of this END
   if(!is.null(start_point$close) && start_point$end_events %>% nrow > 0 && start_point$close %in% (start_point$end_events$id)){
+    
+    END_SKIPPED <- TRUE
+    print("END skipped")
     
     gateway_before_end <- tibble(
       id = paste("XOR_SPLIT_INSERTED", as.numeric(Sys.time()), sep = "_"),
@@ -55,6 +59,7 @@ create_snippet <- function(
       )
     
     start_point$close <- gateway_before_end$id
+    
     outgoing_connection_A <- start_point$close
   }
   
@@ -67,7 +72,6 @@ create_snippet <- function(
   
   new_snippet <- new_snippet %>% 
     expand_snippet(end_point)
-  
   
   if(connection_type == "SEQ"){
     new_sequence <- establish_sequence(
@@ -215,6 +219,8 @@ create_snippet <- function(
             expand_snippet(branch_out)
       } else {
         
+        print("BRANCH DEAD END")
+        
         branch_in <- create_snippet(
           start_point = list(
             init = new_gateway_A$id,
@@ -227,12 +233,12 @@ create_snippet <- function(
           expand_snippet(branch_in)
       }
       
-      
-      
       branch_snippet$seqs <- unique(branch_snippet$seqs)
+
     }
     
     for(branch in same_type_branches){
+      
       old_start <- branch$init
       old_end <- branch$close
       

@@ -1907,6 +1907,7 @@ solve_XOR_relationship <- function(
   
   acts <- XOR_branches
   
+  root_snippet <- ""
   closing_snippet <- ""
   
   ## If all branches join on the same point
@@ -1991,7 +1992,7 @@ solve_XOR_relationship <- function(
   join_point_snip <- if(join_points %>% nrow() > 0) join_points$consequent[1] else NULL
   snippet_dict[[snippet_name]] <- 
     create_snippet(
-      XOR_root,
+      if(root_snippet=="") "" else XOR_root,
       join_point_snip,
       snippet_acts,
       if(split_symbol == ">O>") "OR" else "XOR",
