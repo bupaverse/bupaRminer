@@ -62,7 +62,7 @@ if (repeat_correlations %>% nrow > 0 & repeat_correlations$orig_name %>% unique 
   
   
   loop_blocks <- repeat_correlations %>%
-    filter(score > 0) %>%
+    filter(score > 0.5) %>%
     mutate(loop_block_id = 0)
   
   cluster_counter <- 1
