@@ -771,7 +771,7 @@ solve_sequence_relationship <- function(
       seq_pair,
       rel_df,
       snippet_dict,
-      sequence_memory = sequence_memory
+      sequence_memory
     )
 
     return_list <- tmp[[1]]
@@ -853,7 +853,8 @@ solve_join <- function(
         mutate(rel == RScoreDict$DIRECTLY_FOLLOWS),
       join_pair %>%
         mutate(rel == RScoreDict$DIRECTLY_FOLLOWS),
-      snippet_dict
+      snippet_dict,
+      sequence_memory
     )
     return_list <- tmp[[1]]
     sequence_memory <- tmp[[2]]

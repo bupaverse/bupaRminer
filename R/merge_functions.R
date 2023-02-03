@@ -56,8 +56,19 @@ merge_relationships <- function(
     rel_df <- rel_df %>%
       filter(!(consequent %in% real_activities & rel != RScoreDict$REQUIRES))
     rel_df <- rel_df %>%
-      filter(!(antecedent %in% real_activities & rel == RScoreDict$REQUIRES))
+      filter(!(antecedent %in% real_activities & rel == RScoreDict$REQUIRES)) 
+    
   }
+  
+   
+  # direct_joins_from_start <- rel_df %>%
+  #   filter(startsWith(antecedent, "START"),
+  #          rel == RScoreDict$DIRECT_JOIN) %>%
+  #   mutate(rel = RScoreDict$EVENTUALLY_FOLLOWS)
+  # 
+  # rel_df <- rel_df %>%
+  #   anti_join(direct_joins_from_start, by=c("antecedent","consequent")) %>%
+  #   bind_rows(direct_joins_from_start)
 
 
   ## Merging relationships with new snippet as consequent

@@ -10,6 +10,23 @@ preprocess <- function(eventlog) {
     case_colname <- case_id(eventlog)
     timestamp_colname <- timestamp(eventlog)
     lifecycle_colname <- lifecycle_id(eventlog)
+    
+    ## Add opposite lifecycle if not present
+    lifecycle_summary <- eventlog %>% 
+      as_tibble() %>%
+      count(!!sym(lifecycle_colname))
+    
+    if(lifecycle_summary %>% nrow == 1){
+      if(lifecycle_summary %>% pull(!!sym(lifecycle_colname)) == "start"){
+        missing_lifecycle_name <- "complete"
+      } else {
+        missing_lifecycle_name <- "start"
+      }
+      eventlog <- eventlog %>%
+        bind_rows(
+          eventlog %>% mutate(!!sym(lifecycle_colname) := missing_lifecycle_name)
+        )
+    }
 
     ## Add START and END events
     start_events <- tibble(

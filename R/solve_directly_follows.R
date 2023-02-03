@@ -27,7 +27,7 @@ solve_directly_follows <- function(
       snippet_dictionary = snippet_dict,
       messages = "Attempt to directly sequence START and END event canceled."
     )
-    return(return_list)
+    return(list(return_list, sequence_memory))
   }
 
   if(startsWith(act_a, "START") & act_b == "END" & rel_df %>% nrow > 2){
@@ -40,7 +40,7 @@ solve_directly_follows <- function(
       rel_df = rel_df %>%
         filter(!(antecedent == act_a & consequent == act_b))
     )
-    return(return_list)
+    return(list(return_list, sequence_memory))
   }
 
   reverse_rel <- rel_df %>%

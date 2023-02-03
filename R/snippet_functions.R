@@ -363,7 +363,7 @@ decode_task <- function(task_name,
 
 dead_end_check <- function(snippet){
   dead_end <- FALSE
-  if(snippet$close %in% snippet$end_events$id){
+  if(!is.null(snippet$end_events$id) & snippet$close %in% snippet$end_events$id){
     dead_end <- TRUE
   }
 

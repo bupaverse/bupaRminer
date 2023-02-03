@@ -16,7 +16,8 @@ calculate_directly_follows_relation <- function(
 
   B_happens_directly_after <- afterA_event_log %>%
     as_tibble() %>%
-    filter(!!sym(lifecycle_colname) == "start") %>%
+    filter(!!sym(lifecycle_colname) == "start",
+           !!sym(activity_colname) != actA) %>%
     arrange(!!sym(case_colname), !!sym(timestamp_colname)) %>%
     group_by(!!sym(case_colname)) %>%
     filter(row_number() == 1) %>%

@@ -158,8 +158,11 @@ construct_process <- function(assigned_rel_df) {
     result <- solve_directly_follows(
       seq_pair,
       seq_pair,
-      snippet_dictionary
+      snippet_dictionary,
+      sequence_memory
     )
+    sequence_memory <- result[[2]]
+    result <- result[[1]]
 
     if(is.null(result)){
       print("---- No result for sample")
