@@ -4,6 +4,7 @@
 
 # Session Data files
 .RData
+.Rbuildignore
 
 # User-specific files
 .Ruserdata
@@ -18,6 +19,7 @@
 /*.Rcheck/
 
 # RStudio files
+bupaRminer.Rproj
 .Rproj.user/
 
 # produced vignettes

@@ -36,17 +36,17 @@ calculate_relationship_scores <- function(ev_log){
 
   ## First we must establish parallel activities as they clutter
   ## our perception of the sequence of activities.
-  rel_df <- discover_parallels_from_log(ev_log,
+  rel_df <- discover_parallels_complete(ev_log,
                                         ev_log %>%
                                           filter(!(!!sym(activity_colname) %in% c("START","END"))) %>%
                                           pull(orig_name) %>%
                                           unique)
 
+
+
   ## Retrieve activities that have duplicates
   duplicated_activities <- ev_log %>%
-    as_tibble() %>%
-    count(orig_name,
-          new_act_name) %>%
+    select(new_act_name, orig_name, force_df = T) %>%
     filter(as.character(orig_name) != as.character(new_act_name)) %>%
     pull(orig_name) %>%
     unique()
@@ -63,26 +63,30 @@ calculate_relationship_scores <- function(ev_log){
 
   ## Merge self_loops into one entry with start and end
   if(renamed_entries %>% nrow > 0){
-    ev_log <- ev_log %>%
-      left_join(renamed_entries,
-                by = c(case_colname, activity_instance_colname)) %>%
+    ev_log %>%
+      inner_join(renamed_entries,
+                 by = c(case_colname, activity_instance_colname)) %>%
       as_tibble() %>%
       mutate(!!sym(activity_colname) := as.character(!!sym(activity_colname))) %>%
-      mutate(!!sym(activity_colname) := ifelse(is.na(new_concatenated_name),
-                                               !!sym(activity_colname),
-                                               new_concatenated_name)) %>%
+      mutate(!!sym(activity_colname) := new_concatenated_name) %>%
       group_by(!!sym(case_colname), !!sym(activity_colname),!!sym(lifecycle_colname)) %>%
       arrange(!!sym(timestamp_colname)) %>%
       mutate(rep_occurence = row_number()) %>%
       mutate(!!sym(activity_instance_colname) := paste(!!sym(activity_instance_colname),collapse="_")) %>%
       filter((!!sym(lifecycle_colname)=="start" & rep_occurence == min(rep_occurence)) |
                (!!sym(lifecycle_colname)=="complete" & rep_occurence == max(rep_occurence))) %>%
-      ungroup() %>%
-      re_map(mapping(ev_log))
+      ungroup() -> adjusted_log
+
+    ev_log %>%
+      anti_join(renamed_entries) -> old_log
+
+
+    bind_rows(adjusted_log, old_log) %>%
+      re_map(mapping(ev_log)) -> ev_log
   }
 
   ## Check again for parallel relationships, but now taking the self loops into account
-  rel_df_temp <- discover_parallels_from_log(ev_log,
+  rel_df_temp <- discover_parallels_complete(ev_log,
                                              ev_log %>%
                                                filter(!(!!sym(activity_colname) %in% c("START","END"))) %>%
                                                pull(!!sym(activity_colname)) %>% unique,
@@ -96,13 +100,10 @@ calculate_relationship_scores <- function(ev_log){
   ## Then we calculate the other scores
   cases_with_act_memory <- obtain_case_ids_per_activity(ev_log)
 
-
   all_activities <- ev_log %>%
-    activities %>%
-    filter(!(!!sym(activity_colname) %in% c("START","END"))) %>%
-    pull(!!sym(activity_colname)) %>%
+    activity_labels() %>%
     as.character() %>%
-    unique()
+    setdiff(c("START","END"))
 
   all_activities <- c("START",all_activities)
 

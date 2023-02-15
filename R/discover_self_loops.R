@@ -19,7 +19,7 @@ discover_self_loops <- function(
 
   for(dup_act in duplicated_activities){
 
-    print(dup_act)
+    cli::cli_alert_info(glue::glue("Checking self-loops: {dup_act}"))
 
     par_relationships <- rel_par_df %>%
       filter(antecedent == dup_act,

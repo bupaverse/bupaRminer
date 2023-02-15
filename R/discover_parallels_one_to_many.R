@@ -10,6 +10,10 @@ discover_parallels_one_to_many <- function(eventlog,
   timestamp_colname <- timestamp(eventlog)
   lifecycle_colname <- lifecycle_id(eventlog)
 
+  if(length(many) == 0) {
+    return(tibble())
+  }
+
   act_A <- one
 
   eventlog %>%
