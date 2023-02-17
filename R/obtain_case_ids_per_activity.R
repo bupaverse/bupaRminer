@@ -7,9 +7,9 @@ obtain_case_ids_per_activity <- function(ev_log){
   ev_log %>% select(activity_colname, case_colname, force_df = T) %>%
     distinct() %>%
     group_by(!!sym(activity_colname)) %>%
-    summarize(data = list(!!sym(case_colname))) -> tttmp;
+    summarize(data = list(!!sym(case_colname))) -> tttmp
 
-  names(tttmp$data) <- tttmp$activity;
+  names(tttmp$data) <- tttmp$activity
 
   tttmp$data
 }
