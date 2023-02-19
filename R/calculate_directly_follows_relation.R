@@ -2,41 +2,32 @@ calculate_directly_follows_relation <- function(
     actA,
     actB,
     cases_with_A,
+    cases_with_B,
     afterA_event_log,
+    afterB_event_log,
     nr_cases,
-    ev_log){
+    ev_log) {
 
-  activity_colname <- activity_id(ev_log)
-  activity_instance_colname <- activity_instance_id(ev_log)
-  case_colname <- case_id(ev_log)
-  timestamp_colname <- timestamp(ev_log)
-  lifecycle_colname <- lifecycle_id(ev_log)
 
-  score <- 0
+  afterA_event_log[LC == "start" & AID != actA][order(CID, TS)] -> tmp_dt
+  B_happens_directly_after <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == actB]
 
-  B_happens_directly_after <- afterA_event_log %>%
-    as_tibble() %>%
-    filter(!!sym(lifecycle_colname) == "start",
-           !!sym(activity_colname) != actA) %>%
-    arrange(!!sym(case_colname), !!sym(timestamp_colname)) %>%
-    group_by(!!sym(case_colname)) %>%
-    filter(row_number() == 1) %>%
-    filter(!!sym(activity_colname) == actB)
+  B_happens_directly_after_count <- n_distinct(B_happens_directly_after$CID)
 
-  B_happens_directly_after_count <- B_happens_directly_after %>%
-    pull(!!sym(case_colname)) %>% n_distinct()
+  DF_score_ab <- (B_happens_directly_after_count) / (n_distinct(cases_with_A$CID))
+  DF_importance_ab <- B_happens_directly_after_count / nr_cases
 
-  score <- (B_happens_directly_after_count) /
-    (cases_with_A %>%
-       pull(!!sym(case_colname)) %>%
-       n_distinct)
+  afterB_event_log[LC == "start" & AID != actB][order(CID, TS)] -> tmp_dt
+  A_happens_directly_after <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == actA]
 
-  DF_importance <- B_happens_directly_after_count / nr_cases
+  A_happens_directly_after_count <- n_distinct(A_happens_directly_after$CID)
 
-  DF_return <- list(
-    "score" = score,
-    "importance" = DF_importance
-  )
+  DF_score_ba <- (A_happens_directly_after_count) / (n_distinct(cases_with_B$CID))
+  DF_importance_ba <- A_happens_directly_after_count / nr_cases
 
-  return(DF_return)
+
+  tribble(~antecedent,~consequent,~rel,~score,~importance,
+          actA, actB, RScoreDict$DIRECTLY_FOLLOWS, DF_score_ab, DF_importance_ab,
+          actB, actA, RScoreDict$DIRECTLY_FOLLOWS, DF_score_ba, DF_importance_ba)
+
 }
