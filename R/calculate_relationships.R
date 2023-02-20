@@ -13,10 +13,10 @@ calculate_relationships <- function(eventlog) {
     select(-rel_thres)
 
   # ## Filter out dominant relationship pased on R_levels
-  assigned_rel_df <- masked_df %>%
-    filter(rounded_score == 1) %>%
-    group_by(antecedent, consequent) %>%
-    arrange(rel) %>%
-    filter(row_number() == 1) %>%
-    ungroup()
+  # assigned_rel_df <- masked_df %>%
+  #   filter(rounded_score == 1) %>%
+  #   group_by(antecedent, consequent) %>%
+  #   arrange(rel) %>%
+  #   filter(row_number() == 1) %>%
+  #   ungroup()
 }

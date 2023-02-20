@@ -112,16 +112,12 @@ discover_R_sequence_relations <- function(
         )
 
       } else {
-        EXCL_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,
-                                prec_act, succ_act, RScoreDict$MUTUALLY_EXCLUSIVE, 0, 0,
-                                succ_act, prec_act, RScoreDict$MUTUALLY_EXCLUSIVE, 0, 0)
+        EXCL_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
+                                prec_act, succ_act, RScoreDict$MUTUALLY_EXCLUSIVE, 0, 0, "skip",
+                                succ_act, prec_act, RScoreDict$MUTUALLY_EXCLUSIVE, 0, 0, "skip")
 
       }
 
-      DF_results <- tibble()
-      EF_results <- tibble()
-      MEF_results <- tibble()
-      MDF_results <- tibble()
 
 
       SOMETIMES_DIRECT <- 0
@@ -161,15 +157,15 @@ discover_R_sequence_relations <- function(
             )
 
           } else {
-            DF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,
-                                  prec_act, succ_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0,
-                                  succ_act, prec_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0)
+            DF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
+                                  prec_act, succ_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip",
+                                  succ_act, prec_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip")
 
           }
         } else {
-          EF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,
-                                prec_act, succ_act, RScoreDict$EVENTUALLY_FOLLOWS, 0, 0,
-                                succ_act, prec_act, RScoreDict$EVENTUALLY_FOLLOWS, 0, 0)
+          EF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
+                                prec_act, succ_act, RScoreDict$EVENTUALLY_FOLLOWS, 0, 0, "skip",
+                                succ_act, prec_act, RScoreDict$EVENTUALLY_FOLLOWS, 0, 0, "skip")
         }
 
 
@@ -182,7 +178,7 @@ discover_R_sequence_relations <- function(
                  score >= parallel_thres) %>%
           pull(consequent)
 
-        if(all(DF_results$score < GENERAL_THRES) & all(EF_results$score < GENERAL_THRES)){
+          if(any(DF_results$score < GENERAL_THRES) | any(EF_results$score < GENERAL_THRES)){
           cli::cli_alert_info("Sometimes follows")
 
           cases_before_B <- cases_with_B[TS <= reference_timestamp_start]
@@ -220,16 +216,29 @@ discover_R_sequence_relations <- function(
               ev_log,
               DF_results)
           } else {
-            MDF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,
-                                   prec_act, succ_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS , 0, 0,
-                                   succ_act, prec_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, 0, 0)
+            MDF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
+                                   prec_act, succ_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS , 0, 0, "skip",
+                                   succ_act, prec_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, 0, 0, "skip")
           }
 
         } else {
-          MEF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,
-                                 prec_act, succ_act, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS , 0, 0,
-                                 succ_act, prec_act, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS, 0, 0)
+          MEF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,~comment,
+                                 prec_act, succ_act, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS , 0, 0, "skip",
+                                 succ_act, prec_act, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS, 0, 0, "skip")
         }
+      } else {
+        EF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,~comment,
+                              prec_act, succ_act, RScoreDict$EVENTUALLY_FOLLOWS, 0, 0, "skip",
+                              succ_act, prec_act, RScoreDict$EVENTUALLY_FOLLOWS, 0, 0, "skip")
+        DF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,~comment,
+                             prec_act, succ_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip",
+                             succ_act, prec_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip")
+        MEF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,~comment,
+                               prec_act, succ_act, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS , 0, 0, "skip",
+                               succ_act, prec_act, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS, 0, 0, "skip")
+        MDF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,~comment,
+                               prec_act, succ_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS , 0, 0, "skip",
+                               succ_act, prec_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, 0, 0, "skip")
       }
       ## B interrupts A
 
@@ -279,10 +288,7 @@ discover_R_sequence_relations <- function(
       }
 
 
-      MAYBE_EVENTUALLY_importance <- 0 # REPLACE WITH EF importance!!
-      MAYBE_EVENTUALLY_importance_reverse <- 0  # REPLACE WITH EF importance!!
-      DIRECT_FOL_importance <- 0 # REPLACE
-      DIRECT_FOL_importance_reverse <- 0  # REPLACE
+
 
       new_row_AB <- tibble(
         "antecedent" = prec_act,
@@ -291,8 +297,8 @@ discover_R_sequence_relations <- function(
                   RScoreDict$HAPPENS_DURING),
         "score" = c(INTERRUPTING_score,
                     DURING_score),
-        "importance" = c(DIRECT_FOL_importance,
-                         DIRECT_FOL_importance))
+        "importance" = c(DF_results$importance[1],
+                         DF_results$importance[1]))
 
 
       new_row_BA <- tibble(
@@ -302,8 +308,8 @@ discover_R_sequence_relations <- function(
                   RScoreDict$HAPPENS_DURING),
         "score" = c(INTERRUPTING_score_reverse,
                     DURING_score_reverse),
-        "importance" = c(DIRECT_FOL_importance_reverse,
-                         DIRECT_FOL_importance_reverse))
+        "importance" = c(DF_results$importance[2],
+                         DF_results$importance[2]))
 
 
 
