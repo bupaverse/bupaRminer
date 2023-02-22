@@ -1,38 +1,32 @@
 calculate_exclusive_relation <- function(
     act_A,
     act_B,
-    cases_with_A,
-    cases_with_B,
+    nr_cases_with_A,
+    nr_cases_with_B,
+    nr_cases_with_A_B,
     exclusive_thres,
     nr_cases,
     ev_log
 ){
 
-  activity_colname <- activity_id(ev_log)
-  activity_instance_colname <- activity_instance_id(ev_log)
-  case_colname <- case_id(ev_log)
-  timestamp_colname <- timestamp(ev_log)
-  lifecycle_colname <- lifecycle_id(ev_log)
-
-  occurs_together <- cases_with_A %>%
-    filter(!!sym(activity_colname) == act_B) %>%
-    n_cases
-
-  expected_together <- ( cases_with_B %>%
-                           n_cases )
-
-  if(occurs_together > (exclusive_thres * expected_together) ){
-    EXCL_score <- 0
+  if(nr_cases_with_A_B > (exclusive_thres * nr_cases_with_B) ){
+    EXCL_score_ab <- 0
   } else {
-    EXCL_score <- 1 - ( occurs_together / ( cases_with_A %>% n_cases ) )
+    EXCL_score_ab <- 1 - ( nr_cases_with_A_B /  nr_cases_with_A  )
   }
 
-  EXCL_importance <- (1- occurs_together) / nr_cases
+  if(nr_cases_with_A_B > (exclusive_thres * nr_cases_with_A) ){
+    EXCL_score_ba <- 0
+  } else {
+    EXCL_score_ba <- 1 - ( nr_cases_with_A_B / nr_cases_with_B )
+  }
 
-  EXCL_return <- list(
-    "score" = EXCL_score,
-    "importance" = EXCL_importance
-  )
 
-  return(EXCL_return)
+  EXCL_importance <- (1- nr_cases_with_A_B) / nr_cases
+  EXCL_importance
+
+  tribble(~antecedent,~consequent,~rel,~score,~importance,
+          act_A, act_B, RScoreDict$MUTUALLY_EXCLUSIVE, EXCL_score_ab, EXCL_importance,
+          act_B, act_A, RScoreDict$MUTUALLY_EXCLUSIVE, EXCL_score_ba, EXCL_importance)
+
 }

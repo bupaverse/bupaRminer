@@ -155,25 +155,25 @@ construct_process <- function(assigned_rel_df) {
         mutate(rel = RScoreDict$DIRECTLY_FOLLOWS)
     }
 
-    result <- solve_directly_follows(
+    tmp <- solve_directly_follows(
       seq_pair,
       seq_pair,
       snippet_dictionary,
-      sequence_memory
+      sequence_memory = sequence_memory
     )
-    sequence_memory <- result[[2]]
-    result <- result[[1]]
+    result <- tmp[[1]]
+    sequence_memory <- tmp[[2]]
 
     if(is.null(result)){
       print("---- No result for sample")
     } else {
       snippet_dictionary <- result$snippet_dictionary
     }
-
     rel_notebook_df <- update_rel_notebook(
       result,
       rel_notebook_df
     )
+
 
 
   }

@@ -1,64 +1,65 @@
 calculate_sometimes_directly_follows_relation <- function(
     act_A,
     act_B,
-    cases_with_A,
-    cases_with_B,
+    nr_cases_with_A,
+    nr_cases_with_B,
     afterA_event_log,
+    afterB_event_log,
     cases_before_B,
+    cases_before_A,
     par_relationships_B,
+    par_relationships_A,
     nr_cases,
-    ev_log){
+    ev_log,
+    DF_results){
 
 
-  activity_colname <- activity_id(ev_log)
-  activity_instance_colname <- activity_instance_id(ev_log)
-  case_colname <- case_id(ev_log)
-  timestamp_colname <- timestamp(ev_log)
-  lifecycle_colname <- lifecycle_id(ev_log)
+  cases_before_B[LC == "complete" & !(AID %chin% par_relationships_B),][order(CID,TS, decreasing = TRUE),] -> tmp_dt
 
-  B_happens_directly_after <- cases_before_B %>%
-    as_tibble() %>%
-    filter(!!sym(lifecycle_colname) == "complete") %>%
-    filter(!(!!sym(activity_colname) %in% par_relationships_B)) %>%
-    arrange(!!sym(timestamp_colname)) %>%
-    group_by(!!sym(case_colname)) %>%
-    filter(row_number() == max(row_number())) %>%
-    ungroup() %>%
-    filter(!!sym(activity_colname) == act_A)
+  A_happens_directly_before <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_A]
 
   ## If B happens, how often does it happen right after A
-  SOMETIMES_DIRECT_1 <- (B_happens_directly_after %>%
-                           pull(!!sym(case_colname)) %>%
-                           n_distinct) /
-    (cases_with_B %>%
-       pull(!!sym(case_colname)) %>%
-       n_distinct)
+  SOMETIMES_DIRECT_1 <- n_distinct(A_happens_directly_before$CID) / nr_cases_with_B
 
   ## If A happens, how often is it directly followed
   ## by B
-  SOMETIMES_DIRECT_2 <- (afterA_event_log %>%
-                           as_tibble() %>%
-                           filter(!!sym(lifecycle_colname) == "start") %>%
-                           arrange(!!sym(timestamp_colname)) %>%
-                           group_by(!!sym(case_colname)) %>%
-                           filter(row_number() == 1) %>%
-                           ungroup() %>%
-                           filter(!!sym(activity_colname) == act_B) %>%
-                           pull(!!sym(case_colname)) %>%
-                           n_distinct) /
-    (cases_with_A %>%
-       pull(!!sym(case_colname)) %>%
-       n_distinct)
+  afterA_event_log[LC == "start" & AID != act_A][order(CID, TS)] -> tmp_dt
+  B_happens_directly_after <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_B]
 
+  SOMETIMES_DIRECT_2 <- n_distinct(B_happens_directly_after$CID) / nr_cases_with_A
   ## How often do we expect B
-  SOMETIMES_DIRECT_3 <- (cases_with_B %>%
-                           pull(!!sym(case_colname)) %>%
-                           n_distinct) / nr_cases
+  SOMETIMES_DIRECT_3 <-  nr_cases_with_B / nr_cases
 
   ## The first factor is high when A is often the activity before B
   ## the second factor is high when the number of times we observe B right after A
   ## is similar to the number of times we observe B at all.
-  SOMETIMES_DIRECT <- SOMETIMES_DIRECT_1 * (1 - abs(SOMETIMES_DIRECT_2 - SOMETIMES_DIRECT_3))
+  SOMETIMES_DIRECT_ab <- SOMETIMES_DIRECT_1 * (1 - abs(SOMETIMES_DIRECT_2 - SOMETIMES_DIRECT_3))
 
-  return(SOMETIMES_DIRECT)
+
+
+  cases_before_A[LC == "complete" & !(AID %chin% par_relationships_A),][order(CID,TS, decreasing = TRUE),] -> tmp_dt
+
+  B_happens_directly_before <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_B]
+
+  ## If B happens, how often does it happen right after A
+  SOMETIMES_DIRECT_1 <- n_distinct(B_happens_directly_before$CID) / nr_cases_with_A
+
+  ## If A happens, how often is it directly followed
+  ## by B
+  afterB_event_log[LC == "start" & AID != act_B][order(CID, TS)] -> tmp_dt
+  A_happens_directly_after <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_A]
+
+  SOMETIMES_DIRECT_2 <- n_distinct(A_happens_directly_after$CID) / nr_cases_with_B
+  ## How often do we expect B
+  SOMETIMES_DIRECT_3 <-  nr_cases_with_A / nr_cases
+
+  ## The first factor is high when A is often the activity before B
+  ## the second factor is high when the number of times we observe B right after A
+  ## is similar to the number of times we observe B at all.
+  SOMETIMES_DIRECT_ba <- SOMETIMES_DIRECT_1 * (1 - abs(SOMETIMES_DIRECT_2 - SOMETIMES_DIRECT_3))
+
+
+  tribble(~antecedent,~consequent,~rel,~score,~importance,
+          act_A, act_B, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, SOMETIMES_DIRECT_ab, DF_results$importance[1],
+          act_B, act_A, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, SOMETIMES_DIRECT_ba, DF_results$importance[2])
 }

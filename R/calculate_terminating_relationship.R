@@ -3,32 +3,21 @@ calculate_terminating_relationship <- function(
     act_B,
     cases_with_A,
     cases_with_B,
+    nr_cases_with_B,
     interrupting_theta,
     ev_log
 ){
 
-  activity_colname <- activity_id(ev_log)
-  activity_instance_colname <- activity_instance_id(ev_log)
-  case_colname <- case_id(ev_log)
-  timestamp_colname <- timestamp(ev_log)
-  lifecycle_colname <- lifecycle_id(ev_log)
 
 
-  events_killing_A <- cases_with_A %>%
-    filter(!!sym(timestamp_colname) >= reference_timestamp_end - interrupting_theta,
-           !!sym(timestamp_colname) <= reference_timestamp_end + interrupting_theta,
-           !!sym(lifecycle_colname) == "start")
 
-  B_killing_A <- events_killing_A %>%
-    as_tibble() %>%
-    filter(!!sym(activity_colname) == act_B)
+  events_killing_A <- cases_with_A[ TS >= reference_timestamp_end - interrupting_theta &
+                                      TS <= reference_timestamp_end + interrupting_theta & LC == "start"]
 
-  INTERRUPTING_score <- (B_killing_A %>%
-                           pull(!!sym(case_colname)) %>%
-                           n_distinct) /
-    (cases_with_B %>%
-       pull(!!sym(case_colname)) %>%
-       n_distinct)
+
+  B_killing_A <- events_killing_A[AID == act_B]
+
+  INTERRUPTING_score <- n_distinct(B_killing_A$CID) / nr_cases_with_B
 
   return(INTERRUPTING_score)
 }
