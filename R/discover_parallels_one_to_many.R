@@ -3,28 +3,16 @@
 discover_parallels_one_to_many <- function(eventlog,
                                            one,
                                            many) {
-
-
-  activity_colname <- activity_id(eventlog)
-  case_colname <- case_id(eventlog)
-  timestamp_colname <- timestamp(eventlog)
-  lifecycle_colname <- lifecycle_id(eventlog)
-
   if(length(many) == 0) {
     return(tibble())
   }
 
   act_A <- one
 
-  eventlog %>%
-    filter(.data[[activity_colname]] == one, .data[[lifecycle_colname]] == "start") %>%
-    select(.data[[case_colname]], .data[[timestamp_colname]], force_df = T) %>%
-    rename(reference_timestamp_start = .data[[timestamp_colname]]) -> events_A
+  eventlog[AID == one & LC == "start",.(CID, reference_timestamp_start = TS)] -> events_A
 
-  eventlog %>%
-    inner_join(
-      events_A,
-      by = case_colname) -> cases_with_A
+  merge(eventlog, events_A, by = "CID") -> cases_with_A
+
 
   output <- list_along(many)
 
@@ -32,39 +20,25 @@ discover_parallels_one_to_many <- function(eventlog,
 
     act_B <- as.character(many[B])
 
-    cases_with_A %>%
-      filter(.data[[activity_colname]] == act_B) %>%
-      pull(.data[[case_colname]]) -> case_list_with_A_B
+    n_distinct(cases_with_A[AID == act_B][["CID"]]) -> case_list_with_A_B
 
-    cases_with_A %>%
-      filter(.data[[case_colname]] %in% case_list_with_A_B) %>%
-      re_map(mapping(eventlog)) -> cases_with_A_and_B
+    cases_with_A[CID %in% case_list_with_A_B] -> cases_with_A_and_B
 
     if(cases_with_A_and_B %>% nrow() == 0){
       full_par_score <- 0
       par_score <- 0
     } else {
 
-      A_starts_before_B_ends <- cases_with_A_and_B %>%
-        filter(.data[[timestamp_colname]] >= reference_timestamp_start) %>%
-        filter(.data[[activity_colname]] == act_B,
-               .data[[lifecycle_colname]] == "complete") %>%
-        pull(case_colname) %>%
-        n_distinct()
 
-      A_starts_after_B_starts <- cases_with_A_and_B %>%
-        filter(.data[[timestamp_colname]] <= reference_timestamp_start) %>%
-        filter(.data[[activity_colname]]== act_B,
-               .data[[lifecycle_colname]] == "start") %>%
-        pull(case_colname) %>%
-        n_distinct()
+      n_distinct(cases_with_A_and_B[TS >= reference_timestamp_start & AID == act_B & LC == "complete"][["CID"]]) -> A_starts_before_B_ends
 
-      par_score <- 1 - ( abs(A_starts_before_B_ends - A_starts_after_B_starts) / cases_with_A_and_B %>%
-                           pull(case_colname) %>%
-                           n_distinct() )
+      n_distinct(cases_with_A_and_B[TS <= reference_timestamp_start & AID == act_B & LC == "start"][["CID"]]) -> A_starts_after_B_starts
+
+
+      par_score <- 1 - ( abs(A_starts_before_B_ends - A_starts_after_B_starts) / length(case_list_with_A_B))
 
       ## We lower the R score as A and B are less likely to occur together
-      modifier <- ( cases_with_A_and_B %>% n_cases ) / ( cases_with_A %>% n_cases )
+      modifier <- ( length(case_list_with_A_B) ) / (n_distinct(cases_with_A$CID))
       full_par_score <- par_score * modifier
     }
 

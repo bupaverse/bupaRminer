@@ -1,8 +1,8 @@
 calculate_sometimes_directly_follows_relation <- function(
     act_A,
     act_B,
-    cases_with_A,
-    cases_with_B,
+    nr_cases_with_A,
+    nr_cases_with_B,
     afterA_event_log,
     afterB_event_log,
     cases_before_B,
@@ -19,16 +19,16 @@ calculate_sometimes_directly_follows_relation <- function(
   A_happens_directly_before <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_A]
 
   ## If B happens, how often does it happen right after A
-  SOMETIMES_DIRECT_1 <- n_distinct(A_happens_directly_before$CID) / n_distinct(cases_with_B$CID)
+  SOMETIMES_DIRECT_1 <- n_distinct(A_happens_directly_before$CID) / nr_cases_with_B
 
   ## If A happens, how often is it directly followed
   ## by B
   afterA_event_log[LC == "start" & AID != act_A][order(CID, TS)] -> tmp_dt
   B_happens_directly_after <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_B]
 
-  SOMETIMES_DIRECT_2 <- n_distinct(B_happens_directly_after$CID) / n_distinct(cases_with_A$CID)
+  SOMETIMES_DIRECT_2 <- n_distinct(B_happens_directly_after$CID) / nr_cases_with_A
   ## How often do we expect B
-  SOMETIMES_DIRECT_3 <-  n_distinct(cases_with_B$CID) / nr_cases
+  SOMETIMES_DIRECT_3 <-  nr_cases_with_B / nr_cases
 
   ## The first factor is high when A is often the activity before B
   ## the second factor is high when the number of times we observe B right after A
@@ -42,16 +42,16 @@ calculate_sometimes_directly_follows_relation <- function(
   B_happens_directly_before <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_B]
 
   ## If B happens, how often does it happen right after A
-  SOMETIMES_DIRECT_1 <- n_distinct(B_happens_directly_before$CID) / n_distinct(cases_with_A$CID)
+  SOMETIMES_DIRECT_1 <- n_distinct(B_happens_directly_before$CID) / nr_cases_with_A
 
   ## If A happens, how often is it directly followed
   ## by B
   afterB_event_log[LC == "start" & AID != act_B][order(CID, TS)] -> tmp_dt
   A_happens_directly_after <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_A]
 
-  SOMETIMES_DIRECT_2 <- n_distinct(A_happens_directly_after$CID) / n_distinct(cases_with_B$CID)
+  SOMETIMES_DIRECT_2 <- n_distinct(A_happens_directly_after$CID) / nr_cases_with_B
   ## How often do we expect B
-  SOMETIMES_DIRECT_3 <-  n_distinct(cases_with_A$CID) / nr_cases
+  SOMETIMES_DIRECT_3 <-  nr_cases_with_A / nr_cases
 
   ## The first factor is high when A is often the activity before B
   ## the second factor is high when the number of times we observe B right after A

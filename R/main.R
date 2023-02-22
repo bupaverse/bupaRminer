@@ -21,13 +21,13 @@ discover_process <- function(log) {
 discover_process.eventlog <- function(log) {
 
   #TO DO: make sure start and complete are present for all activities
-  message("--- Preprocess log ---")
+  cli::cli_alert_info("Preprocess log")
   log <- preprocess(log)
-  message("--- Calculate relationships ---")
+  cli::cli_alert_info("Calculate relationships")
   relationships <- calculate_relationships(log)
-  message("--- Construct process ---")
+  cli::cli_alert_info("Construct process")
   process <- construct_process(relationships)
-  message("--- Generate BPMN ---")
+  cli::cli_alert_info("Generate BPMN")
   generate_bpmn(process)
 
 }

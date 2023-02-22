@@ -5,93 +5,76 @@ discover_R_sequence_relations <- function(
     parallel_thres = 0.95,
     exclusive_thres = 0.95,
     interrupting_theta = 0,
-    cases_per_act_memory = NULL,
     GENERAL_THRES = 0.95
 ){
 
-  new_mapping <- list(case_identifier = "CID",
-                      activity_identifier = "AID",
-                      activity_instance_identifier = "AIID",
-                      timestamp_identifier = "TS",
-                      lifecycle_identifier = "LC",
-                      resource_identifier = resource_id(ev_log))
-  class(new_mapping) <- c("eventlog_mapping", class(new_mapping))
-
-  ev_log %>%
-    rename(AID = .data[[activity_id(ev_log)]],
-           AIID = .data[[activity_instance_id(ev_log)]],
-           CID = .data[[case_id(ev_log)]],
-           TS = .data[[timestamp(ev_log)]],
-           LC =.data[[lifecycle_id(ev_log)]]) %>%
-    re_map(new_mapping) -> ev_log
-
-  activity_colname <- activity_id(ev_log)
-  activity_instance_colname <- activity_instance_id(ev_log)
-  case_colname <- case_id(ev_log)
-  timestamp_colname <- timestamp(ev_log)
-  lifecycle_colname <- lifecycle_id(ev_log)
-
-  nr_cases <- n_cases(ev_log)
+  nr_cases <- n_distinct(ev_log$CID)
 
   outer_output <- list_along(1:(length(ev_activities) - 1))
+
+
+  references <- ev_log[, .(reference_timestamp_start = min(TS),
+                           reference_timestamp_end = max(TS)), by = .(AID,CID)]
 
   for(A in c(1:(length(ev_activities)-1))){
 
     prec_act <-as.character(ev_activities[[A]])
-    print(prec_act)
 
-    par_relationships <- rel_par_df %>%
-      filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
-             antecedent == prec_act,
-             score >= parallel_thres) %>%
-      pull(consequent) %>%
-      unique()
+    cli::cli_alert_info(prec_act)
 
-    events_A <- as.data.table(ev_log)[AID == prec_act, .(reference_timestamp_start = min(TS), reference_timestamp_end = max(TS)), by = .(CID)]
+    unique(as.data.table(rel_par_df)[rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL) &
+                                antecedent == prec_act &
+                                score >= parallel_thres][["consequent"]]) -> par_relationships
 
-    cases_with_A <-  as.data.table(ev_log) %>%
+    events_A <- references[AID == prec_act, -"AID"]
+
+    cases_with_A <- ev_log %>%
       merge(
         events_A,
         by = "CID",
       )
-
+    nr_cases_with_A <- n_distinct(cases_with_A[["CID"]])
 
     fromA_event_log <- cases_with_A[TS >= reference_timestamp_start & !(AID %chin% par_relationships),]
     afterA_event_log <- cases_with_A[TS >= reference_timestamp_end & !(AID %chin% par_relationships),]
 
-
     inner_output <- list_along((A+1):length(ev_activities))
+
+
 
     for(B in (A+1):length(ev_activities)){
 
       succ_act <- ev_activities[[B]]
 
-      if(rel_par_df %>%
-         filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
-                antecedent == prec_act,
-                consequent == succ_act,
-                score > GENERAL_THRES) %>% nrow > 0){
+      if(as.data.table(rel_par_df)[rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL) &
+                                   antecedent == prec_act &
+                                   consequent == succ_act &
+                                   score > GENERAL_THRES] %>% nrow() > 0){
         next
       }
-      cli::cli_alert_info(glue::glue("{prec_act} ~ {succ_act}"))
+      # cli::cli_alert_info(glue::glue("{prec_act} ~ {succ_act}"))
 
-      events_B <- as.data.table(ev_log)[AID == succ_act, .(reference_timestamp_start = min(TS), reference_timestamp_end = max(TS)), by = .(CID)]
+      events_B <- references[AID == succ_act, -"AID"]
 
-      cases_with_B <-  as.data.table(ev_log) %>%
+      cases_with_B <-  ev_log %>%
         merge(
           events_B,
-          by = case_colname,
+          by = "CID",
         )
+      nr_cases_with_B <- n_distinct(cases_with_B[["CID"]])
+
       fromB_event_log <- cases_with_B[TS >= reference_timestamp_start & !(AID %chin% par_relationships),]
       afterB_event_log <- cases_with_B[TS >= reference_timestamp_end & !(AID %chin% par_relationships),]
 
-      cli::cli_alert_info("Requirement")
+      # cli::cli_alert_info("Requirement")
       ## REQ - The execution of A requires the execution of B as a predecessor
       REQ_results <- calculate_requirement_score(
         prec_act,
         succ_act,
         cases_with_A,
         cases_with_B,
+        nr_cases_with_A,
+        nr_cases_with_B,
         nr_cases,
         ev_log)
 
@@ -99,13 +82,17 @@ discover_R_sequence_relations <- function(
 
 
       if(any(REQ_results$score < GENERAL_THRES)){
-        cli::cli_alert_info("Exclusion")
+        # cli::cli_alert_info("Exclusion")
+
+        nr_cases_with_A_B <- n_distinct(cases_with_A[AID == succ_act][["CID"]])
+
 
         EXCL_results <- calculate_exclusive_relation(
           prec_act,
           succ_act,
-          cases_with_A,
-          cases_with_B,
+          nr_cases_with_A,
+          nr_cases_with_B,
+          nr_cases_with_A_B,
           exclusive_thres,
           nr_cases,
           ev_log
@@ -129,13 +116,13 @@ discover_R_sequence_relations <- function(
         ## Directly and eventually follows
 
         if(prec_act != "END" & succ_act != "START"){
-          cli::cli_alert_info("Eventually follows")
+          # cli::cli_alert_info("Eventually follows")
 
           EF_results <- calculate_eventually_follows_relation(
             prec_act,
             succ_act,
-            cases_with_A,
-            cases_with_B,
+            nr_cases_with_A,
+            nr_cases_with_B,
             afterA_event_log,
             afterB_event_log,
             nr_cases,
@@ -143,13 +130,13 @@ discover_R_sequence_relations <- function(
           )
 
           if(any(EF_results$score >= 0.75*GENERAL_THRES)) {
-            cli::cli_alert_info("Directly follows")
+            # cli::cli_alert_info("Directly follows")
 
             DF_results <- calculate_directly_follows_relation(
               prec_act,
               succ_act,
-              cases_with_A,
-              cases_with_B,
+              nr_cases_with_A,
+              nr_cases_with_B,
               afterA_event_log,
               afterB_event_log,
               nr_cases,
@@ -172,14 +159,13 @@ discover_R_sequence_relations <- function(
 
         ## Sometimes directly or eventually happens
 
-        par_relationships_B <- rel_par_df %>%
-          filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL),
-                 antecedent == succ_act,
-                 score >= parallel_thres) %>%
-          pull(consequent)
+        par_relationships_B <- as.data.table(rel_par_df)[
+          rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL) &
+                 antecedent == succ_act &
+                 score >= parallel_thres][["consequent"]]
 
           if(any(DF_results$score < GENERAL_THRES) | any(EF_results$score < GENERAL_THRES)){
-          cli::cli_alert_info("Sometimes follows")
+          # cli::cli_alert_info("Sometimes follows")
 
           cases_before_B <- cases_with_B[TS <= reference_timestamp_start]
           cases_before_A <- cases_with_A[TS <= reference_timestamp_start]
@@ -187,8 +173,8 @@ discover_R_sequence_relations <- function(
           MEF_results <- calculate_sometime_follows_relation(
             prec_act,
             succ_act,
-            cases_with_A,
-            cases_with_B,
+            nr_cases_with_A,
+            nr_cases_with_B,
             fromA_event_log,
             fromB_event_log,
             cases_before_B,
@@ -199,13 +185,13 @@ discover_R_sequence_relations <- function(
 
 
           if(any(MEF_results$score >= 0.75*GENERAL_THRES)){
-            cli::cli_alert_info("Sometimes directly follows")
+            # cli::cli_alert_info("Sometimes directly follows")
 
             MDF_results <- calculate_sometimes_directly_follows_relation(
               prec_act,
               succ_act,
-              cases_with_A,
-              cases_with_B,
+              nr_cases_with_A,
+              nr_cases_with_B,
               afterA_event_log,
               afterB_event_log,
               cases_before_B,
@@ -248,13 +234,14 @@ discover_R_sequence_relations <- function(
       DURING_score_reverse <- 0
 
       if(!(prec_act %in% c("START","END")) & !(succ_act %in% c("START","END"))){
-        cli::cli_alert_info("Terminating")
+        # cli::cli_alert_info("Terminating")
 
         INTERRUPTING_score <- calculate_terminating_relationship(
           prec_act,
           succ_act,
           cases_with_A,
           cases_with_B,
+          nr_cases_with_B,
           interrupting_theta,
           ev_log
         )
@@ -264,18 +251,20 @@ discover_R_sequence_relations <- function(
           prec_act,
           cases_with_B,
           cases_with_A,
+          nr_cases_with_A,
           interrupting_theta,
           ev_log
         )
 
         ## B starts during A
-        cli::cli_alert_info("Intermittent")
+        # cli::cli_alert_info("Intermittent")
 
         DURING_score <- calculate_intermittent_relationship(
           prec_act,
           succ_act,
           cases_with_A,
           cases_with_B,
+          nr_cases_with_B,
           ev_log
         )
         DURING_score_reverse <- calculate_intermittent_relationship(
@@ -283,6 +272,7 @@ discover_R_sequence_relations <- function(
           prec_act,
           cases_with_B,
           cases_with_A,
+          nr_cases_with_A,
           ev_log
         )
       }

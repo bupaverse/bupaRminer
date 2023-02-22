@@ -1,55 +1,35 @@
 
 calculate_relationship_scores <- function(ev_log){
 
-  activity_colname <- activity_id(ev_log)
-  activity_instance_colname <- activity_instance_id(ev_log)
-  case_colname <- case_id(ev_log)
-  timestamp_colname <- timestamp(ev_log)
-  lifecycle_colname <- lifecycle_id(ev_log)
+  orig_mapping <- mapping(ev_log)
 
-  ## We compute the correlations between acitivities
-  ## based on how ften they repeay in the same case.
-  ## If they often repeat together, then we assume
-  ## that they are part of a repeating block.
+  new_mapping <- list(case_identifier = "CID",
+                      activity_identifier = "AID",
+                      activity_instance_identifier = "AIID",
+                      timestamp_identifier = "TS",
+                      lifecycle_identifier = "LC",
+                      resource_identifier = resource_id(ev_log))
+  class(new_mapping) <- c("eventlog_mapping", class(new_mapping))
 
-  # repeat_correlations <- ev_log %>%
-  #   as_tibble() %>% filter(!!sym(lifecycle_colname) == "start") %>%
-  #   count(!!sym(case_colname), orig_name) %>%
-  #   group_by(orig_name) %>%
-  #   filter(max(n) > 1) %>%
-  #   ungroup %>%
-  #   pivot_wider(names_from = orig_name,
-  #               values_from = n,
-  #               values_fill = 0) %>%
-  #   select(-!!sym(case_colname)) %>%
-  #   cor %>%
-  #   as_tibble() %>%
-  #   mutate(., antecedent = colnames(.)) %>%
-  #   select(antecedent, everything())  %>%
-  #   pivot_longer(
-  #     cols = -c(antecedent),
-  #     names_to = "consequent",
-  #     values_to = "score"
-  #   ) %>%
-  #   filter(antecedent != consequent) %>%
-  #   mutate(rel = RScoreDict$LOOP_BLOCK)
+  ev_log %>%
+    rename(AID = .data[[activity_id(ev_log)]],
+           AIID = .data[[activity_instance_id(ev_log)]],
+           CID = .data[[case_id(ev_log)]],
+           TS = .data[[timestamp(ev_log)]],
+           LC =.data[[lifecycle_id(ev_log)]]) %>%
+    re_map(new_mapping) -> ev_log
 
-  ## First we must establish parallel activities as they clutter
-  ## our perception of the sequence of activities.
+  ev_log_copy <- ev_log
+
+  ev_log <- as.data.table(ev_log)
+
   rel_df <- discover_parallels_complete(ev_log,
-                                        ev_log %>%
-                                          filter(!(!!sym(activity_colname) %in% c("START","END"))) %>%
-                                          pull(orig_name) %>%
-                                          unique)
-
+                                        unique(ev_log[AID %chin% c("START","END"),][["orig_name"]]))
 
 
   ## Retrieve activities that have duplicates
-  duplicated_activities <- ev_log %>%
-    select(new_act_name, orig_name, force_df = T) %>%
-    filter(as.character(orig_name) != as.character(new_act_name)) %>%
-    pull(orig_name) %>%
-    unique()
+
+  duplicated_activities <- unique(ev_log[orig_name != new_act_name][["orig_name"]])
 
 
   ## Check if there are immediate repeat activities
@@ -88,20 +68,19 @@ calculate_relationship_scores <- function(ev_log){
   ## Check again for parallel relationships, but now taking the self loops into account
   rel_df_temp <- discover_parallels_complete(ev_log,
                                              ev_log %>%
-                                               filter(!(!!sym(activity_colname) %in% c("START","END"))) %>%
-                                               pull(!!sym(activity_colname)) %>% unique,
+                                               filter(!(AID %in% c("START","END"))) %>%
+                                               pull(AID) %>% unique,
                                              ev_log %>%
-                                               filter(!!sym(activity_colname) != orig_name) %>%
-                                               pull(!!sym(activity_colname)) %>% unique)
+                                               filter(AID != orig_name) %>%
+                                               pull(AID) %>% unique)
 
   rel_df <- rel_df %>%
     bind_rows(rel_df_temp)
 
   ## Then we calculate the other scores
-  cases_with_act_memory <- obtain_case_ids_per_activity(ev_log)
+  # cases_with_act_memory <- obtain_case_ids_per_activity(ev_log)
 
-  all_activities <- ev_log %>%
-    activity_labels() %>%
+  all_activities <- unique(ev_log[["AID"]]) %>%
     as.character() %>%
     setdiff(c("START","END"))
 
@@ -111,8 +90,7 @@ calculate_relationship_scores <- function(ev_log){
     ev_log,
     all_activities,
     rel_df,
-    parallel_thres = 0.90,
-    cases_per_act_memory = cases_with_act_memory
+    parallel_thres = 0.90
   )
 
   ## There is always an end
@@ -128,12 +106,11 @@ calculate_relationship_scores <- function(ev_log){
     bind_rows(rel_df_2) %>%
     bind_rows(always_end)
 
-  act_frequency <- ev_log %>%
-    activities
+  act_frequency <- ev_log[, .(absolute_frequency = n_distinct(AIID)), by = AID]
 
   rel_df <- rel_df %>%
-    left_join(act_frequency %>% select(!!sym(activity_colname), absolute_frequency), by =c("antecedent"=activity_colname)) %>%
-    mutate(freq = absolute_frequency / ev_log %>% n_cases) %>%
+    left_join(act_frequency, by =c("antecedent"="AID")) %>%
+    mutate(freq = absolute_frequency / n_distinct(ev_log$CID)) %>%
     mutate(freq = ifelse(is.na(freq),0,freq)) %>%
     mutate(or_importance = importance) %>%
     mutate(importance = importance * score * freq)

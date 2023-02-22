@@ -127,7 +127,7 @@ create_snippet <- function(
                      targetRef == branch_gateways_end$id)
 
             if (branch_to_branch %>% nrow > 0) {
-              print("SAME BRANCH CAN BE MERGED")
+              #print("SAME BRANCH CAN BE MERGED")
               same_type_branches[[length(same_type_branches) + 1]] <-
                 branch
               same_type <- TRUE

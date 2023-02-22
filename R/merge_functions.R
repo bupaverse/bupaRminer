@@ -56,16 +56,16 @@ merge_relationships <- function(
     rel_df <- rel_df %>%
       filter(!(consequent %in% real_activities & rel != RScoreDict$REQUIRES))
     rel_df <- rel_df %>%
-      filter(!(antecedent %in% real_activities & rel == RScoreDict$REQUIRES)) 
-    
+      filter(!(antecedent %in% real_activities & rel == RScoreDict$REQUIRES))
+
   }
-  
-   
+
+
   # direct_joins_from_start <- rel_df %>%
   #   filter(startsWith(antecedent, "START"),
   #          rel == RScoreDict$DIRECT_JOIN) %>%
   #   mutate(rel = RScoreDict$EVENTUALLY_FOLLOWS)
-  # 
+  #
   # rel_df <- rel_df %>%
   #   anti_join(direct_joins_from_start, by=c("antecedent","consequent")) %>%
   #   bind_rows(direct_joins_from_start)
@@ -113,7 +113,7 @@ merge_relationships <- function(
         filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
 
       if(closest_direct_XOR_roots %>% nrow > 0){
-        print("CHANGE HAD EFFECT")
+        #print("CHANGE HAD EFFECT")
 
         closest_direct_XOR_roots <- closest_direct_XOR_roots %>%
           mutate(rel = RScoreDict$DIRECT_JOIN)
@@ -175,7 +175,7 @@ merge_relationships <- function(
 update_rel_notebook <- function(
     constrc_result,
     rel_df,
-    verbose = TRUE){
+    verbose = FALSE){
 
   if(verbose ==  TRUE & length(constrc_result$messages) > 0){
     print(constrc_result$messages)
@@ -193,29 +193,28 @@ update_rel_notebook <- function(
     )
   }
 
-  if(I_WANT_INTERRUPTIONS){
 
-    bpmn_obj <- constrc_result$snippet_dictionary[[length(constrc_result$snippet_dictionary)]]
-
-    map_to_bpmn <- function(bpmn_obj){
-      tasks <- bpmn_obj$tasks %>% as.data.frame()
-      seqs <- bpmn_obj$seqs %>% as.data.frame() %>% unique
-      gateways <- bpmn_obj$gateways %>% as.data.frame() %>% unique
-      start_events <- bpmn_obj$start_events %>% as.data.frame() %>% unique
-      end_events <- bpmn_obj$end_events %>% as.data.frame() %>% unique
-
-      bpmn_out <- create_bpmn(tasks, seqs, gateways, start_events, end_events)
-
-      return(bpmn_out)
-    }
-
-    bpmn_obj <- add_start_end(bpmn_obj)
-    bpmn_out <- map_to_bpmn(bpmn_obj)
-
-    bpmn_out %>%
-      write_bpmn("output/snippet.bpmn")
-    readline(prompt="Press [enter] to continue")
-  }
+#
+#     bpmn_obj <- constrc_result$snippet_dictionary[[length(constrc_result$snippet_dictionary)]]
+#
+#     map_to_bpmn <- function(bpmn_obj){
+#       tasks <- bpmn_obj$tasks %>% as.data.frame()
+#       seqs <- bpmn_obj$seqs %>% as.data.frame() %>% unique
+#       gateways <- bpmn_obj$gateways %>% as.data.frame() %>% unique
+#       start_events <- bpmn_obj$start_events %>% as.data.frame() %>% unique
+#       end_events <- bpmn_obj$end_events %>% as.data.frame() %>% unique
+#
+#       bpmn_out <- create_bpmn(tasks, seqs, gateways, start_events, end_events)
+#
+#       return(bpmn_out)
+#     }
+#
+#     bpmn_obj <- add_start_end(bpmn_obj)
+#     bpmn_out <- map_to_bpmn(bpmn_obj)
+#
+#     bpmn_out %>%
+#       write_bpmn("output/snippet.bpmn")
+#     readline(prompt="Press [enter] to continue")
 
   return(rel_df)
 }

@@ -22,8 +22,8 @@ R_levels <- c(RScoreDict$DIRECT_JOIN,
               RScoreDict$HAPPENS_DURING,
               RScoreDict$PARALLEL_IF_PRESENT,
               RScoreDict$EVENTUALLY_FOLLOWS,
-              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
               RScoreDict$MUTUALLY_EXCLUSIVE,
+              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
               RScoreDict$REQUIRES)
 
 smart_thres_df <- tibble(

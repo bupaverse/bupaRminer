@@ -20,11 +20,5 @@ generate_bpmn <- function(snippet_dictionary) {
   bpmn_obj <- add_start_end(bpmn_obj)
   bpmn_out <- map_to_bpmn(bpmn_obj)
 
-  bpmn_out %>%
-    render_bpmn() %>%
-    print()
-
-  bpmn_out %>%
-    write_bpmn("output/model.bpmn")
-
+  bpmn_out
 }
