@@ -357,7 +357,7 @@ explore_XOR_split <- function(
   ## If not everything is mutually exclusive, then we need to examine
   ## if there are any contradictions in the branches.
   mutual_branch_relationships <- mutual_branch_relationships %>%
-    full_join(mutual_branch_relationships, by = c("antecedent"="consequent", "consequent"="antecedent")) %>%
+    full_join(select(mutual_branch_relationships, -score, -importance), by = c("antecedent"="consequent", "consequent"="antecedent")) %>%
     mutate(has_conflict = rel.x != rel.y)
 
   conflicted_relations <- mutual_branch_relationships %>%
@@ -366,7 +366,6 @@ explore_XOR_split <- function(
   contradicting_sequences <- mutual_branch_relationships %>%
     filter(rel.x != "R5") %>%
     filter(has_conflict == FALSE)
-
   ## If there are contradicting sequences, then we assume that they
   ## should be executed n parallel.
   if(contradicting_sequences %>% nrow > 0){
