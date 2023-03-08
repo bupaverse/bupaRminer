@@ -1,5 +1,5 @@
 
-construct_process <- function(assigned_rel_df) {
+construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
 
   pkg.env$end_event_counter <- 1
 
@@ -25,7 +25,7 @@ construct_process <- function(assigned_rel_df) {
     rel_notebook_df
   )
 
-  snippet_dictionary <- list()
+  # snippet_dictionary <- list()
 
   HAS_COMPLETED <- FALSE
   while(!is.null(RELS_IN_FOCUS) & HAS_COMPLETED == FALSE){

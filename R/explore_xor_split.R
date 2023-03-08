@@ -400,12 +400,13 @@ explore_XOR_split <- function(
                            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS),
               rel.y == RScoreDict$MUTUALLY_EXCLUSIVE) %>%
        nrow() > 0){
+      
       sampled_conflict <- conflicted_relations %>%
         filter(rel.x %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                             RScoreDict$MAYBE_EVENTUALLY_FOLLOWS),
                rel.y == RScoreDict$MUTUALLY_EXCLUSIVE) %>%
-        arrange(-importance.x,
-                -score.x) %>%
+        arrange(-importance,
+                -score) %>%
         head(1)
     } else if(conflicted_relations %>%
               filter(rel.x == RScoreDict$DIRECT_JOIN,
@@ -416,8 +417,8 @@ explore_XOR_split <- function(
       sampled_conflict <- conflicted_relations %>%
         filter(rel.x == RScoreDict$DIRECT_JOIN,
                rel.y == RScoreDict$MUTUALLY_EXCLUSIVE) %>%
-        arrange(-importance.x,
-                -score.x)
+        arrange(-importance,
+                -score)
       head(1)
 
       return_list <- solve_XOR_relationship("",

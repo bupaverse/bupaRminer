@@ -22,6 +22,7 @@ discover_parallels_complete <- function(eventlog, all, potential = NULL) {
     if(all[i] %in% act_a) {
       #cli::cli_alert_info(glue::glue("Checking parallelism: {all[i]}"))
       output[[i]] <- discover_parallels_one_to_many(eventlog, all[i], act_b[-1:-which(act_b == all[i])])
+      # output[[i]] <- discover_parallels_one_to_many(eventlog, all[i], act_b)
     }
   }
   output %>%

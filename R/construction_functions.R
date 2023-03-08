@@ -135,7 +135,6 @@ explore_soft_PAR_relationship <- function(
 
     found_none = TRUE
     while(found_none & mutual_pars_if_present %>% nrow() > 0){
-
       sampled_soft_par <- mutual_pars_if_present %>%
         arrange(
                 -importance.x,

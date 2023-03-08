@@ -1,7 +1,9 @@
 
 
-calculate_relationships <- function(eventlog) {
-  rel_df <- calculate_relationship_scores(eventlog)
+calculate_relationships <- function(eventlog,
+                                    skip_self_loops = FALSE) {
+  rel_df <- calculate_relationship_scores(eventlog,
+                                          skip_self_loops)
 
 
 

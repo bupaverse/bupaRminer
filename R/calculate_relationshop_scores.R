@@ -1,5 +1,6 @@
 
-calculate_relationship_scores <- function(ev_log){
+calculate_relationship_scores <- function(ev_log,
+                                          skip_self_loops = FALSE){
 
   orig_mapping <- mapping(ev_log)
 
@@ -24,46 +25,53 @@ calculate_relationship_scores <- function(ev_log){
   ev_log <- as.data.table(ev_log)
 
   rel_df <- discover_parallels_complete(ev_log,
-                                        unique(ev_log[AID %chin% c("START","END"),][["orig_name"]]))
+                                        unique(ev_log[!(AID %chin% c("START","END")),][["orig_name"]]))
+  
 
 
   ## Retrieve activities that have duplicates
 
   duplicated_activities <- unique(ev_log[orig_name != new_act_name][["orig_name"]])
 
-
-  ## Check if there are immediate repeat activities
-  par_thres <- 0.80
-
-  renamed_entries <- discover_self_loops(
-    ev_log,
-    duplicated_activities,
-    rel_df %>% filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)),
-    parallel_thres = par_thres)
-
-  ## Merge self_loops into one entry with start and end
-  if(renamed_entries %>% nrow > 0){
-    ev_log %>%
-      inner_join(renamed_entries,
-                 by = c(case_colname, activity_instance_colname)) %>%
-      as_tibble() %>%
-      mutate(!!sym(activity_colname) := as.character(!!sym(activity_colname))) %>%
-      mutate(!!sym(activity_colname) := new_concatenated_name) %>%
-      group_by(!!sym(case_colname), !!sym(activity_colname),!!sym(lifecycle_colname)) %>%
-      arrange(!!sym(timestamp_colname)) %>%
-      mutate(rep_occurence = row_number()) %>%
-      mutate(!!sym(activity_instance_colname) := paste(!!sym(activity_instance_colname),collapse="_")) %>%
-      filter((!!sym(lifecycle_colname)=="start" & rep_occurence == min(rep_occurence)) |
-               (!!sym(lifecycle_colname)=="complete" & rep_occurence == max(rep_occurence))) %>%
-      ungroup() -> adjusted_log
-
-    ev_log %>%
-      anti_join(renamed_entries) -> old_log
-
-
-    bind_rows(adjusted_log, old_log) %>%
-      re_map(mapping(ev_log)) -> ev_log
+  if(!skip_self_loops && length(duplicated_activities) > 0){
+    ## Check if there are immediate repeat activities
+    par_thres <- 0.80
+    
+    renamed_entries <- discover_self_loops(
+      ev_log,
+      duplicated_activities,
+      rel_df %>% filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)),
+      parallel_thres = par_thres)
+    
+    ## Merge self_loops into one entry with start and end
+    if(renamed_entries %>% nrow > 0){
+      ev_log %>%
+        inner_join(renamed_entries,
+                   by = c(new_mapping$case_identifier, 
+                          new_mapping$activity_instance_identifier)) %>%
+        as_tibble() %>%
+        mutate(AID = as.character(AID)) %>%
+        mutate(AID := new_concatenated_name) %>%
+        group_by(CID, AID, LC) %>%
+        arrange(TS) %>%
+        mutate(rep_occurence = row_number()) %>%
+        mutate(AIID = min(AIID)) %>%
+        filter((LC=="start" & rep_occurence == min(rep_occurence)) |
+                 (LC=="complete" & rep_occurence == max(rep_occurence))) %>%
+        ungroup() %>%
+        as.data.table() -> adjusted_log
+      
+      ev_log %>%
+        anti_join(renamed_entries) -> old_log
+      
+      
+      bind_rows(adjusted_log, old_log) %>%
+        arrange(CID,TS) %>%
+        re_map(new_mapping) %>%
+        as.data.table -> ev_log
+    }
   }
+  
 
   ## Check again for parallel relationships, but now taking the self loops into account
   rel_df_temp <- discover_parallels_complete(ev_log,
@@ -84,7 +92,9 @@ calculate_relationship_scores <- function(ev_log){
     as.character() %>%
     setdiff(c("START","END"))
 
-  all_activities <- c("START",all_activities)
+  if("START" %in% unique(ev_log[["AID"]])){
+    all_activities <- c("START",all_activities)
+  }
 
   rel_df_2 <- discover_R_sequence_relations(
     ev_log,
@@ -93,18 +103,25 @@ calculate_relationship_scores <- function(ev_log){
     parallel_thres = 0.90
   )
 
-  ## There is always an end
-  always_end <- tibble(
-    antecedent = all_activities,
-    consequent = "END",
-    rel="R2",
-    score = 1,
-    importance = 0.01
-  )
-
-  rel_df <- rel_df %>%
-    bind_rows(rel_df_2) %>%
-    bind_rows(always_end)
+  if("END" %in% unique(ev_log[["AID"]])){
+    always_end <- tibble(
+      antecedent = all_activities,
+      consequent = "END",
+      rel="R2",
+      score = 1,
+      importance = 0.01
+    )
+    
+    
+    rel_df <- rel_df %>%
+      bind_rows(rel_df_2) %>%
+      bind_rows(always_end)
+  } else{
+  
+    rel_df <- rel_df %>%
+      bind_rows(rel_df_2)
+    
+  }
 
   act_frequency <- ev_log[, .(absolute_frequency = n_distinct(AIID)), by = AID]
 

@@ -20,7 +20,7 @@ discover_parallels_one_to_many <- function(eventlog,
 
     act_B <- as.character(many[B])
 
-    n_distinct(cases_with_A[AID == act_B][["CID"]]) -> case_list_with_A_B
+    unique(cases_with_A[AID == act_B][["CID"]]) -> case_list_with_A_B
 
     cases_with_A[CID %in% case_list_with_A_B] -> cases_with_A_and_B
 

@@ -35,8 +35,8 @@ discover_R_sequence_relations <- function(
       )
     nr_cases_with_A <- n_distinct(cases_with_A[["CID"]])
 
-    fromA_event_log <- cases_with_A[TS >= reference_timestamp_start & !(AID %chin% par_relationships),]
-    afterA_event_log <- cases_with_A[TS >= reference_timestamp_end & !(AID %chin% par_relationships),]
+    fromA_event_log <- cases_with_A[TS >= reference_timestamp_start & !(AID %chin% c(prec_act, par_relationships)),]
+    afterA_event_log <- cases_with_A[TS >= reference_timestamp_end & !(AID %chin% c(prec_act, par_relationships)),]
 
     inner_output <- list_along((A+1):length(ev_activities))
 
@@ -63,8 +63,8 @@ discover_R_sequence_relations <- function(
         )
       nr_cases_with_B <- n_distinct(cases_with_B[["CID"]])
 
-      fromB_event_log <- cases_with_B[TS >= reference_timestamp_start & !(AID %chin% par_relationships),]
-      afterB_event_log <- cases_with_B[TS >= reference_timestamp_end & !(AID %chin% par_relationships),]
+      fromB_event_log <- cases_with_B[TS >= reference_timestamp_start & !(AID %chin% c(succ_act, par_relationships)),]
+      afterB_event_log <- cases_with_B[TS >= reference_timestamp_end & !(AID %chin% c(succ_act, par_relationships)),]
 
       # cli::cli_alert_info("Requirement")
       ## REQ - The execution of A requires the execution of B as a predecessor

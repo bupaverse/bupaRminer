@@ -56,7 +56,7 @@ preprocess <- function(eventlog) {
         re_map(mapping(eventlog))
 
     ## Calculate time elapsed since first event in case
-    ## Assign ordinal timestemp per event in case
+    ## Assign ordinal timestep per event in case
     completed_only <- completed_only %>%
         as_tibble() %>%
         group_by(!!sym(case_colname)) %>%

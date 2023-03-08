@@ -21,38 +21,38 @@ discover_self_loops <- function(
       pull(consequent)
 
 
-    cases_with_dup_act <- unique(ev_log[AID == dup_act][["CID"]])
+    cases_with_dup_act <- unique(ev_log[orig_name == dup_act & is_repeat>1][["CID"]])
 
 
-    ev_log[AID == dup_act][, .(reference_timestamp_first_start = min(TS),
+    ev_log[orig_name == dup_act][, .(reference_timestamp_first_start = min(TS),
                                reference_timestamp_last_end = max(TS)),
                            by = CID] -> reference_TS
 
     tmp <- merge(ev_log, reference_TS, by = "CID")
 
-    tmp[orig_name == dup_act & is_repeat > 1,][["CID"]] -> case_ids_with_repeated_A
+    unique(tmp[orig_name == dup_act & is_repeat > 1,][["CID"]]) -> case_ids_with_repeated_A
 
     cases_between_As <- tmp[CID %in% case_ids_with_repeated_A & TS >= reference_timestamp_first_start & TS <= reference_timestamp_last_end]
 
     suppressWarnings({
 
-      cases_between_As[LC == "start", is_not_act_A := orig_name != dup_act][order(CID, TS), acts_in_between := cumsum(is_not_act_A), by = CID][,
-                                                                                                                                               lag_acts_in_between := lag(acts_in_between), by = CID][
-                                                                                                                                                 , part_of_chain := lag_acts_in_between == acts_in_between, by = CID
-                                                                                                                                               ] -> tmp2
+      cases_between_As[LC == "start"][, is_not_act_A := orig_name != dup_act][order(CID, TS),] -> ordered_between_As
+      
+      ordered_between_As[,acts_in_between := cumsum(is_not_act_A), by = CID][,lag_acts_in_between := lag(acts_in_between), by = CID][, part_of_chain := lag_acts_in_between == acts_in_between, by = CID] -> chained_As
 
-      tmp2 %>%
-        fill(part_of_chain, .direction = "up") -> tmp3
+      chained_As %>%
+        fill(part_of_chain, .direction = "up") -> chained_As_complete
 
 
-      tmp3[, start_of_chain := (part_of_chain == TRUE) & ( lag(part_of_chain) == FALSE | is.na(lag(part_of_chain))),
-           by = CID][,
-                     chain_nr := cumsum(start_of_chain), by = CID][part_of_chain == TRUE & !is.na(part_of_chain)][, new_concatenated_name := ifelse(part_of_chain==TRUE,
-                                                                                                                                                    paste(orig_name,"REP",chain_nr, sep = "_"),
-                                                                                                                                                    as.character(orig_name))] -> tmp4
+      chained_As_complete[, start_of_chain := (part_of_chain == TRUE) & ( lag(part_of_chain) == FALSE | is.na(lag(part_of_chain))),
+                          by = CID][,
+                                    chain_nr := cumsum(start_of_chain), by = CID][part_of_chain == TRUE & !is.na(part_of_chain)] -> tmp4
+      
+      tmp4[part_of_chain==TRUE, new_concatenated_name := paste(orig_name,"REP",chain_nr, sep = "_")] -> tmp5
+      tmp5[part_of_chain==FALSE, new_concatenated_name := as.character(AID)] -> tmp6
     })
 
-    renamed_entry <- tmp4[,.(CID, AIID,new_concatenated_name)]
+    renamed_entry <- tmp6[,.(CID, AIID,new_concatenated_name)]
 
     renamed_entries <- renamed_entries %>%
       bind_rows(renamed_entry)
