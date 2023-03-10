@@ -3,9 +3,9 @@ construct_loop_blocks <- function(event_log,
                                   mode = c("all","skip")){
   
   if(length(mode) == 1 & mode == "all"){
-    repeat_indicatpr <- 1
+    repeat_indicator <- 1
   } else {
-    repeat_indicatpr <- 2
+    repeat_indicator <- 2
   }
   
   snippet_dictionary <- list()
@@ -21,7 +21,7 @@ construct_loop_blocks <- function(event_log,
       
       block_log <- event_log %>%
         filter(orig_name %in% block_activities,
-               is_repeat == repeat_indicatpr)
+               is_repeat == repeat_indicator)
       
       cli::cli_alert_info("Calculate block relationships")
       block_relationships <- calculate_relationships(block_log,
@@ -38,7 +38,7 @@ construct_loop_blocks <- function(event_log,
       ## Modify event_log
       new_log <- event_log %>%
         filter(orig_name %in% block_activities,
-               is_repeat >= repeat_indicatpr) %>%
+               is_repeat >= repeat_indicator) %>%
         group_by(!!sym(case_id(event_log)), !!sym(lifecycle_id(event_log))) %>%
         summarise(
           !!sym(activity_id(event_log)) := snippet_name,
@@ -63,7 +63,7 @@ construct_loop_blocks <- function(event_log,
         select(-early_ts, -late_ts)
       
       event_log <- event_log %>%
-        filter(!(orig_name %in% block_activities & is_repeat >= repeat_indicatpr)) %>%
+        filter(!(orig_name %in% block_activities & is_repeat >= repeat_indicator)) %>%
         bind_rows(new_log)
     }
   }

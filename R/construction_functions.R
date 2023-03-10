@@ -80,6 +80,12 @@ solve_interrupt_relationship <- function(
     snippet_dictionary = snippet_dict,
     messages = c()
   )
+  
+  rel_df <- remember_pair(
+    rel_pair,
+    "BOUNDARY",
+    rel_df
+  )
 
   antec <- rel_pair$antecedent
   conseq <- rel_pair$consequent
@@ -128,7 +134,7 @@ explore_soft_PAR_relationship <- function(
     snippet_dictionary = snippet_dict,
     messages = c()
   )
-
+  
   mutual_pars_if_present <- fetch_mutual_par_if_present(rel_df)
 
   if(mutual_pars_if_present %>% nrow > 0){
@@ -165,6 +171,12 @@ explore_soft_PAR_relationship <- function(
         count(consequent)
 
       if(other_relations %>% pull(n) %>% max == 1){
+        rel_df <- remember_pair(
+          sampled_soft_par,
+          "OR",
+          rel_df
+        )
+          
         return_list <- solve_PAR_relationship(
           sampled_soft_par,
           rel_df,
@@ -272,6 +284,34 @@ solve_sequence_relationship <- function(
     snippet_dictionary = snippet_dict,
     messages = c()
   )
+  
+  if(rel_df %>%
+     filter(antecedent == rel_pair$antecedent,
+            consequent == rel_pair$consequent,
+            inspection_sequence > 0) %>%
+     nrow > 0){
+    tmp <- solve_sequence_relationship(
+      rel_pair,
+      rel_pair %>% 
+        mutate(inspection_sequence = 0),
+      snippet_dict,
+      reset=FALSE,
+      sequence_memory
+    )
+    return_list <- tmp[[1]]
+    return_list$rel_df <- remember_pair(
+      rel_pair,
+      "SEQ",
+      rel_df)
+    sequence_memory <- tmp[[2]]
+    return(list(return_list, sequence_memory))
+  }
+  
+  rel_df <- remember_pair(
+    rel_pair,
+    "SEQ",
+    rel_df)
+  
 
   if(reset == TRUE){
     sequence_memory <- list(
@@ -427,9 +467,9 @@ solve_sequence_relationship <- function(
         SEQ_FOUND <- TRUE
       } else {
         ## If there is still no clear closest conseq,
-        ## then A and B habe the same follows relationship towards
-        ## each other. THis is a contradiction.
-        ## We solve it by considereing A and B as a parallel path
+        ## then A and B have the same follows relationship towards
+        ## each other. This is a contradiction.
+        ## We solve it by considering A and B as a parallel path
         closest_antecedents <- others_preceeding_conseq %>%
           group_by(antecedent) %>%
           mutate(nr_connections = n()) %>%
@@ -454,8 +494,16 @@ solve_sequence_relationship <- function(
         )
 
         ## We only examined on a partial log.
-        ## We need to maintain the entire log though
-        return_list$rel_df <- rel_df
+        ## We need to safeguard the entire log though
+        return_list$rel_df <- remember_pair(
+            relevant_pairs %>% arrange(
+              -importance,
+              -score
+            ) %>%
+              head(1),
+            "OR",
+            rel_df
+          )
         return(list(return_list, sequence_memory))
       }
 
@@ -519,7 +567,11 @@ solve_sequence_relationship <- function(
         return_list <- tmp[[1]]
         sequence_memory <- tmp[[2]]
 
-        return_list$rel_df <- rel_df
+        return_list$rel_df <- remember_pair(
+            seq_pair,
+            "SEQ",
+            rel_df
+          )
 
         return(list(return_list, sequence_memory))
       } else {
@@ -657,7 +709,11 @@ solve_sequence_relationship <- function(
                 mutate(rel = RScoreDict$ALWAYS_PARALLEL),
               snippet_dict
             )
-            return_list$rel_df <- rel_df
+            return_list$rel_df <- remember_pair(
+                SEQ_pair,
+                "AND",
+                rel_df
+              )
             return(list(return_list, sequence_memory))
           }
 
@@ -727,15 +783,20 @@ solve_sequence_relationship <- function(
           ## If they are concurrent or do not agree
           ## among each other
           ## soft AND them together
+          sampled_par_pair <- mutual_antec_relations %>%
+            sample_pair(c(RScoreDict$PARALLEL_IF_PRESENT))
           return_list <- solve_PAR_relationship(
-            mutual_antec_relations %>%
-              sample_pair(c(RScoreDict$PARALLEL_IF_PRESENT)),
+            sampled_par_pair,
             mutual_antec_relations %>%
               mutate(rel == RScoreDict$PARALLEL_IF_PRESENT),
             snippet_dict,
             mode = "SOFT"
           )
-          return_list$rel_df <- rel_df
+          return_list$rel_df <- remember_pair(
+              sampled_par_pair,
+              "OR",
+              rel_df
+            )
           return(list(return_list, sequence_memory))
         }
       }
@@ -758,11 +819,8 @@ solve_sequence_relationship <- function(
     return_list$messages <- "--------TODO--------- No logic implemented when no seq is found."
     return_list$rel_df <- rel_df
     return(list(return_list, sequence_memory))
-  } else {
-    rel_df <- rel_df %>%
-      mutate(importance = ifelse(antecedent == antec & consequent == conseq, importance/10, importance))
-  }
-
+  } 
+  
   if(SEQ_FOUND & relevant_relation %in% c(RScoreDict$DIRECTLY_FOLLOWS,
                                           RScoreDict$EVENTUALLY_FOLLOWS)){
     seq_pair <- rel_df %>%

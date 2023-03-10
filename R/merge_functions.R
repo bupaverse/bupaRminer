@@ -281,9 +281,9 @@ determine_rels_in_focus <- function(rel_df){
 
   if(any(MERGE_INTERRUPTING_RELS %in% rel_summary$rel)){
     return(MERGE_INTERRUPTING_RELS)
-  } else if(RScoreDict$DIRECTLY_FOLLOWS %in% rel_summary$rel){
+  } else if(any(RScoreDict$DIRECTLY_FOLLOWS %in% rel_summary$rel)){
     return(RScoreDict$DIRECTLY_FOLLOWS)
-  } else if(RScoreDict$ALWAYS_PARALLEL %in% rel_summary$rel){
+  } else if(any(RScoreDict$ALWAYS_PARALLEL %in% rel_summary$rel)){
     return(RScoreDict$ALWAYS_PARALLEL)
   } else {
     return(NULL)

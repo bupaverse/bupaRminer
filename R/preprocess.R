@@ -91,7 +91,8 @@ preprocess <- function(eventlog) {
                       select(!!sym(case_colname),
                              !!sym(activity_instance_colname),
                              new_act_name = !!sym(activity_colname),
-                             is_repeat),
+                             is_repeat
+                             ),
                   by = c(case_colname, activity_instance_colname)) %>%
         mutate(orig_name = !!sym(activity_colname),
                !!sym(activity_colname) := new_act_name) %>%

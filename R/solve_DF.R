@@ -3,6 +3,13 @@ solve_DF_relationship <- function(
     rel_df,
     snippet_dict){
 
+  
+  rel_df <- remember_pair(
+    rel_pair,
+    "SEQ",
+    rel_df
+  )
+  
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -13,6 +20,7 @@ solve_DF_relationship <- function(
 
   antec <- rel_pair$antecedent
   conseq <- rel_pair$consequent
+  
 
   ## We need to check if other important
   ## relationships towards B exist.
@@ -38,14 +46,15 @@ solve_DF_relationship <- function(
   ## that directly preceeds B if it happens.
   if(other_conseq_rels %>%
      filter(rel == RScoreDict$DIRECTLY_FOLLOWS) %>%
-     nrow() > 1  || ( length(relation_from_b_to_a) > 0 && relation_from_b_to_a != RScoreDict$REQUIRES)){
+     nrow() > 1  || length(relation_from_b_to_a) == 0 || relation_from_b_to_a != RScoreDict$REQUIRES){
 
     ## ifelse functions hate factors
     ## therefore, we use a detour
 
     new_rows <- other_conseq_rels %>%
-      filter(rel == RScoreDict$DIRECTLY_FOLLOWS) %>%
-      mutate(rel = RScoreDict$DIRECT_JOIN )
+      filter(
+        rel == RScoreDict$DIRECTLY_FOLLOWS) %>%
+      mutate(rel = RScoreDict$DIRECT_JOIN)
     rel_df <- rel_df %>%
       filter(!(consequent == conseq & rel == RScoreDict$DIRECTLY_FOLLOWS )) %>%
       bind_rows(new_rows)

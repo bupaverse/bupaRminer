@@ -1,5 +1,6 @@
 
-construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
+construct_process <- function(assigned_rel_df, 
+                              snippet_dictionary = list()) {
 
   pkg.env$end_event_counter <- 1
 
@@ -13,14 +14,15 @@ construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
                antecedent %in% c("START","END") &
                consequent %in% c("START","END"))) %>%
     filter(antecedent != "END",
-           consequent != "START") %>%
+           !(consequent == "START" & rel != RScoreDict$REQUIRES)) %>%
     mutate(
       score=ifelse(consequent=="END",0,score),
       importance=ifelse(consequent=="END",0,importance)
-    )
+    ) %>%
+    reset_memory()
 
   rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df, strict = FALSE)
-
+  
   RELS_IN_FOCUS <- determine_rels_in_focus(
     rel_notebook_df
   )
@@ -53,9 +55,13 @@ construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
       result,
       rel_notebook_df
     )
+    
+    rel_notebook_df <- rel_notebook_df %>%
+      reset_memory()
 
     snippet_dictionary <- result$snippet_dictionary
-
+    print(names(snippet_dictionary)[length(names(snippet_dictionary))])
+    
     RELS_IN_FOCUS <- determine_rels_in_focus(
       rel_notebook_df
     )
@@ -81,6 +87,9 @@ construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
         result,
         rel_notebook_df
       )
+      
+      rel_notebook_df <- rel_notebook_df %>%
+        reset_memory()
 
       if(is.null(result$snippet)){
         SOFT_PAR_POSSIBLE <- FALSE
@@ -117,18 +126,21 @@ construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
       snippet_dictionary <- result$snippet_dictionary
       print(names(snippet_dictionary)[length(names(snippet_dictionary))])
     }
+    
+    # print(result$rel_df %>% retrieve_memory_log())
 
     rel_notebook_df <- update_rel_notebook(
       result,
       rel_notebook_df
     )
     
+    rel_notebook_df <- rel_notebook_df %>%
+      reset_memory()
+    
 
     if(rel_notebook_df %>%
        filter(
-         rel %in% MERGE_FOLLOWS_RELS,
-         antecedent == "START",
-         consequent != "END") %>% nrow() == 1){
+         rel %in% MERGE_FOLLOWS_RELS) %>% nrow() == 0){
       completed_FOL = TRUE
     }
 
@@ -170,14 +182,16 @@ construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
       print("---- No result for sample")
     } else {
       snippet_dictionary <- result$snippet_dictionary
+      print(names(snippet_dictionary)[length(names(snippet_dictionary))])
     }
     rel_notebook_df <- update_rel_notebook(
       result,
       rel_notebook_df
     )
-
-
-
+    
+    rel_notebook_df <- rel_notebook_df %>%
+      reset_memory()
+    
   }
 
   return(snippet_dictionary)

@@ -30,7 +30,7 @@ discover_self_loops <- function(
 
     tmp <- merge(ev_log, reference_TS, by = "CID")
 
-    unique(tmp[orig_name == dup_act & is_repeat > 1,][["CID"]]) -> case_ids_with_repeated_A
+    unique(tmp[orig_name == dup_act & is_repeat>1,][["CID"]]) -> case_ids_with_repeated_A
 
     cases_between_As <- tmp[CID %in% case_ids_with_repeated_A & TS >= reference_timestamp_first_start & TS <= reference_timestamp_last_end]
 

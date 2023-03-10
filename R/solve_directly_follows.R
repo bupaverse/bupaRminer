@@ -6,7 +6,13 @@ solve_directly_follows <- function(
 
   act_a <- seq_pair$antecedent
   act_b <- seq_pair$consequent
-
+  
+  
+  rel_df <- remember_pair(
+      seq_pair,
+      "DF",
+      rel_df
+    )
 
   return_list <- list(
     snippet = NULL,
@@ -127,7 +133,12 @@ solve_directly_follows <- function(
                                     act_b,
                                     " now considered in parallel.", sep = ""))
 
-    return_list$rel_df <- rel_df
+    return_list$rel_df <- rel_df %>%
+      remember_pair(
+        AND_pair,
+        ifelse(mode == "SOFT","OR","AND"),
+        rel_df
+      )
     return(list(return_list, sequence_memory))
   }
 

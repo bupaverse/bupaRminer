@@ -14,6 +14,12 @@ explore_XOR_split <- function(
     snippet_dictionary = snippet_dict,
     messages = c()
   )
+  
+  rel_df <- remember_pair(
+    XOR_pair,
+    "XOR",
+    rel_df
+  )
 
   other_branches <- rel_df %>%
     filter(
@@ -146,11 +152,6 @@ explore_XOR_split <- function(
   if(mutual_branch_relationships %>%
      filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
                        RScoreDict$EVENTUALLY_FOLLOWS)) %>% nrow() > 0){
-    
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("HAS DF relations")
-    }
 
     seq_pair <- mutual_branch_relationships %>%
       filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
@@ -158,11 +159,6 @@ explore_XOR_split <- function(
       arrange(-importance, -score) %>%
       head(1)
 
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print(seq_pair)
-    }
-    
     tmp <- solve_sequence_relationship(
       seq_pair,
       rel_df,
@@ -179,11 +175,6 @@ explore_XOR_split <- function(
   if(mutual_branch_relationships %>%
      filter(rel == RScoreDict$REQUIRES) %>% nrow() > 0){
     
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("HAS REQ relations")
-    }
-
     REQ_pair <- mutual_branch_relationships %>%
       filter(rel == RScoreDict$REQUIRES) %>%
       arrange(-importance,
@@ -229,13 +220,6 @@ explore_XOR_split <- function(
       return(list(return_list, sequence_memory))
     }
 
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("Will be sequenced as pair")
-      print(seq_pair %>% select(antecedent, consequent, rel, score))
-      print(XOR_pair %>% select(antecedent, consequent, rel, score))
-    }
-
     tmp <- solve_sequence_relationship(
       seq_pair,
       rel_df,
@@ -251,13 +235,8 @@ explore_XOR_split <- function(
 
   if(mutual_branch_relationships %>%
      filter(rel == RScoreDict$DIRECT_JOIN) %>% nrow() > 0){
-    
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("Has JOIN rel")
-    }
 
-    ## We must check whether we have to join withing
+    ## We must check whether we have to join within
     ## the branch or whether we have to join on the root
     ## If the root is not required for the Rx element,
     ## then the root itseld should have an RX to the branch.
@@ -298,11 +277,6 @@ explore_XOR_split <- function(
 
       return(list(return_list, sequence_memory))
     } else {
-      
-      
-      if(XOR_pair$consequent == "A_Cancelled"){
-        print("Will be sequenced as pair 2")
-      }
 
       tmp <- solve_sequence_relationship(
         seq_pair,
@@ -318,18 +292,36 @@ explore_XOR_split <- function(
 
     }
   }
+  
+  ## If there are mutual soft pars, then we create them first
+  if(mutual_branch_relationships %>%
+     filter(rel %in% c(RScoreDict$ALWAYS_PARALLEL,RScoreDict$PARALLEL_IF_PRESENT )) %>% nrow() > 0){
+    
+    par_branches <- mutual_branch_relationships %>%
+      filter(rel %in% c(RScoreDict$ALWAYS_PARALLEL,RScoreDict$PARALLEL_IF_PRESENT ))
+    
+    sampled_par <- par_branches %>%
+      sample_pair(c(RScoreDict$ALWAYS_PARALLEL,RScoreDict$PARALLEL_IF_PRESENT ))
+    
+    return_list <- solve_PAR_relationship(
+      sampled_par,
+      par_branches,
+      snippet_dictionary,
+      mode = "SOFT"
+    )
+    return_list$rel_df <- remember_pair(
+      sampled_par,
+      rel_df
+    )
+    return(list(return_list, sequence_memory))
+  }
+  
 
   if(other_branches %>%
      filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS)) %>% nrow() > 0){
     
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("Has MDF relations")
-    }
-    
     R3_branches <- other_branches %>%
       filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
-
 
     mutual_R3branch_relationships <- rel_df %>%
       filter(antecedent %in% R3_branches$consequent,
@@ -358,11 +350,6 @@ explore_XOR_split <- function(
 
   if(mutual_branch_relationships %>%
      filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS)) %>% nrow() > 0){
-    
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("Mutual branches have MDF relations")
-    }
 
     XOR_pair <- mutual_branch_relationships %>%
       filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS)) %>%
@@ -393,11 +380,6 @@ explore_XOR_split <- function(
            ! consequent %in% branches_with_only_mutual_relations$antecedent)
 
   if(branches_with_only_mutual_relations %>% nrow > 0){
-    
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("New XOR solve")
-    }
 
     return_list <- solve_XOR_relationship(
       XOR_pair$antecedent,
@@ -418,16 +400,11 @@ explore_XOR_split <- function(
     filter(has_conflict == TRUE)
 
   contradicting_sequences <- mutual_branch_relationships %>%
-    filter(rel.x != "R5") %>%
+    filter(rel.x != RScoreDict$MUTUALLY_EXCLUSIVE) %>%
     filter(has_conflict == FALSE)
   ## If there are contradicting sequences, then we assume that they
   ## should be executed n parallel.
   if(contradicting_sequences %>% nrow > 0){
-    
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("Solved as if parallel")
-    }
     
     AND_pair <- contradicting_sequences %>%
       arrange(-importance,
@@ -444,18 +421,18 @@ explore_XOR_split <- function(
       relevant_pairs,
       snippet_dict
     )
-    return_list$rel_df <- rel_df
+    return_list$rel_df <- rel_df %>%
+      remember_pair(
+        AND_pair,
+        "OR",
+        rel_df
+      )
     return(list(return_list, sequence_memory))
   }
 
 
   ## If there are conflicts, we have to examine them.
   if(conflicted_relations %>% nrow() > 0){
-    
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print("Solved in conflict")
-    }
 
     ## If one has a conditional relationship, and the other an exclude
     ## Then this means that the condition is probably very rare
@@ -508,11 +485,6 @@ explore_XOR_split <- function(
     return_list <- tmp[[1]]
     sequence_memory <- tmp[[2]]
     return(list(return_list, sequence_memory))
-  }
-
-  
-  if(XOR_pair$consequent == "A_Cancelled"){
-    print("Solved as OR split")
   }
   
   ## Otherwise, we will create an INCLUSIVE OR gateway

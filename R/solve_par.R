@@ -5,6 +5,18 @@ solve_PAR_relationship <- function(
     mode = "HARD"
 ){
 
+  if(mode == "SOFT"){
+    valid_relationships <- c(RScoreDict$ALWAYS_PARALLEL, RScoreDict$PARALLEL_IF_PRESENT)
+  } else{
+    valid_relationships <- c(RScoreDict$ALWAYS_PARALLEL)
+  }
+  
+  rel_df <- remember_pair(
+    rel_pair,
+    ifelse(mode=="SOFT","OR","AND"),
+    rel_df
+  )
+  
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -12,12 +24,6 @@ solve_PAR_relationship <- function(
     snippet_dictionary = snippet_dict,
     messages = c()
   )
-
-  valid_relationships <- c(RScoreDict$ALWAYS_PARALLEL)
-
-  if(mode == "SOFT"){
-    valid_relationships <- c(RScoreDict$ALWAYS_PARALLEL, RScoreDict$PARALLEL_IF_PRESENT)
-  }
 
   antec <- rel_pair$antecedent
   conseq <- rel_pair$consequent
