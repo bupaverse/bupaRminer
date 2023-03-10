@@ -758,6 +758,9 @@ solve_sequence_relationship <- function(
     return_list$messages <- "--------TODO--------- No logic implemented when no seq is found."
     return_list$rel_df <- rel_df
     return(list(return_list, sequence_memory))
+  } else {
+    rel_df <- rel_df %>%
+      mutate(importance = ifelse(antecedent == antec & consequent == conseq, importance/10, importance))
   }
 
   if(SEQ_FOUND & relevant_relation %in% c(RScoreDict$DIRECTLY_FOLLOWS,
@@ -805,7 +808,8 @@ solve_sequence_relationship <- function(
     return_list <- solve_join(
       join_pair,
       rel_df,
-      snippet_dict
+      snippet_dict,
+      sequence_memory
     )
 
     return(list(return_list, sequence_memory))
@@ -815,7 +819,8 @@ solve_sequence_relationship <- function(
 solve_join <- function(
   join_pair,
   rel_df,
-  snippet_dict
+  snippet_dict, 
+  sequence_memory
 ){
 
   return_list <- list(
@@ -875,7 +880,9 @@ solve_join <- function(
   }
 
 
-  if(reverse_rel == RScoreDict$PARALLEL_IF_PRESENT){
+  if(reverse_rel %in% c(RScoreDict$PARALLEL_IF_PRESENT,
+                        RScoreDict$ALWAYS_PARALLEL,
+                        RScoreDict$DIRECT_JOIN)){
     par_pair <- join_pair %>%
       mutate(rel = RScoreDict$PARALLEL_IF_PRESENT)
 

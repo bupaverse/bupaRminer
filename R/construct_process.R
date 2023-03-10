@@ -64,7 +64,7 @@ construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
       HAS_COMPLETED <- TRUE
     }
   }
-
+  
   completed_FOL <- FALSE
   while(rel_notebook_df %>%
         filter(rel %in% MERGE_FOLLOWS_RELS ) %>%
@@ -115,12 +115,14 @@ construct_process <- function(assigned_rel_df, snippet_dictionary = list()) {
       print("---- No result for sample")
     } else {
       snippet_dictionary <- result$snippet_dictionary
+      print(names(snippet_dictionary)[length(names(snippet_dictionary))])
     }
 
     rel_notebook_df <- update_rel_notebook(
       result,
       rel_notebook_df
     )
+    
 
     if(rel_notebook_df %>%
        filter(

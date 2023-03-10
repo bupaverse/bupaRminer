@@ -21,7 +21,7 @@ explore_XOR_split <- function(
       rel %in% XOR_rels)
 
   branch_names <- other_branches$consequent
-
+  
   ## If there is only 1 branch, we need to check
   ## the reverse relationship
   if(length(branch_names) == 1){
@@ -100,6 +100,7 @@ explore_XOR_split <- function(
                           RScoreDict$EVENTUALLY_FOLLOWS,
                           RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                           RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
+      
       return_list <- solve_XOR_relationship(
         "",
         c(XOR_pair$antecedent, XOR_pair$consequent) %>% unique,
@@ -129,6 +130,7 @@ explore_XOR_split <- function(
      count(rel) %>%
      filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow() == 0){
 
+    
     return_list <- solve_XOR_relationship(
       XOR_pair$antecedent,
       branch_names,
@@ -144,6 +146,11 @@ explore_XOR_split <- function(
   if(mutual_branch_relationships %>%
      filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
                        RScoreDict$EVENTUALLY_FOLLOWS)) %>% nrow() > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("HAS DF relations")
+    }
 
     seq_pair <- mutual_branch_relationships %>%
       filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
@@ -151,6 +158,11 @@ explore_XOR_split <- function(
       arrange(-importance, -score) %>%
       head(1)
 
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print(seq_pair)
+    }
+    
     tmp <- solve_sequence_relationship(
       seq_pair,
       rel_df,
@@ -166,6 +178,11 @@ explore_XOR_split <- function(
 
   if(mutual_branch_relationships %>%
      filter(rel == RScoreDict$REQUIRES) %>% nrow() > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("HAS REQ relations")
+    }
 
     REQ_pair <- mutual_branch_relationships %>%
       filter(rel == RScoreDict$REQUIRES) %>%
@@ -176,6 +193,11 @@ explore_XOR_split <- function(
     seq_pair <- rel_df %>%
       filter(antecedent == REQ_pair$consequent,
              consequent == REQ_pair$antecedent)
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print(seq_pair %>% select(antecedent, consequent, rel, score))
+    }
 
     if(seq_pair %>% nrow == 0){
       seq_pair <- tibble(
@@ -197,7 +219,7 @@ explore_XOR_split <- function(
     }
 
     if(seq_pair$rel == RScoreDict$DIRECT_JOIN){
-
+      
       return_list <- solve_join(
         seq_pair,
         rel_df,
@@ -207,6 +229,12 @@ explore_XOR_split <- function(
       return(list(return_list, sequence_memory))
     }
 
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("Will be sequenced as pair")
+      print(seq_pair %>% select(antecedent, consequent, rel, score))
+      print(XOR_pair %>% select(antecedent, consequent, rel, score))
+    }
 
     tmp <- solve_sequence_relationship(
       seq_pair,
@@ -223,6 +251,11 @@ explore_XOR_split <- function(
 
   if(mutual_branch_relationships %>%
      filter(rel == RScoreDict$DIRECT_JOIN) %>% nrow() > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("Has JOIN rel")
+    }
 
     ## We must check whether we have to join withing
     ## the branch or whether we have to join on the root
@@ -265,6 +298,11 @@ explore_XOR_split <- function(
 
       return(list(return_list, sequence_memory))
     } else {
+      
+      
+      if(XOR_pair$consequent == "A_Cancelled"){
+        print("Will be sequenced as pair 2")
+      }
 
       tmp <- solve_sequence_relationship(
         seq_pair,
@@ -283,6 +321,12 @@ explore_XOR_split <- function(
 
   if(other_branches %>%
      filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS)) %>% nrow() > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("Has MDF relations")
+    }
+    
     R3_branches <- other_branches %>%
       filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
 
@@ -314,6 +358,11 @@ explore_XOR_split <- function(
 
   if(mutual_branch_relationships %>%
      filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS)) %>% nrow() > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("Mutual branches have MDF relations")
+    }
 
     XOR_pair <- mutual_branch_relationships %>%
       filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS)) %>%
@@ -344,6 +393,11 @@ explore_XOR_split <- function(
            ! consequent %in% branches_with_only_mutual_relations$antecedent)
 
   if(branches_with_only_mutual_relations %>% nrow > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("New XOR solve")
+    }
 
     return_list <- solve_XOR_relationship(
       XOR_pair$antecedent,
@@ -369,6 +423,12 @@ explore_XOR_split <- function(
   ## If there are contradicting sequences, then we assume that they
   ## should be executed n parallel.
   if(contradicting_sequences %>% nrow > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("Solved as if parallel")
+    }
+    
     AND_pair <- contradicting_sequences %>%
       arrange(-importance,
               -score) %>%
@@ -391,6 +451,11 @@ explore_XOR_split <- function(
 
   ## If there are conflicts, we have to examine them.
   if(conflicted_relations %>% nrow() > 0){
+    
+    
+    if(XOR_pair$consequent == "A_Cancelled"){
+      print("Solved in conflict")
+    }
 
     ## If one has a conditional relationship, and the other an exclude
     ## Then this means that the condition is probably very rare
@@ -412,15 +477,15 @@ explore_XOR_split <- function(
               filter(rel.x == RScoreDict$DIRECT_JOIN,
                      rel.y == RScoreDict$MUTUALLY_EXCLUSIVE) %>%
               nrow() > 0){
-      ## If A should join on B but B is not expected to occur toegether with A
+      ## If A should join on B but B is not expected to occur together with A
       ## then A is a rare occurrence before B.
       sampled_conflict <- conflicted_relations %>%
         filter(rel.x == RScoreDict$DIRECT_JOIN,
                rel.y == RScoreDict$MUTUALLY_EXCLUSIVE) %>%
         arrange(-importance,
-                -score)
-      head(1)
-
+                -score) %>% 
+        head(1)
+      
       return_list <- solve_XOR_relationship("",
                                             sampled_conflict$antecedent %>% unique,
                                             rel_df,
@@ -445,6 +510,11 @@ explore_XOR_split <- function(
     return(list(return_list, sequence_memory))
   }
 
+  
+  if(XOR_pair$consequent == "A_Cancelled"){
+    print("Solved as OR split")
+  }
+  
   ## Otherwise, we will create an INCLUSIVE OR gateway
   return_list <- solve_XOR_relationship(
     XOR_pair$antecedent,

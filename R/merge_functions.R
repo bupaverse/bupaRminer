@@ -33,6 +33,10 @@ merge_relationships <- function(
     activities,
     rel_df
 ){
+  
+  ## Remove empty activities
+  activities <- activities[activities != ""]
+  
   ## Reset factor levels
   rel_df <- rel_df %>%
     mutate(rel = factor(rel, levels = MERGE_R_levels, ordered = TRUE))
@@ -91,7 +95,7 @@ merge_relationships <- function(
 
     ## If we only have one activity,
     ## then we have to reduce the importance
-    ## further in otder to avoid a loop.
+    ## further in order to avoid a loop.
     if(length(activities[activities != ""])==1){
 
       direct_antecedents <- original_rel_df %>%
@@ -124,7 +128,7 @@ merge_relationships <- function(
 
       } else {
         consequent_rel <- consequent_rel %>%
-          mutate(importance = importance/10)
+          mutate(importance = importance/20)
 
       }
 
@@ -154,10 +158,61 @@ merge_relationships <- function(
     rel_df <- rel_df %>%
       bind_rows(antecedent_rel)
   }
+  
+  ## If we are merging only one activity, then some relations have to be 
+  ## reconsidered.
+  
+  if(length(activities) == 1){
+    
+    ## If we have JOIN relationships for which the reverse is an EXCL
+    ## then we must change the reverse to REQ
+    
+    join_from_act <- rel_df %>%
+      filter(antecedent == snippet_name, rel == RScoreDict$DIRECT_JOIN)
+    
+    
+    if(join_from_act %>% nrow > 0){
+      
+      reverse_from_join <- rel_df %>%
+        filter(antecedent %in% join_from_act$consequent,
+               consequent == snippet_name)
+      
+      EXCL_from_JOIN <- reverse_from_join %>%
+        filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE)
+      
+      if(EXCL_from_JOIN %>% nrow > 0){
+        rel_df <- rel_df %>%
+          anti_join(EXCL_from_JOIN) %>%
+          bind_rows(EXCL_from_JOIN %>% mutate(rel = RScoreDict$REQUIRES))
+      }
+      if(reverse_from_join %>% nrow == 0){
+        rel_df <- rel_df %>%
+          bind_rows(tibble(
+            antecedent = join_from_act$consequent,
+            consequent = snippet_name,
+            rel = RScoreDict$REQUIRES,
+            score = 0,
+            importance = 0))
+      }
+    }
+  }
+  
+  rel_df <- solve_apriori_conflicts(rel_df, strict = FALSE)
 
   ## Reset factor levels
   rel_df <- rel_df %>%
     mutate(rel = factor(rel, levels = MERGE_R_levels, ordered = TRUE))
+  
+  
+  
+  if(snippet_name == " >X>[W_Complete application_REP_4]>X> >> W_Call after offers_REP_1 >> A_Complete >> W_Call after offers_REP_2 >X>[>X>[A_Cancelled,W_Complete application_REP_5]>X>]>X>  >X>[ >X>[W_Shortened completion_REP_1, >X>[O_Sent (online only)_REP_1,>O>[W_Call after offers_REP,A_Denied >> O_Refused]>O>]>X>]>X> >> W_Personal Loan collection_REP_2 >X>[W_Assess potential fraud_REP_3, >X>[W_Shortened completion_REP_2, >X>[W_Call after offers_REP_4,O_Sent (online only)_REP_2]>X>]>X> >X>[>O>[O_Sent (online only),W_Assess potential fraud,W_Call incomplete files >> A_Incomplete]>O> >>  >X>[W_Shortened completion_REP_3,O_Sent (online only)_REP_3]>X> >> W_Shortened completion_REP_4 >> O_Accepted >> A_Pending >X>[W_Call after offers_REP_5]>X>]>X>]>X>]>X> >>  >X>[W_Assess potential fraud_REP_2, >X>[O_Cancelled,W_Personal Loan collection_REP_1]>X>]>X>"){
+    print(rel_df %>%
+            filter(antecedent == snippet_name) %>%
+            select(consequent, rel))
+    print(rel_df %>%
+            filter(consequent == snippet_name) %>%
+            select(antecedent, rel))
+  }
 
   if(rel_df %>% nrow == 0){
     rel_df <- tibble(
