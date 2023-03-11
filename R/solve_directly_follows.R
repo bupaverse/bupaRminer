@@ -8,10 +8,9 @@ solve_directly_follows <- function(
   act_b <- seq_pair$consequent
   
   
-  rel_df <- remember_pair(
+  rel_df <- rel_df %>% remember_pair(
       seq_pair,
-      "DF",
-      rel_df
+      "DF"
     )
 
   return_list <- list(
@@ -136,8 +135,7 @@ solve_directly_follows <- function(
     return_list$rel_df <- rel_df %>%
       remember_pair(
         AND_pair,
-        ifelse(mode == "SOFT","OR","AND"),
-        rel_df
+        ifelse(mode == "SOFT","OR","AND")
       )
     return(list(return_list, sequence_memory))
   }

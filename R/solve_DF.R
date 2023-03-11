@@ -4,10 +4,9 @@ solve_DF_relationship <- function(
     snippet_dict){
 
   
-  rel_df <- remember_pair(
+  rel_df <- rel_df %>% remember_pair(
     rel_pair,
-    "SEQ",
-    rel_df
+    "SEQ"
   )
   
   return_list <- list(

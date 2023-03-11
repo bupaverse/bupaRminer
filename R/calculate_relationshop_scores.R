@@ -33,9 +33,11 @@ calculate_relationship_scores <- function(ev_log,
 
   duplicated_activities <- unique(ev_log[orig_name != new_act_name][["orig_name"]])
 
+  
+  par_thres <- 0.80
+  
   if(!skip_self_loops && length(duplicated_activities) > 0){
     ## Check if there are immediate repeat activities
-    par_thres <- 0.80
     
     renamed_entries <- discover_self_loops(
       ev_log,
@@ -100,7 +102,7 @@ calculate_relationship_scores <- function(ev_log,
     ev_log,
     all_activities,
     rel_df,
-    parallel_thres = 0.90
+    parallel_thres = par_thres
   )
 
   if("END" %in% unique(ev_log[["AID"]])){

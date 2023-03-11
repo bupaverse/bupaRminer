@@ -15,10 +15,9 @@ explore_XOR_split <- function(
     messages = c()
   )
   
-  rel_df <- remember_pair(
+  rel_df <- rel_df %>% remember_pair(
     XOR_pair,
-    "XOR",
-    rel_df
+    "XOR"
   )
 
   other_branches <- rel_df %>%
@@ -309,9 +308,9 @@ explore_XOR_split <- function(
       snippet_dictionary,
       mode = "SOFT"
     )
-    return_list$rel_df <- remember_pair(
+    return_list$rel_df <- rel_df %>% remember_pair(
       sampled_par,
-      rel_df
+      "OR"
     )
     return(list(return_list, sequence_memory))
   }
@@ -424,8 +423,7 @@ explore_XOR_split <- function(
     return_list$rel_df <- rel_df %>%
       remember_pair(
         AND_pair,
-        "OR",
-        rel_df
+        "AND"
       )
     return(list(return_list, sequence_memory))
   }

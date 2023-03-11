@@ -83,7 +83,8 @@ MERGE_INTERRUPTING_RELS <- c(RScoreDict$TERMINATING,
 MERGE_FOLLOWS_RELS <- c(RScoreDict$DIRECTLY_FOLLOWS,
                   RScoreDict$EVENTUALLY_FOLLOWS,
                   RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                  RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
+                  RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                  RScoreDict$DIRECT_JOIN)
 MERGE_OTHER_RELS <- c(RScoreDict$REQUIRES,
                 RScoreDict$DIRECT_JOIN)
 

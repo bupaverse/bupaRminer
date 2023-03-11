@@ -1,6 +1,6 @@
-remember_pair <- function(selected_pair,
-                          inspect_type,
-                          rel_df){
+remember_pair <- function(rel_df,
+                          selected_pair,
+                          inspect_type){
   
   rel_df <- rel_df %>%
     mutate(selected_row = (antecedent == selected_pair$antecedent & consequent == selected_pair$consequent)) %>%

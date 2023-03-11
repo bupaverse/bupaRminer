@@ -23,7 +23,6 @@ calculate_exclusive_relation <- function(
 
 
   EXCL_importance <- (1- nr_cases_with_A_B) / nr_cases
-  EXCL_importance
 
   tribble(~antecedent,~consequent,~rel,~score,~importance,
           act_A, act_B, RScoreDict$MUTUALLY_EXCLUSIVE, EXCL_score_ab, EXCL_importance,

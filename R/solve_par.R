@@ -11,10 +11,9 @@ solve_PAR_relationship <- function(
     valid_relationships <- c(RScoreDict$ALWAYS_PARALLEL)
   }
   
-  rel_df <- remember_pair(
+  rel_df <- rel_df %>% remember_pair(
     rel_pair,
-    ifelse(mode=="SOFT","OR","AND"),
-    rel_df
+    ifelse(mode=="SOFT","OR","AND")
   )
   
   return_list <- list(
@@ -222,7 +221,7 @@ solve_PAR_relationship <- function(
   new_acts <- new_acts %>% unique
 
   snippet_name <- paste(PAR_SYMBOL_START,paste(new_acts, collapse = ","),PAR_SYMBOL_END,sep="")
-
+  
   snippet_acts = list()
   i <- 1
   for(act in R6_acts){

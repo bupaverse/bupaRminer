@@ -81,10 +81,9 @@ solve_interrupt_relationship <- function(
     messages = c()
   )
   
-  rel_df <- remember_pair(
+  rel_df <- rel_df %>% remember_pair(
     rel_pair,
-    "BOUNDARY",
-    rel_df
+    "BOUNDARY"
   )
 
   antec <- rel_pair$antecedent
@@ -163,6 +162,37 @@ explore_soft_PAR_relationship <- function(
       mutual_pars_if_present <- mutual_pars_if_present %>%
         filter(!c(antecedent %in% potential_pars & consequent %in% potential_pars))
 
+      mutual_exclusives <- rel_df %>%
+        filter(antecedent %in% potential_pars,
+               consequent %in% potential_pars,
+               rel == RScoreDict$MUTUALLY_EXCLUSIVE)
+      
+      if(mutual_exclusives %>% nrow > 0 & 
+         mutual_exclusives %>% 
+         inner_join(mutual_exclusives, 
+                    by=c("antecedent"="consequent","consequent"="antecedent")) %>% 
+         nrow == mutual_exclusives %>% nrow){
+        
+        selected_pair <- mutual_exclusives %>%
+          arrange(-importance) %>%
+          head(1)
+        
+        selected_exclusives <- mutual_exclusives %>%
+          filter(antecedent %in% c(selected_pair$antecedent, selected_pair$consequent))
+        
+        return_list <- solve_XOR_relationship(
+          XOR_root = "",
+          XOR_branches = unique(selected_exclusives$antecedent),
+          rel_df = rel_df,
+          snippet_dict,
+          split_symbol = ">X>")
+        
+        found_none = FALSE
+        
+        return(return_list)
+      }
+      
+      
       other_relations <- rel_df %>%
         filter(antecedent %in% potential_pars) %>%
         filter(!(rel %in% c(RScoreDict$MUTUALLY_EXCLUSIVE)) ) %>%
@@ -171,10 +201,9 @@ explore_soft_PAR_relationship <- function(
         count(consequent)
 
       if(other_relations %>% pull(n) %>% max == 1){
-        rel_df <- remember_pair(
+        rel_df <- rel_df %>% remember_pair(
           sampled_soft_par,
-          "OR",
-          rel_df
+          "OR"
         )
           
         return_list <- solve_PAR_relationship(
@@ -299,18 +328,16 @@ solve_sequence_relationship <- function(
       sequence_memory
     )
     return_list <- tmp[[1]]
-    return_list$rel_df <- remember_pair(
+    return_list$rel_df <- rel_df %>% remember_pair(
       rel_pair,
-      "SEQ",
-      rel_df)
+      "SEQ")
     sequence_memory <- tmp[[2]]
     return(list(return_list, sequence_memory))
   }
   
-  rel_df <- remember_pair(
+  rel_df <- rel_df %>% remember_pair(
     rel_pair,
-    "SEQ",
-    rel_df)
+    "SEQ")
   
 
   if(reset == TRUE){
@@ -495,14 +522,13 @@ solve_sequence_relationship <- function(
 
         ## We only examined on a partial log.
         ## We need to safeguard the entire log though
-        return_list$rel_df <- remember_pair(
+        return_list$rel_df <- rel_df %>% remember_pair(
             relevant_pairs %>% arrange(
               -importance,
               -score
             ) %>%
               head(1),
-            "OR",
-            rel_df
+            "OR"
           )
         return(list(return_list, sequence_memory))
       }
@@ -567,10 +593,9 @@ solve_sequence_relationship <- function(
         return_list <- tmp[[1]]
         sequence_memory <- tmp[[2]]
 
-        return_list$rel_df <- remember_pair(
+        return_list$rel_df <- rel_df %>% remember_pair(
             seq_pair,
-            "SEQ",
-            rel_df
+            "SEQ"
           )
 
         return(list(return_list, sequence_memory))
@@ -709,10 +734,9 @@ solve_sequence_relationship <- function(
                 mutate(rel = RScoreDict$ALWAYS_PARALLEL),
               snippet_dict
             )
-            return_list$rel_df <- remember_pair(
+            return_list$rel_df <- rel_df %>% remember_pair(
                 SEQ_pair,
-                "AND",
-                rel_df
+                "AND"
               )
             return(list(return_list, sequence_memory))
           }
@@ -792,10 +816,9 @@ solve_sequence_relationship <- function(
             snippet_dict,
             mode = "SOFT"
           )
-          return_list$rel_df <- remember_pair(
+          return_list$rel_df <- rel_df %>% remember_pair(
               sampled_par_pair,
-              "OR",
-              rel_df
+              "OR"
             )
           return(list(return_list, sequence_memory))
         }

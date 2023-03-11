@@ -27,6 +27,7 @@ preprocess <- function(eventlog) {
           eventlog %>% mutate(!!sym(lifecycle_colname) := missing_lifecycle_name)
         )
     }
+    
 
     ## Add START and END events
     start_events <- tibble(
@@ -63,6 +64,7 @@ preprocess <- function(eventlog) {
         arrange(!!sym(timestamp_colname)) %>%
         mutate(timestep = row_number()) %>%
         ungroup()
+    
 
     ## Append suffix _sequence_number to activity names
     completed_only <- completed_only  %>%
@@ -78,14 +80,14 @@ preprocess <- function(eventlog) {
             !!sym(activity_colname) := ifelse(is_repeat > 1,
                                               paste(!!sym(activity_colname), is_repeat, sep = "_"),
                                               !!sym(activity_colname)))
-
+    
     # activity_occurrences <- completed_only %>%
     #     activities
     #
     # all_activities <- activity_occurrences %>%
     #     pull(!!sym(activity_colname))
-
-    eventlog %>%
+    
+    eventlog <- eventlog %>%
         left_join(completed_only %>%
                       as_tibble() %>%
                       select(!!sym(case_colname),
@@ -93,8 +95,12 @@ preprocess <- function(eventlog) {
                              new_act_name = !!sym(activity_colname),
                              is_repeat
                              ),
-                  by = c(case_colname, activity_instance_colname)) %>%
+                  by = c(case_colname, activity_instance_colname))
+    
+    eventlog <- eventlog %>%
         mutate(orig_name = !!sym(activity_colname),
                !!sym(activity_colname) := new_act_name) %>%
       re_map(mapping(eventlog))
+    
+    return(eventlog)
 }
