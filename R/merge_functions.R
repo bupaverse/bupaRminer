@@ -1,33 +1,3 @@
-#
-# MERGE_R_levels <- c(RScoreDict$DIRECT_JOIN,
-#               RScoreDict$DIRECTLY_FOLLOWS,
-#               RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-#               RScoreDict$EVENTUALLY_FOLLOWS,
-#               RScoreDict$PARALLEL_IF_PRESENT,
-#               RScoreDict$ALWAYS_PARALLEL,
-#               RScoreDict$TERMINATING,
-#               RScoreDict$HAPPENS_DURING,
-#               RScoreDict$MUTUALLY_EXCLUSIVE,
-#               RScoreDict$REQUIRES,
-#               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
-# )
-#
-#
-# MERGE_R_levels <- c(RScoreDict$DIRECT_JOIN,
-#               RScoreDict$DIRECTLY_FOLLOWS,
-#               RScoreDict$PARALLEL_IF_PRESENT,
-#               RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-#               RScoreDict$EVENTUALLY_FOLLOWS,
-#               RScoreDict$REQUIRES,
-#               RScoreDict$MUTUALLY_EXCLUSIVE,
-#               RScoreDict$ALWAYS_PARALLEL,
-#               RScoreDict$TERMINATING,
-#               RScoreDict$HAPPENS_DURING,
-#               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
-# )
-
-
-
 merge_relationships <- function(
     snippet_name,
     activities,
@@ -198,21 +168,20 @@ merge_relationships <- function(
   }
   
   rel_df <- solve_apriori_conflicts(rel_df, strict = FALSE)
+  
+  ## If we only have a START event to join,
+  ## We make it an always follows relationship
+  if(rel_df %>% filter(antecedent == "START", consequent != "END") %>% nrow == 1){
+    rel_df <- rel_df %>%
+      mutate(rel = as.character(rel)) %>%
+      mutate(rel = ifelse(antecedent=="START",RScoreDict$EVENTUALLY_FOLLOWS,
+                          rel))
+  }
 
   ## Reset factor levels
   rel_df <- rel_df %>%
     mutate(rel = factor(rel, levels = MERGE_R_levels, ordered = TRUE))
   
-  
-  
-  if(snippet_name == " >X>[W_Complete application_REP_4]>X> >> W_Call after offers_REP_1 >> A_Complete >> W_Call after offers_REP_2 >X>[>X>[A_Cancelled,W_Complete application_REP_5]>X>]>X>  >X>[ >X>[W_Shortened completion_REP_1, >X>[O_Sent (online only)_REP_1,>O>[W_Call after offers_REP,A_Denied >> O_Refused]>O>]>X>]>X> >> W_Personal Loan collection_REP_2 >X>[W_Assess potential fraud_REP_3, >X>[W_Shortened completion_REP_2, >X>[W_Call after offers_REP_4,O_Sent (online only)_REP_2]>X>]>X> >X>[>O>[O_Sent (online only),W_Assess potential fraud,W_Call incomplete files >> A_Incomplete]>O> >>  >X>[W_Shortened completion_REP_3,O_Sent (online only)_REP_3]>X> >> W_Shortened completion_REP_4 >> O_Accepted >> A_Pending >X>[W_Call after offers_REP_5]>X>]>X>]>X>]>X> >>  >X>[W_Assess potential fraud_REP_2, >X>[O_Cancelled,W_Personal Loan collection_REP_1]>X>]>X>"){
-    print(rel_df %>%
-            filter(antecedent == snippet_name) %>%
-            select(consequent, rel))
-    print(rel_df %>%
-            filter(consequent == snippet_name) %>%
-            select(antecedent, rel))
-  }
 
   if(rel_df %>% nrow == 0){
     rel_df <- tibble(
@@ -247,29 +216,6 @@ update_rel_notebook <- function(
       rel_df
     )
   }
-
-
-#
-#     bpmn_obj <- constrc_result$snippet_dictionary[[length(constrc_result$snippet_dictionary)]]
-#
-#     map_to_bpmn <- function(bpmn_obj){
-#       tasks <- bpmn_obj$tasks %>% as.data.frame()
-#       seqs <- bpmn_obj$seqs %>% as.data.frame() %>% unique
-#       gateways <- bpmn_obj$gateways %>% as.data.frame() %>% unique
-#       start_events <- bpmn_obj$start_events %>% as.data.frame() %>% unique
-#       end_events <- bpmn_obj$end_events %>% as.data.frame() %>% unique
-#
-#       bpmn_out <- create_bpmn(tasks, seqs, gateways, start_events, end_events)
-#
-#       return(bpmn_out)
-#     }
-#
-#     bpmn_obj <- add_start_end(bpmn_obj)
-#     bpmn_out <- map_to_bpmn(bpmn_obj)
-#
-#     bpmn_out %>%
-#       write_bpmn("output/snippet.bpmn")
-#     readline(prompt="Press [enter] to continue")
 
   return(rel_df)
 }

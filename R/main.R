@@ -35,9 +35,11 @@ discover_process.eventlog <- function(log,
     log <- loop_result$new_log
   }
   cli::cli_alert_info("Calculate relationships")
+  log <- log %>% filter(is_repeat <= 2)
   relationships <- calculate_relationships(log)
+  assigned_relationships <- assign_relationships(relationships)
   cli::cli_alert_info("Construct process")
-  process <- construct_process(relationships,
+  process <- construct_process(assigned_relationships,
                                snippet_dictionary)
   cli::cli_alert_info("Generate BPMN")
   generate_bpmn(process)

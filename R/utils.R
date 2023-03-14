@@ -26,14 +26,26 @@ RScoreDict <- list(
 #               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
 #               RScoreDict$REQUIRES)
 
+# R_levels <- c(RScoreDict$DIRECT_JOIN,
+#               RScoreDict$DIRECTLY_FOLLOWS,
+#               RScoreDict$TERMINATING,
+#               RScoreDict$HAPPENS_DURING,
+#               RScoreDict$ALWAYS_PARALLEL,
+#               RScoreDict$PARALLEL_IF_PRESENT,
+#               RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+#               RScoreDict$EVENTUALLY_FOLLOWS,
+#               RScoreDict$MUTUALLY_EXCLUSIVE,
+#               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+#               RScoreDict$REQUIRES)
+
 R_levels <- c(RScoreDict$DIRECT_JOIN,
               RScoreDict$DIRECTLY_FOLLOWS,
               RScoreDict$TERMINATING,
               RScoreDict$HAPPENS_DURING,
               RScoreDict$ALWAYS_PARALLEL,
               RScoreDict$PARALLEL_IF_PRESENT,
-              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
               RScoreDict$EVENTUALLY_FOLLOWS,
+              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
               RScoreDict$MUTUALLY_EXCLUSIVE,
               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
               RScoreDict$REQUIRES)
@@ -61,17 +73,29 @@ smart_thres_df <- tibble(
                 0.7)
 )
 
+# MERGE_R_levels <- c(RScoreDict$DIRECT_JOIN,
+#               RScoreDict$DIRECTLY_FOLLOWS,
+#               RScoreDict$PARALLEL_IF_PRESENT,
+#               RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+#               RScoreDict$EVENTUALLY_FOLLOWS,
+#               RScoreDict$ALWAYS_PARALLEL,
+#               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+#               RScoreDict$REQUIRES,
+#               RScoreDict$MUTUALLY_EXCLUSIVE,
+#               RScoreDict$TERMINATING,
+#               RScoreDict$HAPPENS_DURING
+# )
 MERGE_R_levels <- c(RScoreDict$DIRECT_JOIN,
-              RScoreDict$DIRECTLY_FOLLOWS,
-              RScoreDict$PARALLEL_IF_PRESENT,
-              RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-              RScoreDict$EVENTUALLY_FOLLOWS,
-              RScoreDict$ALWAYS_PARALLEL,
-              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-              RScoreDict$REQUIRES,
-              RScoreDict$MUTUALLY_EXCLUSIVE,
-              RScoreDict$TERMINATING,
-              RScoreDict$HAPPENS_DURING
+                    RScoreDict$DIRECTLY_FOLLOWS,
+                    RScoreDict$PARALLEL_IF_PRESENT,
+                    RScoreDict$ALWAYS_PARALLEL,
+                    RScoreDict$EVENTUALLY_FOLLOWS,
+                    RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                    RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                    RScoreDict$REQUIRES,
+                    RScoreDict$MUTUALLY_EXCLUSIVE,
+                    RScoreDict$TERMINATING,
+                    RScoreDict$HAPPENS_DURING
 )
 
 pkg.env <- new.env()
