@@ -305,7 +305,7 @@ explore_XOR_split <- function(
     return_list <- solve_PAR_relationship(
       sampled_par,
       par_branches,
-      snippet_dictionary,
+      snippet_dict,
       mode = "SOFT"
     )
     return_list$rel_df <- rel_df %>% remember_pair(

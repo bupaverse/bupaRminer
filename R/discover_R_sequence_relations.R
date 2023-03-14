@@ -56,7 +56,7 @@ discover_R_sequence_relations <- function(
                                          antecedent == succ_act &
                                          score >= parallel_thres][["consequent"]]) -> par_B_relationships
       ## Does not work as expected, so set to empty vector for the moment
-      par_B_relationships <- c()
+      ## par_B_relationships <- c()
       
       all_par_relationships <- unique(c(par_relationships, par_B_relationships))
       

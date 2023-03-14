@@ -27,8 +27,6 @@ construct_process <- function(assigned_rel_df,
     rel_notebook_df
   )
 
-  # snippet_dictionary <- list()
-
   HAS_COMPLETED <- FALSE
   while(!is.null(RELS_IN_FOCUS) & HAS_COMPLETED == FALSE){
 
@@ -60,7 +58,8 @@ construct_process <- function(assigned_rel_df,
       reset_memory()
 
     snippet_dictionary <- result$snippet_dictionary
-    print(names(snippet_dictionary)[length(names(snippet_dictionary))])
+    
+    cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
     
     RELS_IN_FOCUS <- determine_rels_in_focus(
       rel_notebook_df
@@ -95,6 +94,7 @@ construct_process <- function(assigned_rel_df,
         SOFT_PAR_POSSIBLE <- FALSE
       } else {
         snippet_dictionary <- result$snippet_dictionary
+        cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
       }
     }
 
@@ -124,7 +124,7 @@ construct_process <- function(assigned_rel_df,
       print("---- No result for sample")
     } else {
       snippet_dictionary <- result$snippet_dictionary
-      print(names(snippet_dictionary)[length(names(snippet_dictionary))])
+      cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
     }
     
     # print(result$rel_df %>% retrieve_memory_log())
@@ -182,7 +182,7 @@ construct_process <- function(assigned_rel_df,
       print("---- No result for sample")
     } else {
       snippet_dictionary <- result$snippet_dictionary
-      print(names(snippet_dictionary)[length(names(snippet_dictionary))])
+      cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
     }
     rel_notebook_df <- update_rel_notebook(
       result,
