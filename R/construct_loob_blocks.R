@@ -54,13 +54,10 @@ construct_loop_blocks <- function(event_log,
         ) %>%
         ungroup %>%
         mutate(
-          !!sym(timestamp(event_log)) := ifelse(!!sym(lifecycle_id(event_log)) == "start",
+          !!sym(timestamp(event_log)) := if_else(!!sym(lifecycle_id(event_log)) == "start",
                                                 early_ts,
                                                 late_ts)
         ) %>% 
-        mutate(
-          !!sym(timestamp(event_log)) := as.Date.POSIXct(!!sym(timestamp(event_log)))
-        ) %>%
         select(-early_ts, -late_ts)
       
       event_log <- event_log %>%
@@ -69,8 +66,9 @@ construct_loop_blocks <- function(event_log,
     }
   }
   
-  return_list = list(
+  return_list <- list(
     new_log = event_log,
     snippet_dictionary = snippet_dictionary
   )
+  
 }

@@ -11,6 +11,9 @@ preprocess <- function(eventlog) {
     timestamp_colname <- timestamp(eventlog)
     lifecycle_colname <- lifecycle_id(eventlog)
     
+    eventlog <- eventlog %>%
+      mutate(!!sym(activity_instance_colname):= as.character(!!sym(activity_instance_colname)))
+    
     ## Add opposite lifecycle if not present
     lifecycle_summary <- eventlog %>% 
       as_tibble() %>%

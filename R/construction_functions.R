@@ -301,9 +301,7 @@ fetch_sequence_antecedents <- function(
 solve_sequence_relationship <- function(
     rel_pair,
     rel_df,
-    snippet_dict,
-    reset=FALSE,
-    sequence_memory
+    snippet_dict
 ){
 
   return_list <- list(
@@ -319,51 +317,23 @@ solve_sequence_relationship <- function(
             consequent == rel_pair$consequent,
             inspection_sequence > 0) %>%
      nrow > 0){
-    tmp <- solve_sequence_relationship(
+    return_list <- solve_sequence_relationship(
       rel_pair,
       rel_pair %>% 
         mutate(inspection_sequence = 0),
-      snippet_dict,
-      reset=FALSE,
-      sequence_memory
+      snippet_dict
     )
-    return_list <- tmp[[1]]
+    
     return_list$rel_df <- rel_df %>% remember_pair(
       rel_pair,
       "SEQ")
-    sequence_memory <- tmp[[2]]
-    return(list(return_list, sequence_memory))
+    
+    return(return_list)
   }
   
   rel_df <- rel_df %>% remember_pair(
     rel_pair,
     "SEQ")
-  
-
-  if(reset == TRUE){
-    sequence_memory <- list(
-      sequence_solution_counter = 0,
-      sequence_memory_antec = NULL,
-      sequence_memory_conseq = NULL)
-  }
-
-  if(!is.null(sequence_memory$sequence_memory_antec)){
-    if(sequence_memory$sequence_memory_antec == rel_pair$antecedent & sequence_memory$sequence_memory_conseq == rel_pair$consequent){
-      sequence_memory$sequence_solution_counter <- sequence_memory$sequence_solution_counter + 1
-    } else {
-      sequence_memory$sequence_solution_counter <- 0
-    }
-  }
-  if(sequence_memory$sequence_solution_counter > 2){
-    return_list$rel_df <- rel_df %>%
-      filter(!(antecedent == rel_pair$antecedent & consequent == rel_pair$consequent))
-    return_list$messages <- c(return_list$messages, "ATTEMPTED TO BREAK LOOP BY REMOVING REL")
-    return(list(return_list, sequence_memory))
-  }
-
-  sequence_memory$sequence_memory_antec <- rel_pair$antecedent
-  sequence_memory$sequence_memory_conseq <- rel_pair$consequent
-
 
   antec <- rel_pair$antecedent
   conseq <- rel_pair$consequent
@@ -440,7 +410,7 @@ solve_sequence_relationship <- function(
                                    closest_antecedents$consequent %>% unique,
                                    rel_df = rel_df,
                                    snippet_dict =  snippet_dict)
-            return(list(return_list, sequence_memory))
+            return(return_list)
           } else {
             closest_antecedents <- closest_antecedents %>%
               mutate(rel=RScoreDict$DIRECT_JOIN)
@@ -452,23 +422,17 @@ solve_sequence_relationship <- function(
             return_list$rel_df <- rel_df
             return_list$messages <- c(return_list$messages,
                                       paste("Morphed relationships to Rx"))
-            return(list(return_list, sequence_memory))
+            return(return_list)
           }
         }
         if(mutual_relationships %>% nrow == 1){
-          tmp <- solve_sequence_relationship(
+          return_list <- solve_sequence_relationship(
             mutual_relationships,
             rel_df,
-            snippet_dict,
-            sequence_memory = sequence_memory
-
+            snippet_dict
           )
 
-          return_list <- tmp[[1]]
-          sequence_memory <- tmp[[2]]
-
-
-          return(list(return_list, sequence_memory))
+          return(return_list)
         }
 
         ## And we allow the strongest relationship to prevail
@@ -530,7 +494,7 @@ solve_sequence_relationship <- function(
               head(1),
             "OR"
           )
-        return(list(return_list, sequence_memory))
+        return(return_list)
       }
 
     }
@@ -553,17 +517,12 @@ solve_sequence_relationship <- function(
                   -score
                   ) %>%
           head(1)
-        tmp <- solve_sequence_relationship(
+        return_list <- solve_sequence_relationship(
           new_pair,
           rel_df,
-          snippet_dict,
-          sequence_memory = sequence_memory)
+          snippet_dict)
 
-        return_list <- tmp[[1]]
-        sequence_memory <- tmp[[2]]
-
-
-        return(list(return_list, sequence_memory))
+        return(return_list)
       }
 
       ## We will give preference to R1, R3 relationships if
@@ -583,22 +542,18 @@ solve_sequence_relationship <- function(
       if(closest_antecedents %>% nrow == 1){
         seq_pair <- closest_antecedents
 
-        tmp <- solve_directly_follows(
+        return_list <- solve_directly_follows(
           seq_pair,
           closest_antecedents,
-          snippet_dict,
-          sequence_memory = sequence_memory
+          snippet_dict
         )
-
-        return_list <- tmp[[1]]
-        sequence_memory <- tmp[[2]]
 
         return_list$rel_df <- rel_df %>% remember_pair(
             seq_pair,
             "SEQ"
           )
 
-        return(list(return_list, sequence_memory))
+        return(return_list)
       } else {
         ## Otherwise we must examine the mutual relationship
         ## between the closest antecedents.
@@ -631,7 +586,7 @@ solve_sequence_relationship <- function(
                                                     snippet_dict)
             }
           }
-          return(list(return_list, sequence_memory))
+          return(return_list)
         }
 
         ## If the antecedents are mutually exclusive
@@ -647,7 +602,7 @@ solve_sequence_relationship <- function(
                                                 mutual_antec_relations,
                                                 snippet_dict)
           return_list$rel_df <- rel_df
-          return(list(return_list, sequence_memory))
+          return(return_list)
         }
 
 
@@ -670,7 +625,7 @@ solve_sequence_relationship <- function(
                                                 mutual_antec_relations,
                                                 snippet_dict)
           return_list$rel_df <- rel_df
-          return(list(return_list, sequence_memory))
+          return(return_list)
         }
 
         ## If they have a mutual soft parallel relationship
@@ -693,7 +648,7 @@ solve_sequence_relationship <- function(
             mode="SOFT"
           )
 
-          return(list(return_list, sequence_memory))
+          return(return_list)
         }
 
         ## If one requires the other, we first need to create a split on the
@@ -738,7 +693,7 @@ solve_sequence_relationship <- function(
                 SEQ_pair,
                 "AND"
               )
-            return(list(return_list, sequence_memory))
+            return(return_list)
           }
 
           antec <- SEQ_pair$antecedent
@@ -769,7 +724,7 @@ solve_sequence_relationship <- function(
               rel_df = rel_df,
               snippet_dict
             )
-            return(list(return_list, sequence_memory))
+            return(return_list)
           }
 
 
@@ -820,7 +775,7 @@ solve_sequence_relationship <- function(
               sampled_par_pair,
               "OR"
             )
-          return(list(return_list, sequence_memory))
+          return(return_list)
         }
       }
     }
@@ -841,7 +796,7 @@ solve_sequence_relationship <- function(
   if(!SEQ_FOUND){
     return_list$messages <- "--------TODO--------- No logic implemented when no seq is found."
     return_list$rel_df <- rel_df
-    return(list(return_list, sequence_memory))
+    return(return_list)
   } 
   
   if(SEQ_FOUND & relevant_relation %in% c(RScoreDict$DIRECTLY_FOLLOWS,
@@ -850,35 +805,28 @@ solve_sequence_relationship <- function(
       filter(antecedent == antec,
              consequent == conseq)
 
-    tmp <- solve_directly_follows(
+    return_list <- solve_directly_follows(
       seq_pair,
       rel_df,
-      snippet_dict,
-      sequence_memory
+      snippet_dict
     )
 
-    return_list <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
-
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   if(SEQ_FOUND & relevant_relation %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                                           RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
     XOR_pair <- rel_df %>% filter(antecedent == antec,
                                   consequent == conseq)
-    tmp <- explore_XOR_split(
+    return_list <- explore_XOR_split(
       XOR_pair,
       rel_df,
       snippet_dict,
       XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                   RScoreDict$MAYBE_EVENTUALLY_FOLLOWS),
-      sequence_memory = sequence_memory
+                   RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
     )
-
-    return_list <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
-    return(list(return_list, sequence_memory))
+    
+    return(return_list)
   }
 
   if(SEQ_FOUND & relevant_relation == RScoreDict$DIRECT_JOIN){
@@ -889,19 +837,17 @@ solve_sequence_relationship <- function(
     return_list <- solve_join(
       join_pair,
       rel_df,
-      snippet_dict,
-      sequence_memory
+      snippet_dict
     )
 
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 }
 
 solve_join <- function(
   join_pair,
   rel_df,
-  snippet_dict, 
-  sequence_memory
+  snippet_dict
 ){
 
   return_list <- list(
@@ -933,16 +879,13 @@ solve_join <- function(
   }
 
   if(reverse_rel == RScoreDict$REQUIRES){
-    tmp <- solve_directly_follows(
+    return_list <- solve_directly_follows(
       join_pair %>%
         mutate(rel == RScoreDict$DIRECTLY_FOLLOWS),
       join_pair %>%
         mutate(rel == RScoreDict$DIRECTLY_FOLLOWS),
-      snippet_dict,
-      sequence_memory
+      snippet_dict
     )
-    return_list <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
 
     return_list$rel_df <- rel_df
     return(return_list)

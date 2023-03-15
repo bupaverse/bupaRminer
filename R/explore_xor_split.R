@@ -3,8 +3,7 @@ explore_XOR_split <- function(
     rel_df,
     snippet_dict,
     XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS),
-    split_symbol = ">X>",
-    sequence_memory){
+    split_symbol = ">X>"){
 
 
   return_list <- list(
@@ -49,7 +48,6 @@ explore_XOR_split <- function(
         branch_names,
         rel_df,
         snippet_dict)
-
     }
 
     if(reverse_rel == RScoreDict$MUTUALLY_EXCLUSIVE){
@@ -122,7 +120,7 @@ explore_XOR_split <- function(
     }
 
 
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   mutual_branch_relationships <- rel_df %>%
@@ -142,7 +140,7 @@ explore_XOR_split <- function(
       rel_df,
       snippet_dict)
 
-    return(list(return_list, sequence_memory))
+    return(return_list)
 
   }
 
@@ -158,17 +156,13 @@ explore_XOR_split <- function(
       arrange(-importance, -score) %>%
       head(1)
 
-    tmp <- solve_sequence_relationship(
+    return_list <- solve_sequence_relationship(
       seq_pair,
       rel_df,
-      snippet_dict = snippet_dict,
-      sequence_memory = sequence_memory
+      snippet_dict = snippet_dict
     )
 
-    return_list <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
-
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   if(mutual_branch_relationships %>%
@@ -216,20 +210,16 @@ explore_XOR_split <- function(
         snippet_dict
       )
 
-      return(list(return_list, sequence_memory))
+      return(return_list)
     }
 
-    tmp <- solve_sequence_relationship(
+    return_list <- solve_sequence_relationship(
       seq_pair,
       rel_df,
-      snippet_dict,
-      sequence_memory = sequence_memory
+      snippet_dict
     )
 
-    return_list <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
-
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   if(mutual_branch_relationships %>%
@@ -274,20 +264,16 @@ explore_XOR_split <- function(
       return_list$rel_df <- rel_df
       return_list$messages <- c(return_list$messages, "Morphed XOR root relationship to join")
 
-      return(list(return_list, sequence_memory))
+      return(return_list)
     } else {
 
-      tmp <- solve_sequence_relationship(
+      return_list <- solve_sequence_relationship(
         seq_pair,
         rel_df,
-        snippet_dict,
-        sequence_memory = sequence_memory
+        snippet_dict
       )
 
-      return_list <- tmp[[1]]
-      sequence_memory <- tmp[[2]]
-
-      return(list(return_list, sequence_memory))
+      return(return_list)
 
     }
   }
@@ -312,7 +298,7 @@ explore_XOR_split <- function(
       sampled_par,
       "OR"
     )
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
   
 
@@ -334,7 +320,7 @@ explore_XOR_split <- function(
         rel_df = rel_df,
         snippet_dict,
         split_symbol = ">X>")
-      return(list(return_list, sequence_memory))
+      return(return_list)
     } else {
       return_list <- solve_XOR_relationship(
         XOR_root = R3_branches$antecedent %>% unique,
@@ -343,7 +329,7 @@ explore_XOR_split <- function(
         snippet_dict,
         split_symbol = ">O>")
 
-      return(list(return_list, sequence_memory))
+      return(return_list)
     }
   }
 
@@ -366,7 +352,7 @@ explore_XOR_split <- function(
       rel_df,
       snippet_dict)
 
-     return(list(return_list, sequence_memory))
+     return(return_list)
   }
 
 

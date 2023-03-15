@@ -1,8 +1,7 @@
 solve_directly_follows <- function(
     seq_pair,
     rel_df,
-    snippet_dict,
-    sequence_memory){
+    snippet_dict){
 
   act_a <- seq_pair$antecedent
   act_b <- seq_pair$consequent
@@ -32,7 +31,7 @@ solve_directly_follows <- function(
       snippet_dictionary = snippet_dict,
       messages = "Attempt to directly sequence START and END event canceled."
     )
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   if(startsWith(act_a, "START") & act_b == "END" & rel_df %>% nrow > 2){
@@ -45,7 +44,7 @@ solve_directly_follows <- function(
       rel_df = rel_df %>%
         filter(!(antecedent == act_a & consequent == act_b))
     )
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   reverse_rel <- rel_df %>%
@@ -80,7 +79,7 @@ solve_directly_follows <- function(
       messages = msg
     )
 
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   if(reverse_rel %in% c(RScoreDict$MAYBE_EVENTUALLY_FOLLOWS, RScoreDict$MUTUALLY_EXCLUSIVE)){
@@ -102,7 +101,7 @@ solve_directly_follows <- function(
       messages = msg
     )
 
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   if(reverse_rel %in% c(seq_pair$rel, RScoreDict$ALWAYS_PARALLEL, RScoreDict$PARALLEL_IF_PRESENT)){
@@ -137,7 +136,7 @@ solve_directly_follows <- function(
         AND_pair,
         ifelse(mode == "SOFT","OR","AND")
       )
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   if(reverse_rel == RScoreDict$DIRECT_JOIN){
@@ -162,7 +161,7 @@ solve_directly_follows <- function(
           rel_df,
           snippet_dict)
 
-        return(list(return_list, sequence_memory))
+        return(return_list)
       }
 
       if(mutual_join_rel_count %>% filter(rel != RScoreDict$PARALLEL_IF_PRESENT) %>% nrow == 0){
@@ -173,7 +172,7 @@ solve_directly_follows <- function(
           snippet_dict,
           split_symbol = ">O>")
 
-        return(list(return_list, sequence_memory))
+        return(return_list)
       }
 
       if(mutual_join_rel_count$rel %in%
@@ -189,16 +188,13 @@ solve_directly_follows <- function(
           arrange(-importance, -score) %>%
           head(1)
 
-        tmp <- solve_sequence_relationship(
+        return_list <- solve_sequence_relationship(
           seq_pair,
           rel_df,
-          snippet_dict,
-          sequence_memory = sequence_memory
+          snippet_dict
         )
-        return_list <- tmp[[1]]
-        sequence_memory <- tmp[[2]]
 
-        return(list(return_list, sequence_memory))
+        return(return_list)
       }
 
     }
@@ -213,6 +209,6 @@ solve_directly_follows <- function(
     messages = msg
   )
 
-  return(list(return_list, sequence_memory))
+  return(return_list)
 
 }

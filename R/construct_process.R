@@ -4,11 +4,6 @@ construct_process <- function(assigned_rel_df,
 
   pkg.env$end_event_counter <- 1
 
-  sequence_memory <- list(
-    sequence_solution_counter = 0,
-    sequence_memory_antec = NULL,
-    sequence_memory_conseq = NULL)
-
   rel_notebook_df <- assigned_rel_df %>%
     filter(!(rel == RScoreDict$ALWAYS_PARALLEL &
                antecedent %in% c("START","END") &
@@ -109,16 +104,11 @@ construct_process <- function(assigned_rel_df,
       rel_notebook_df, # %>% filter(antecedent %in% relevant_antec),
       MERGE_FOLLOWS_RELS)
 
-    tmp <- solve_sequence_relationship(
+    result <- solve_sequence_relationship(
       sampled_pair,
       rel_notebook_df,
-      snippet_dictionary,
-      reset = TRUE,
-      sequence_memory
+      snippet_dictionary
     )
-
-    result <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
 
     if(is.null(result)){
       print("---- No result for sample")
@@ -169,14 +159,11 @@ construct_process <- function(assigned_rel_df,
         mutate(rel = RScoreDict$DIRECTLY_FOLLOWS)
     }
 
-    tmp <- solve_directly_follows(
+    result <- solve_directly_follows(
       seq_pair,
       seq_pair,
-      snippet_dictionary,
-      sequence_memory = sequence_memory
+      snippet_dictionary
     )
-    result <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
 
     if(is.null(result)){
       print("---- No result for sample")
