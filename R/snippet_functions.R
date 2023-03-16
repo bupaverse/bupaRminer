@@ -98,7 +98,9 @@ create_snippet <- function(
     ## them.
     same_type_branches <- list()
     other_type_branches <- list()
-
+    
+    branch_has_start<- FALSE
+    
     for(branch in branches){
 
       same_type <- FALSE
@@ -107,6 +109,21 @@ create_snippet <- function(
                             snippet_dict,
                             start_event_name,
                             end_event_name)
+      
+      if(!is.null(branch$start_events) && branch$start_events %>% nrow > 0){
+        print("Branch already has a start event")
+        branch_has_start <- TRUE
+        start_event_id <- branch$start_events %>% 
+          head(1) %>%
+          pull(id)
+        artefact_from_start <- branch$seqs %>%
+          filter(sourceRef == start_event_id) %>%
+          pull(targetRef)
+        
+        branch$init <- artefact_from_start
+        branch$seqs <- branch$seqs %>%
+          filter(sourceRef != start_event_id)
+      }
 
       if(!is.null(branch$gateways) & branch$gateways %>% nrow() > 0){
 
@@ -135,6 +152,7 @@ create_snippet <- function(
           }
         }
       }
+      
       if(same_type == FALSE){
         other_type_branches[[length(other_type_branches)+1]] <- branch
       }
@@ -277,6 +295,21 @@ create_snippet <- function(
     used_gateways <- c(new_snippet$seqs %>% pull(sourceRef),new_snippet$seqs %>% pull(targetRef) )
     new_snippet$gateways <- new_snippet$gateways %>%
       filter(id %in% used_gateways)
+    
+    if(branch_has_start){
+      start_id <-  new_snippet$start_events %>%
+        head(1) %>%
+        pull(id)
+      
+      new_sequence <- establish_sequence(
+        start_id,
+        new_snippet$init
+      )
+      
+      new_snippet$init <- start_id
+      new_snippet$seqs <- new_snippet$seqs %>%
+        bind_rows(new_sequence)
+    }
   }
 
   return(new_snippet)

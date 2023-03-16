@@ -67,8 +67,34 @@ construct_process <- function(assigned_rel_df,
   
   completed_FOL <- FALSE
   while(rel_notebook_df %>%
-        filter(rel %in% c(MERGE_FOLLOWS_RELS, RScoreDict$PARALLEL_IF_PRESENT )) %>%
+        filter(rel %in% c(MERGE_FOLLOWS_RELS, 
+                          RScoreDict$MUTUALLY_EXCLUSIVE, 
+                          RScoreDict$PARALLEL_IF_PRESENT )) %>%
         nrow() > 0 & completed_FOL == FALSE){
+    
+    
+    EXCLUDE_PAIRS_POSSIBLE <- TRUE
+    
+    while(EXCLUDE_PAIRS_POSSIBLE & rel_notebook_df %>% fetch_mutual_exclude() %>% nrow > 0){
+      
+      result <- explore_mutual_exclusive_relationship(rel_notebook_df,
+                                              snippet_dictionary)
+      
+      rel_notebook_df <- update_rel_notebook(
+        result,
+        rel_notebook_df
+      )
+      
+      rel_notebook_df <- rel_notebook_df %>%
+        reset_memory()
+      
+      if(is.null(result$snippet)){
+        EXCLUDE_PAIRS_POSSIBLE <- FALSE
+      } else {
+        snippet_dictionary <- result$snippet_dictionary
+        cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
+      }
+    }
 
     SOFT_PAR_POSSIBLE <- TRUE
 
@@ -133,7 +159,6 @@ construct_process <- function(assigned_rel_df,
         reset_memory()
     }
     
-
     if(rel_notebook_df %>%
        filter(
          rel %in% MERGE_FOLLOWS_RELS) %>% nrow() == 0){

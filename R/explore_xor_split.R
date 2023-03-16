@@ -372,7 +372,7 @@ explore_XOR_split <- function(
       rel_df,
       snippet_dict)
 
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
   ## If not everything is mutually exclusive, then we need to examine
@@ -411,7 +411,7 @@ explore_XOR_split <- function(
         AND_pair,
         "AND"
       )
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
 
 
@@ -452,23 +452,20 @@ explore_XOR_split <- function(
                                             rel_df,
                                             snippet_dict)
 
-      return(list(return_list, sequence_memory))
+      return(return_list)
     }
 
     sampled_conflict <- rel_df %>%
       filter(antecedent == sampled_conflict$antecedent,
              consequent == sampled_conflict$consequent)
 
-    tmp <- explore_XOR_split(
+    return_list <- explore_XOR_split(
       sampled_conflict,
       rel_df,
       snippet_dict = snippet_dict,
-      sequence_memory = sequence_memory,
       XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                    RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
-    return_list <- tmp[[1]]
-    sequence_memory <- tmp[[2]]
-    return(list(return_list, sequence_memory))
+    return(return_list)
   }
   
   ## Otherwise, we will create an INCLUSIVE OR gateway
@@ -480,5 +477,5 @@ explore_XOR_split <- function(
     split_symbol = ">O>"
   )
 
-  return(list(return_list, sequence_memory))
+  return(return_list)
 }
