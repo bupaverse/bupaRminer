@@ -67,7 +67,7 @@ construct_process <- function(assigned_rel_df,
   
   completed_FOL <- FALSE
   while(rel_notebook_df %>%
-        filter(rel %in% MERGE_FOLLOWS_RELS ) %>%
+        filter(rel %in% c(MERGE_FOLLOWS_RELS, RScoreDict$PARALLEL_IF_PRESENT )) %>%
         nrow() > 0 & completed_FOL == FALSE){
 
     SOFT_PAR_POSSIBLE <- TRUE
@@ -92,40 +92,46 @@ construct_process <- function(assigned_rel_df,
         cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
       }
     }
-
-    result <- NULL
-
-    ## We fetch early activities in branches
-    relevant_antec <- fetch_sequence_antecedents(rel_notebook_df)
-
-    ## We sample any pair between an early activity
-    ## and any follows or eventually follows relationship
-    sampled_pair <- sample_pair(
-      rel_notebook_df, # %>% filter(antecedent %in% relevant_antec),
-      MERGE_FOLLOWS_RELS)
-
-    result <- solve_sequence_relationship(
-      sampled_pair,
-      rel_notebook_df,
-      snippet_dictionary
-    )
-
-    if(is.null(result)){
-      print("---- No result for sample")
-    } else {
-      snippet_dictionary <- result$snippet_dictionary
-      cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
+    
+    if(rel_notebook_df %>%
+       filter(rel %in% MERGE_FOLLOWS_RELS) %>%
+       nrow() > 0 & completed_FOL == FALSE){
+      
+      
+      result <- NULL
+      
+      ## We fetch early activities in branches
+      relevant_antec <- fetch_sequence_antecedents(rel_notebook_df)
+      
+      ## We sample any pair between an early activity
+      ## and any follows or eventually follows relationship
+      sampled_pair <- sample_pair(
+        rel_notebook_df, # %>% filter(antecedent %in% relevant_antec),
+        MERGE_FOLLOWS_RELS)
+      
+      result <- solve_sequence_relationship(
+        sampled_pair,
+        rel_notebook_df,
+        snippet_dictionary
+      )
+      
+      if(is.null(result)){
+        print("---- No result for sample")
+      } else {
+        snippet_dictionary <- result$snippet_dictionary
+        cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
+      }
+      
+      # print(result$rel_df %>% retrieve_memory_log())
+      
+      rel_notebook_df <- update_rel_notebook(
+        result,
+        rel_notebook_df
+      )
+      
+      rel_notebook_df <- rel_notebook_df %>%
+        reset_memory()
     }
-    
-    # print(result$rel_df %>% retrieve_memory_log())
-
-    rel_notebook_df <- update_rel_notebook(
-      result,
-      rel_notebook_df
-    )
-    
-    rel_notebook_df <- rel_notebook_df %>%
-      reset_memory()
     
 
     if(rel_notebook_df %>%
