@@ -522,10 +522,7 @@ solve_sequence_relationship <- function(
            nrow== 0){
 
           sampled_soft_par <- mutual_antec_relations %>%
-            arrange(-importance,
-                    -score
-                    ) %>%
-            head(1)
+            sample_pair(RScoreDict$PARALLEL_IF_PRESENT)
 
           return_list <- solve_PAR_relationship(
             sampled_soft_par,

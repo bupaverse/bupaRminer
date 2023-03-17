@@ -126,6 +126,28 @@ explore_XOR_split <- function(
   mutual_branch_relationships <- rel_df %>%
     filter(antecedent %in% branch_names,
            consequent %in% branch_names)
+  
+  ## If there are no circular relationships between the branches
+  ## then we can select one of the pairs and construct a relationship
+  ## between them
+  if(mutual_branch_relationships %>% filter(rel != RScoreDict$REQUIRES) %>% count(antecedent) %>% pull(n) %>% max == 1){
+    if(mutual_branch_relationships %>% filter(rel != RScoreDict$REQUIRES) %>% count(consequent) %>% pull(n) %>% max == 1){
+      
+      if(mutual_branch_relationships %>% filter(rel %in% MERGE_FOLLOWS_RELS) %>% nrow > 0){
+        
+        
+        branch_pair <- mutual_branch_relationships %>%
+          sample_pair(MERGE_FOLLOWS_RELS)
+        
+        return_list <- solve_sequence_relationship(
+          branch_pair,
+          rel_df,
+          snippet_dict
+        )
+        return(return_list)
+      }
+    }
+  }
 
   ## If all branches are mutually exclusive, then we can create a XOR split
   ## on them.
@@ -133,14 +155,38 @@ explore_XOR_split <- function(
      count(rel) %>%
      filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow() == 0){
 
+    exclusive_branch_relationships <- mutual_branch_relationships %>% 
+      filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE) %>% 
+      inner_join(mutual_branch_relationships %>%
+                   select(antecedent, consequent),
+                 by = c("antecedent"="consequent","consequent"="antecedent"))
+    ## First we check how oftern an activity occurs as
+    ## mutually exclusive
+    mutual_occurrences <- exclusive_branch_relationships %>%
+      count(antecedent)
     
-    return_list <- solve_XOR_relationship(
-      XOR_pair$antecedent,
-      branch_names,
-      rel_df,
-      snippet_dict)
-
-    return(return_list)
+    while(mutual_occurrences %>% nrow > 0 &
+          mutual_occurrences %>% pull(n) %>% max != mutual_occurrences %>% pull(n) %>% min){
+      thrown_activities <- mutual_occurrences %>%
+        filter(n == min(n)) %>%
+        pull(antecedent)
+      exclusive_branch_relationships <- exclusive_branch_relationships %>%
+        filter(!(antecedent %in% thrown_activities),
+               !(consequent %in% thrown_activities))
+      mutual_occurrences <- exclusive_branch_relationships %>%
+        count(antecedent)
+    }
+    
+    if(mutual_occurrences %>% nrow > 0){
+      
+      return_list <- solve_XOR_relationship(
+        XOR_pair$antecedent,
+        mutual_occurrences$antecedent,
+        rel_df,
+        snippet_dict)
+      
+      return(return_list)
+    }
 
   }
 
@@ -151,10 +197,8 @@ explore_XOR_split <- function(
                        RScoreDict$EVENTUALLY_FOLLOWS)) %>% nrow() > 0){
 
     seq_pair <- mutual_branch_relationships %>%
-      filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                        RScoreDict$EVENTUALLY_FOLLOWS)) %>%
-      arrange(-importance, -score) %>%
-      head(1)
+      sample_pair(c(RScoreDict$DIRECTLY_FOLLOWS,
+                    RScoreDict$EVENTUALLY_FOLLOWS))
 
     return_list <- solve_sequence_relationship(
       seq_pair,

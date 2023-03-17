@@ -74,9 +74,32 @@ solve_PAR_relationship <- function(
     ## Otherwise, we have to check.
     if(relations_after_split %>% filter(all_same == FALSE) %>% nrow() > 0){
       mutual_relationships <- rel_df %>%
+        filter(antecedent %in% acts_after_split,
+               consequent %in% acts_after_split)
+      
+      if(mutual_relationships %>% filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                                                    RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                                                    RScoreDict$EVENTUALLY_FOLLOWS,
+                                                    RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                                                    RScoreDict$DIRECT_JOIN)) %>% nrow > 0){
+        selected_pair <- mutual_relationships %>% 
+          sample_pair(c(RScoreDict$DIRECTLY_FOLLOWS,
+                        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                        RScoreDict$EVENTUALLY_FOLLOWS,
+                        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                        RScoreDict$DIRECT_JOIN))
+        
+        return_list <- solve_sequence_relationship(
+          selected_pair,
+          rel_df,
+          snippet_dict
+        )
+        return(return_list)
+      }
+
+      mutual_relationships <- rel_df %>%
         filter(antecedent %in% R6_acts,
                consequent %in% acts_after_split)
-
       ## If there are only follows relationships, then we assume we can proceed,
       ## otherwise we have to check
       if(mutual_relationships %>%
@@ -210,11 +233,11 @@ solve_PAR_relationship <- function(
       trimmed_act <- gsub('^>O>\\[|\\]>O>$', '', trimmed_act)
 
       ## Remove trailing numbers and then remove repetitions
-      trimmed_act <- gsub("_(0|[1-9][0-9]*)$", "",trimmed_act)
+      ## trimmed_act <- gsub("_(0|[1-9][0-9]*)$", "",trimmed_act)
       new_acts <- c(new_acts, trimmed_act)
     } else{
-      trimmed_act <- gsub("_(0|[1-9][0-9]*)$", "",act)
-      new_acts <- c(new_acts, trimmed_act)
+      ## trimmed_act <- gsub("_(0|[1-9][0-9]*)$", "",act)
+      new_acts <- c(new_acts, act)
     }
   }
 
