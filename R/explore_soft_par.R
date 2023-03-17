@@ -91,12 +91,31 @@ explore_soft_PAR_relationship <- function(
       
       other_relations <- rel_df %>%
         filter(antecedent %in% potential_pars) %>%
-        filter(!(rel %in% c(RScoreDict$MUTUALLY_EXCLUSIVE)) ) %>%
-        count(consequent,rel) %>%
-        ungroup() %>%
-        count(consequent)
+        filter(!(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT)) ) 
       
-      if(other_relations %>% pull(n) %>% max == 1){
+      if(other_relations %>% filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                                               RScoreDict$EVENTUALLY_FOLLOWS)) %>% nrow ==
+                                    length(potential_pars)){
+        
+        rel_df <- rel_df %>% remember_pair(
+          sampled_soft_par,
+          "OR"
+        )
+        
+        return_list <- solve_PAR_relationship(
+          sampled_soft_par,
+          rel_df,
+          snippet_dict,
+          mode="SOFT"
+        )
+        
+        found_none = FALSE
+      }
+      
+      if(other_relations %>% filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                                               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>% nrow ==
+                                    length(potential_pars)){
+        
         rel_df <- rel_df %>% remember_pair(
           sampled_soft_par,
           "OR"
