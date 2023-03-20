@@ -36,9 +36,6 @@ explore_soft_PAR_relationship <- function(
         pull(antecedent) %>%
         unique
       
-      mutual_pars_if_present <- mutual_pars_if_present %>%
-        filter(!c(antecedent %in% potential_pars & consequent %in% potential_pars))
-      
       mutual_exclusives <- rel_df %>%
         filter(antecedent %in% potential_pars,
                consequent %in% potential_pars,
@@ -92,6 +89,22 @@ explore_soft_PAR_relationship <- function(
       other_relations <- rel_df %>%
         filter(antecedent %in% potential_pars) %>%
         filter(!(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT)) ) 
+      
+      if(other_relations %>% nrow == 0){
+        rel_df <- rel_df %>% remember_pair(
+          sampled_soft_par,
+          "OR"
+        )
+        
+        return_list <- solve_PAR_relationship(
+          sampled_soft_par,
+          rel_df,
+          snippet_dict,
+          mode="SOFT"
+        )
+        
+        found_none = FALSE
+      }
       
       if(other_relations %>% filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
                                                RScoreDict$EVENTUALLY_FOLLOWS)) %>% nrow ==
