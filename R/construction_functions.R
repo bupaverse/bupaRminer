@@ -6,6 +6,12 @@
 sample_pair <- function(
     rel_df,
     rel_vect){
+  
+  if(is.null(rel_vect) | length(rel_vect) == 0){
+    rel_vect <- rel_df%>%
+      pull(rel) %>%
+      unique
+  }
 
   domain <- rel_df %>%
     filter(rel %in% c(rel_vect))
@@ -119,70 +125,6 @@ solve_interrupt_relationship <- function(
 
   return(return_list)
 }
-
-fetch_sequence_antecedents <- function(
-    rel_df){
-
-  relevant_antec <- c()
-
-  ## We are searching for starting points of a sequence relationship
-
-  ## We start by fetching the starting points (antecedents) of R2 relationships
-  if(rel_df %>%
-     filter(rel == RScoreDict$EVENTUALLY_FOLLOWS) %>%
-     nrow() > 0){
-
-    ## We fetch all starting points of an R2 relationship
-    all_antec_of_R2 <- rel_df %>%
-      filter(rel == RScoreDict$EVENTUALLY_FOLLOWS) %>%
-      pull(antecedent) %>%
-      unique
-
-    ## We check which of the R2 starting points (antecedentà are the end point
-    ## (consequent) of any follows relationship themselves.
-    ## This indicates that these are not the first acitivities in a branch.
-    all_antecedents_with_preceeding_R2 <- rel_df %>%
-      filter(consequent %in% all_antec_of_R2,
-             rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                        RScoreDict$EVENTUALLY_FOLLOWS,
-                        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>%
-      count(consequent, rel) %>%
-      pull(consequent)
-
-    ## We retain all starting points (antecedents) that are not an ending point (consequent)
-    ## themselves. You can consider these activities the "earliest" activitities in a branch
-    relevant_antec <- all_antec_of_R2[! all_antec_of_R2 %in% all_antecedents_with_preceeding_R2]
-  }
-
-  ## If we do not find this for R2 activities,
-  ## then we do this for any follows or eventually follows relationship.
-  if(length(relevant_antec) == 0){
-
-    all_antec_of_R2 <- rel_df %>%
-      filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                        RScoreDict$EVENTUALLY_FOLLOWS,
-                        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>%
-      pull(antecedent) %>%
-      unique
-
-    all_antecedents_with_preceeding_R2 <- rel_df %>%
-      filter(consequent %in% all_antec_of_R2,
-             rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                        RScoreDict$EVENTUALLY_FOLLOWS,
-                        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>%
-      count(consequent, rel) %>%
-      pull(consequent)
-
-    relevant_antec <- all_antec_of_R2[! all_antec_of_R2 %in% all_antecedents_with_preceeding_R2]
-
-  }
-
-  return(relevant_antec)
-}
-
 
 solve_sequence_relationship <- function(
     rel_pair,
@@ -392,23 +334,24 @@ solve_sequence_relationship <- function(
       ## Then we actually need to look for a split
       ## We try to create a new pair using one of the branches.
       if(closest_antecedents %>% count(rel) %>% filter(rel != RScoreDict$DIRECT_JOIN) %>% nrow == 0){
+        
         new_pair <- rel_df %>%
-          filter(consequent %in% closest_antecedents$antecedent,
-                 rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                            RScoreDict$EVENTUALLY_FOLLOWS,
-                            RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-                            RScoreDict$DIRECT_JOIN)) %>%
-          arrange(-importance,
-                  -score
-                  ) %>%
-          head(1)
-        return_list <- solve_sequence_relationship(
-          new_pair,
-          rel_df,
-          snippet_dict)
-
-        return(return_list)
+          filter(consequent %in% closest_antecedents$antecedent) %>%
+          sample_pair(c(RScoreDict$DIRECTLY_FOLLOWS,
+                        RScoreDict$EVENTUALLY_FOLLOWS,
+                        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                        RScoreDict$DIRECT_JOIN))
+        
+        if(!is.null(new_pair) && new_pair %>% nrow > 0){
+          
+          return_list <- solve_sequence_relationship(
+            new_pair,
+            rel_df,
+            snippet_dict)
+          
+          return(return_list)
+        }
       }
 
       ## We will give preference to R1, R3 relationships if

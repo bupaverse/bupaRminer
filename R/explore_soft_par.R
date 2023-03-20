@@ -103,10 +103,8 @@ explore_soft_PAR_relationship <- function(
           mode="SOFT"
         )
         
-        found_none = FALSE
-      }
-      
-      if(other_relations %>% filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+        found_none <- FALSE
+      } else if(other_relations %>% filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
                                                RScoreDict$EVENTUALLY_FOLLOWS)) %>% nrow ==
                                     length(potential_pars)){
         
@@ -122,10 +120,8 @@ explore_soft_PAR_relationship <- function(
           mode="SOFT"
         )
         
-        found_none = FALSE
-      }
-      
-      if(other_relations %>% filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+        found_none <- FALSE
+      } else if(other_relations %>% filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                                                RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>% nrow ==
                                     length(potential_pars)){
         
@@ -141,8 +137,11 @@ explore_soft_PAR_relationship <- function(
           mode="SOFT"
         )
         
-        found_none = FALSE
+        found_none <- FALSE
       }
+      
+      mutual_pars_if_present <- mutual_pars_if_present %>%
+        filter(!(antecedent %in% potential_pars & consequent %in% potential_pars))
       
     }
   }

@@ -123,16 +123,12 @@ construct_process <- function(assigned_rel_df,
        filter(rel %in% MERGE_FOLLOWS_RELS) %>%
        nrow() > 0 & completed_FOL == FALSE){
       
-      
       result <- NULL
-      
-      ## We fetch early activities in branches
-      relevant_antec <- fetch_sequence_antecedents(rel_notebook_df)
       
       ## We sample any pair between an early activity
       ## and any follows or eventually follows relationship
       sampled_pair <- sample_pair(
-        rel_notebook_df, # %>% filter(antecedent %in% relevant_antec),
+        rel_notebook_df,
         MERGE_FOLLOWS_RELS)
       
       result <- solve_sequence_relationship(
@@ -161,7 +157,9 @@ construct_process <- function(assigned_rel_df,
     
     if(rel_notebook_df %>%
        filter(
-         rel %in% MERGE_FOLLOWS_RELS) %>% nrow() == 0){
+         rel %in% c(MERGE_FOLLOWS_RELS,
+                    RScoreDict$MUTUALLY_EXCLUSIVE, 
+                    RScoreDict$PARALLEL_IF_PRESENT) ) %>% nrow() == 0){
       completed_FOL = TRUE
     }
 
