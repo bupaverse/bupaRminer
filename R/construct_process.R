@@ -69,7 +69,8 @@ construct_process <- function(assigned_rel_df,
   while(rel_notebook_df %>%
         filter(rel %in% c(MERGE_FOLLOWS_RELS, 
                           RScoreDict$MUTUALLY_EXCLUSIVE, 
-                          RScoreDict$PARALLEL_IF_PRESENT )) %>%
+                          RScoreDict$PARALLEL_IF_PRESENT,
+                          RScoreDict$REQUIRES)) %>%
         nrow() > 0 & completed_FOL == FALSE){
     
     
@@ -153,62 +154,65 @@ construct_process <- function(assigned_rel_df,
       
       rel_notebook_df <- rel_notebook_df %>%
         reset_memory()
+    } else {
+      completed_RxREQ <- FALSE
+      while(rel_notebook_df %>%
+            filter(rel %in%  MERGE_OTHER_RELS) %>%
+            nrow() > 0 & completed_RxREQ == FALSE){
+        
+        ## We sample any pair between an early activity
+        ## and any follows or eventually follows relationship
+        sampled_pair <- rel_notebook_df %>% sample_pair(
+          c(RScoreDict$DIRECT_JOIN,
+            RScoreDict$REQUIRES) )
+        
+        if(sampled_pair$rel == RScoreDict$REQUIRES){
+          seq_pair <- tibble(
+            antecedent = sampled_pair$consequent,
+            consequent = sampled_pair$antecedent,
+            rel = RScoreDict$DIRECTLY_FOLLOWS,
+            score = NA
+          )
+        } else {
+          seq_pair <- sampled_pair %>%
+            mutate(rel = RScoreDict$DIRECTLY_FOLLOWS)
+        }
+        
+        result <- solve_directly_follows(
+          seq_pair,
+          seq_pair,
+          snippet_dictionary
+        )
+        
+        if(is.null(result)){
+          print("---- No result for sample")
+        } else {
+          snippet_dictionary <- result$snippet_dictionary
+          cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
+        }
+        rel_notebook_df <- update_rel_notebook(
+          result,
+          rel_notebook_df
+        )
+        
+        rel_notebook_df <- rel_notebook_df %>%
+          reset_memory()
+        
+      }
     }
     
     if(rel_notebook_df %>%
        filter(
          rel %in% c(MERGE_FOLLOWS_RELS,
                     RScoreDict$MUTUALLY_EXCLUSIVE, 
-                    RScoreDict$PARALLEL_IF_PRESENT) ) %>% nrow() == 0){
+                    RScoreDict$PARALLEL_IF_PRESENT,
+                    RScoreDict$REQUIRES) ) %>% nrow() == 0){
       completed_FOL = TRUE
     }
 
   }
 
-  completed_RxREQ <- FALSE
-  while(rel_notebook_df %>%
-        filter(rel %in%  MERGE_OTHER_RELS) %>%
-        nrow() > 0 & completed_RxREQ == FALSE){
-
-    ## We sample any pair between an early activity
-    ## and any follows or eventually follows relationship
-    sampled_pair <- rel_notebook_df %>% sample_pair(
-      c(RScoreDict$DIRECT_JOIN,
-        RScoreDict$REQUIRES) )
-
-    if(sampled_pair$rel == RScoreDict$REQUIRES){
-      seq_pair <- tibble(
-        antecedent = sampled_pair$consequent,
-        consequent = sampled_pair$antecedent,
-        rel = RScoreDict$DIRECTLY_FOLLOWS,
-        score = NA
-      )
-    } else {
-      seq_pair <- sampled_pair %>%
-        mutate(rel = RScoreDict$DIRECTLY_FOLLOWS)
-    }
-
-    result <- solve_directly_follows(
-      seq_pair,
-      seq_pair,
-      snippet_dictionary
-    )
-
-    if(is.null(result)){
-      print("---- No result for sample")
-    } else {
-      snippet_dictionary <- result$snippet_dictionary
-      cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
-    }
-    rel_notebook_df <- update_rel_notebook(
-      result,
-      rel_notebook_df
-    )
-    
-    rel_notebook_df <- rel_notebook_df %>%
-      reset_memory()
-    
-  }
+ 
 
   return(snippet_dictionary)
 
