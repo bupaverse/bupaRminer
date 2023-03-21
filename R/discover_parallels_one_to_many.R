@@ -46,7 +46,8 @@ discover_parallels_one_to_many <- function(eventlog,
       "antecedent" = c(act_A, act_B, act_A, act_B),
       "consequent" = c(act_B, act_A, act_B, act_A),
       "rel" = c(RScoreDict$ALWAYS_PARALLEL, RScoreDict$ALWAYS_PARALLEL, RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$PARALLEL_IF_PRESENT),
-      "score" = c(full_par_score, full_par_score, par_score, par_score))
+      "score" = c(full_par_score, full_par_score, par_score, par_score),
+      "importance" = c(full_par_score, full_par_score, par_score, par_score))
 
     output[[B]] <- new_row
   }
