@@ -69,6 +69,15 @@ solve_apriori_conflicts <- function(
   rel_df <- rel_df %>%
     anti_join(conflict_rel, by=c("antecedent","consequent")) %>%
     bind_rows(conflict_rel)
+  
+  antecedents_with_multiple_DF <- rel_df %>%
+    filter(rel == RScoreDict$DIRECTLY_FOLLOWS) %>%
+    group_by(antecedent) %>%
+    filter(n() > 1)
+  
+  rel_df <- rel_df %>%
+    anti_join(antecedents_with_multiple_DF, by=c("antecedent","consequent")) %>%
+    bind_rows(antecedents_with_multiple_DF %>% mutate(rel = RScoreDict$DIRECT_JOIN))
 
   return(rel_df)
 }
