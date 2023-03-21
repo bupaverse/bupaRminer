@@ -17,21 +17,13 @@ explore_mutual_exclusive_relationship <- function(
     found_none = TRUE
     while(found_none & mutual_exclusives %>% nrow() > 0){
       sampled_exclude <- mutual_exclusives %>%
-        arrange(
-          -importance,
-          -score
-        ) %>%
-        head(1)
-      
-      mutual_exclusives <- mutual_exclusives %>%
-        filter(!(antecedent == sampled_exclude$antecedent & consequent == sampled_exclude$consequent))%>%
-        filter(!(consequent == sampled_exclude$antecedent & antecedent == sampled_exclude$consequent))
-      
-      mutual_excludes <- mutual_exclusives %>%
-        filter((antecedent %in% c(sampled_exclude$antecedent, sampled_exclude$consequent)) |
-                 (consequent %in% c(sampled_exclude$antecedent, sampled_exclude$consequent)))
+        sample_pair(RScoreDict$MUTUALLY_EXCLUSIVE)
       
       mutual_exclude_activities <- c(sampled_exclude$antecedent, sampled_exclude$consequent)
+      
+      mutual_exclusives <- mutual_exclusives %>%
+        filter(!(antecedent %in% mutual_exclude_activities),
+               !(consequent) %in% mutual_exclude_activities)
       
       other_relations_as_antec <- rel_df %>%
         filter(antecedent %in% mutual_exclude_activities) %>%
@@ -70,6 +62,32 @@ explore_mutual_exclusive_relationship <- function(
           split_symbol = ">X>")
         
         found_none <- FALSE
+      }
+      
+      if(other_relations_as_consequent %>% filter(rel == RScoreDict$REQUIRES) %>% nrow > 0){
+        REQ_activities <- other_relations_as_consequent %>% 
+          filter(rel == RScoreDict$REQUIRES)
+        
+        REQ_excluded <- other_relations_as_consequent %>%
+          filter(antecedent %in% REQ_activities,
+                 rel == RScoreDict$MUTUALLY_EXCLUSIVE)
+        
+        if(REQ_excluded %>% nrow > 0){
+          selected_pair <- rel_df %>%
+            filter(antecedent %in% mutual_exclude_activities,
+                   consequent %in% REQ_excluded$antecedent) %>%
+            sample_pair(MERGE_FOLLOWS_RELS)
+          
+          return_list <- solve_sequence_relationship(
+            selected_pair,
+            rel_df,
+            snippet_dict
+          )
+          
+          found_none <- FALSE
+        }
+        
+        
       }
       
     }

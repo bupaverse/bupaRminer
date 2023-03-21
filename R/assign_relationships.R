@@ -1,5 +1,5 @@
 assign_relationships <- function(relationships_df,
-                                 mode = "fixed"){
+                                 mode = "variable"){
   
   if(mode == "fixed"){
     # Set all rel values above threshold to 1
@@ -10,18 +10,14 @@ assign_relationships <- function(relationships_df,
       select(-rel_thres)
   } else{
     masked_df <- relationships_df %>%
+      filter(score > 0) %>%
+      group_by(rel) %>%
       filter(score > mean(score)) %>%
       mutate(score = round(score,1)) %>%
-      # group_by(rel) %>%
-      # mutate(rel_thres = max(score)) %>%
-      # mutate(rel_thres = rel_thres - sd(rel_thres)) %>%
-      # ungroup() %>%
-      # mutate(rounded_score = ifelse(score < rel_thres, 0, score),
-      #        rel = factor(rel, levels = R_levels, ordered = TRUE)) %>%
-      # group_by(antecedent, consequent) %>%
-      mutate(rounded_score = (score == max(score))) %>%
-      ungroup() %>%
-      select(-rel_thres)
+      group_by(antecedent, consequent) %>%
+      mutate(rounded_score = (score == max(score)),
+             rel = factor(rel, levels = R_levels, ordered = TRUE)) %>%
+      ungroup()
   }
   
   # ## Filter out dominant relationship pased on R_levels

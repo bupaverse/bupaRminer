@@ -67,10 +67,6 @@ construct_process <- function(assigned_rel_df,
   
   completed_FOL <- FALSE
   while(rel_notebook_df %>%
-        filter(rel %in% c(MERGE_FOLLOWS_RELS, 
-                          RScoreDict$MUTUALLY_EXCLUSIVE, 
-                          RScoreDict$PARALLEL_IF_PRESENT,
-                          RScoreDict$REQUIRES)) %>%
         nrow() > 0 & completed_FOL == FALSE){
     
     

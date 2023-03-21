@@ -55,8 +55,6 @@ discover_R_sequence_relations <- function(
       unique(as.data.table(rel_par_df)[rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL) &
                                          antecedent == succ_act &
                                          score >= parallel_thres][["consequent"]]) -> par_B_relationships
-      ## Does not work as expected, so set to empty vector for the moment
-      ## par_B_relationships <- c()
       
       all_par_relationships <- unique(c(par_relationships, par_B_relationships))
       

@@ -55,8 +55,10 @@ solve_directly_follows <- function(
   if(rel_df %>%
      filter(antecedent == act_b,
             consequent == act_a) %>% nrow == 0) reverse_rel <- ""
+  
+  if(reverse_rel == "" && act_a %in% names(snippet_dict)) reverse_rel <- RScoreDict$REQUIRES
 
-  if(reverse_rel %in% c("",RScoreDict$REQUIRES)){
+  if(reverse_rel  == RScoreDict$REQUIRES){
     snippet_name <- paste(act_a, act_b, sep = " >> ")
 
     msg <- paste("Created process snippet:", snippet_name, sep = " ")
@@ -105,6 +107,7 @@ solve_directly_follows <- function(
   }
 
   if(reverse_rel %in% c(seq_pair$rel, RScoreDict$ALWAYS_PARALLEL, RScoreDict$PARALLEL_IF_PRESENT)){
+    
     AND_pair <- seq_pair
 
     relevant_pairs <- rel_df %>%
@@ -134,12 +137,12 @@ solve_directly_follows <- function(
     return_list$rel_df <- rel_df %>%
       remember_pair(
         AND_pair,
-        ifelse(mode == "SOFT","OR","AND")
+        ifelse(PAR_mode == "SOFT","OR","AND")
       )
     return(return_list)
   }
 
-  if(reverse_rel == RScoreDict$DIRECT_JOIN){
+  if(reverse_rel %in% c("",RScoreDict$DIRECT_JOIN)){
     ## Check if there are others that need to join here
     other_pre_joins <- rel_df %>%
       filter(consequent == act_a,

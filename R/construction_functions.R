@@ -64,11 +64,25 @@ solve_apriori_conflicts <- function(
     mutate(rel = RScoreDict$PARALLEL_IF_PRESENT,
            importance = 0,
            score = 0.5) %>%
-    select(antecedent, consequent, rel)
+    select(antecedent, consequent, rel, importance)
 
   rel_df <- rel_df %>%
     anti_join(conflict_rel, by=c("antecedent","consequent")) %>%
     bind_rows(conflict_rel)
+  
+  
+  join_with_soft_par <- rel_df %>%
+    filter(rel %in% c(RScoreDict$DIRECT_JOIN,
+                      RScoreDict$DIRECTLY_FOLLOWS)) %>%
+    select(antecedent, consequent) %>%
+    inner_join(rel_df %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>% select(antecedent, consequent),
+               by = c("antecedent"="consequent","consequent"="antecedent"))
+  
+  rel_df <- rel_df %>%
+    anti_join(
+      join_with_soft_par, 
+      by=c("antecedent"="consequent","consequent"="antecedent"))
+    
   
   antecedents_with_multiple_DF <- rel_df %>%
     filter(rel == RScoreDict$DIRECTLY_FOLLOWS) %>%
@@ -78,6 +92,7 @@ solve_apriori_conflicts <- function(
   rel_df <- rel_df %>%
     anti_join(antecedents_with_multiple_DF, by=c("antecedent","consequent")) %>%
     bind_rows(antecedents_with_multiple_DF %>% mutate(rel = RScoreDict$DIRECT_JOIN))
+  
 
   return(rel_df)
 }
