@@ -381,16 +381,16 @@ solve_sequence_relationship <- function(
       ## We will give preference to R1, R3 relationships if
       ## they exist
 
-      R2_closest <- closest_antecedents %>%
-        filter(rel == RScoreDict$EVENTUALLY_FOLLOWS)
-
-      if(R2_closest %>% nrow > 0) closest_antecedents <- R2_closest
-
-      R13_closest <- closest_antecedents %>%
-        filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-                          RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
-
-      if(R13_closest %>% nrow > 0) closest_antecedents <- R13_closest
+      # R2_closest <- closest_antecedents %>%
+      #   filter(rel == RScoreDict$EVENTUALLY_FOLLOWS)
+      # 
+      # if(R2_closest %>% nrow > 0) closest_antecedents <- R2_closest
+      # 
+      # R13_closest <- closest_antecedents %>%
+      #   filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+      #                     RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
+      # 
+      # if(R13_closest %>% nrow > 0) closest_antecedents <- R13_closest
 
       if(closest_antecedents %>% nrow == 1){
         seq_pair <- closest_antecedents
@@ -445,7 +445,6 @@ solve_sequence_relationship <- function(
         ## If the antecedents are mutually exclusive
         ## XOR them together
         if(mutual_antec_relations %>%
-           count(rel) %>%
            filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>%
            nrow== 0){
 
@@ -484,7 +483,6 @@ solve_sequence_relationship <- function(
         ## If they have a mutual soft parallel relationship
         ## we can soft par them together
         if(mutual_antec_relations %>%
-           count(rel) %>%
            filter(rel != RScoreDict$PARALLEL_IF_PRESENT) %>%
            nrow== 0){
 
@@ -708,6 +706,41 @@ solve_join <- function(
     messages = c()
   )
 
+  other_joins <- rel_df %>%
+    filter(consequent == join_pair$consequent) %>%
+    filter(rel == RScoreDict$DIRECT_JOIN)
+  
+  if(other_joins %>% nrow > 1){
+    mutual_relations <- rel_df %>%
+      filter(antecedent %in% other_joins$antecedent,
+             consequent %in% other_joins$antecedent) 
+    
+    if(mutual_relations %>% filter(rel %in% MERGE_FOLLOWS_RELS) %>% nrow() > 0){
+      seq_pair <- mutual_relations %>%
+        sample_pair(MERGE_FOLLOWS_RELS)
+      
+      return_list <- solve_sequence_relationship(
+        seq_pair,
+        rel_df,
+        snippet_dict
+      )
+      return(return_list)
+    }
+    
+    if(mutual_relations %>% filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow() > 0){
+      seq_pair <- mutual_relations %>%
+        sample_pair(RScoreDict$MUTUALLY_EXCLUSIVE)
+      
+      return_list <- solve_XOR_relationship(
+        XOR_root = "",
+        XOR_branches = c(seq_pair$antecedent, seq_pair$consequent),
+        rel_df = rel_df,
+        snippet_dict
+      )
+      return(return_list)
+    }
+  }
+  
   reverse_rel <- rel_df %>%
     filter(antecedent == join_pair$consequent,
            consequent == join_pair$antecedent)
@@ -731,9 +764,8 @@ solve_join <- function(
   if(reverse_rel == RScoreDict$REQUIRES){
     return_list <- solve_directly_follows(
       join_pair %>%
-        mutate(rel == RScoreDict$DIRECTLY_FOLLOWS),
-      join_pair %>%
-        mutate(rel == RScoreDict$DIRECTLY_FOLLOWS),
+        mutate(rel = RScoreDict$DIRECTLY_FOLLOWS),
+      rel_df,
       snippet_dict
     )
 

@@ -73,6 +73,25 @@ solve_PAR_relationship <- function(
     ## then those branches can be merged first into a split
     ## Otherwise, we have to check.
     if(relations_after_split %>% filter(all_same == FALSE) %>% nrow() > 0){
+      different_follows <- relations_after_split %>%
+        filter(all_same == FALSE) %>%
+        pull(consequent)
+      
+      new_pair <- acts_happening_after_split %>%
+        filter(consequent %in% different_follows) %>%
+        sample_pair(MERGE_FOLLOWS_RELS)
+      
+      if(new_pair %>% nrow > 0){
+        return_list <- solve_sequence_relationship(
+          new_pair,
+          rel_df,
+          snippet_dict
+        )
+        return(return_list)
+      }
+      
+      
+      
       mutual_relationships <- rel_df %>%
         filter(antecedent %in% acts_after_split,
                consequent %in% acts_after_split)

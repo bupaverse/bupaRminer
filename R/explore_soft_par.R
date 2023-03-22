@@ -146,12 +146,11 @@ explore_soft_PAR_relationship <- function(
           filter(consequent %in% potential_pars) %>%
           filter(rel == RScoreDict$REQUIRES)
         
-        seq_pairs <- REQ_pairs %>%
-          inner_join(rel_df %>% filter(rel %in% MERGE_FOLLOWS_RELS),
+        seq_pairs <- rel_df %>% filter(rel %in% MERGE_FOLLOWS_RELS) %>%
+          inner_join(REQ_pairs %>% select(antecedent, consequent),
                      by = c("antecedent"="consequent","consequent"="antecedent"))
         
         if(seq_pairs %>% nrow > 0){
-          
           seq_pair <- seq_pairs %>%
             sample_pair(MERGE_FOLLOWS_RELS)
           

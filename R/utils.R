@@ -85,10 +85,10 @@ smart_thres_df <- tibble(
 #               RScoreDict$TERMINATING,
 #               RScoreDict$HAPPENS_DURING
 # )
-MERGE_R_levels <- c(RScoreDict$DIRECT_JOIN,
-                    RScoreDict$DIRECTLY_FOLLOWS,
-                    RScoreDict$PARALLEL_IF_PRESENT,
+MERGE_R_levels <- c(RScoreDict$PARALLEL_IF_PRESENT,
                     RScoreDict$ALWAYS_PARALLEL,
+                    RScoreDict$DIRECT_JOIN,
+                    RScoreDict$DIRECTLY_FOLLOWS,
                     RScoreDict$EVENTUALLY_FOLLOWS,
                     RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                     RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,

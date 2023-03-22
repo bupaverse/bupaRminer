@@ -213,19 +213,11 @@ explore_XOR_split <- function(
      filter(rel == RScoreDict$REQUIRES) %>% nrow() > 0){
     
     REQ_pair <- mutual_branch_relationships %>%
-      filter(rel == RScoreDict$REQUIRES) %>%
-      arrange(-importance,
-              -score) %>%
-      head(1)
+      sample_pair(RScoreDict$REQUIRES)
 
     seq_pair <- rel_df %>%
       filter(antecedent == REQ_pair$consequent,
              consequent == REQ_pair$antecedent)
-    
-    
-    if(XOR_pair$consequent == "A_Cancelled"){
-      print(seq_pair %>% select(antecedent, consequent, rel, score))
-    }
 
     if(seq_pair %>% nrow == 0){
       seq_pair <- tibble(
