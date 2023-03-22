@@ -201,6 +201,62 @@ solve_directly_follows <- function(
       }
 
     }
+    
+    all_preceeding_relations <- rel_df %>%
+      filter(consequent == act_b,
+             rel %in% MERGE_FOLLOWS_RELS)
+    
+    mutual_preceeding_relations <- rel_df %>%
+      filter(antecedent %in% all_preceeding_relations$antecedent,
+             consequent %in% all_preceeding_relations$antecedent)
+    
+    if(mutual_preceeding_relations %>%
+       filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow > 0){
+      xor_branches <- mutual_preceeding_relations %>%
+        sample_pair(RScoreDict$MUTUALLY_EXCLUSIVE)
+      
+      return_list <- solve_XOR_relationship(
+        XOR_root = "",
+        XOR_branches = c(xor_branches$antecedent, xor_branches$consequent),
+        rel_df,
+        snippet_dict,
+        split_symbol = ">X>")
+        
+        return(return_list)
+    }
+    
+    if(mutual_preceeding_relations %>%
+       filter(rel %in% c(RScoreDict$ALWAYS_PARALLEL,
+                         RScoreDict$PARALLEL_IF_PRESENT)) %>% nrow > 0){
+      par_pair <- mutual_preceeding_relations %>%
+        sample_pair(c(RScoreDict$ALWAYS_PARALLEL,
+                      RScoreDict$PARALLEL_IF_PRESENT))
+      
+      return_list <- solve_PAR_relationship(
+        par_pair,
+        rel_df,
+        snippet_dict,
+        mode = ifelse(par_pair$rel == RScoreDict$ALWAYS_PARALLEL, "HARD", "SOFT")
+      )
+      
+      return(return_list)
+    }
+    
+    sampled_pair <- mutual_preceeding_relations %>%
+      sample_pair(c(RScoreDict$ALWAYS_PARALLEL,
+                    RScoreDict$PARALLEL_IF_PRESENT))
+    
+    if(!is.null(sampled_pair)){
+      
+      return_list <- solve_sequence_relationship(
+        sampled_pair,
+        rel_df,
+        snippet_dict
+      )
+      
+      return(return_list)
+    }
+    
   }
   msg <- "UNABLE TO ESTABLISH DIRECTLY FOLLOWS RELATIONSHIP"
 

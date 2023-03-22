@@ -77,6 +77,41 @@ solve_PAR_relationship <- function(
         filter(all_same == FALSE) %>%
         pull(consequent)
       
+      relations_with_different_follows <- rel_df %>% 
+        filter(consequent %in% different_follows, 
+               antecedent %in% R6_acts)
+      
+      relation_analysis <- relations_with_different_follows %>% 
+        count(consequent, rel) %>% 
+        group_by(consequent) %>% 
+        mutate(has_par = sum(rel %in% c(RScoreDict$ALWAYS_PARALLEL, 
+                                        RScoreDict$PARALLEL_IF_PRESENT)), 
+               has_follows = sum(rel %in% MERGE_FOLLOWS_RELS), 
+               total_relations = sum(n), 
+               non_par_relations = total_relations - has_par)
+      
+      inner_block_candidates <- relation_analysis %>%
+        filter(has_par > 0,
+               has_follows == non_par_relations,
+               has_follows == 1,
+               rel %in% MERGE_FOLLOWS_RELS) %>%
+        select(consequent, rel)
+      
+      if(inner_block_candidates %>% nrow > 0){
+        new_pair <- relations_with_different_follows %>%
+          inner_join(inner_block_candidates, by=c("consequent","rel")) %>%
+          sample_pair(MERGE_FOLLOWS_RELS)
+        
+        if(new_pair %>% nrow > 0){
+          return_list <- solve_sequence_relationship(
+            new_pair,
+            rel_df,
+            snippet_dict
+          )
+          return(return_list)
+        }
+      }
+      
       new_pair <- acts_happening_after_split %>%
         filter(consequent %in% different_follows) %>%
         sample_pair(MERGE_FOLLOWS_RELS)

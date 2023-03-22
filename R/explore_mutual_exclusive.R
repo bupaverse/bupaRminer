@@ -30,6 +30,29 @@ explore_mutual_exclusive_relationship <- function(
         filter(!(consequent %in%mutual_exclude_activities) ) %>%
         count(consequent,rel) 
       
+      ## We consider activities that have a SOFTPAR relation
+      ## with some, but follows relations with others
+      ## not as conflicts 
+      removed_acts <- c()
+      if(other_relations_as_antec %>% 
+         filter(rel==RScoreDict$PARALLEL_IF_PRESENT) %>% nrow > 0){
+        par_acts <- other_relations_as_antec %>% 
+          filter(rel==RScoreDict$PARALLEL_IF_PRESENT) %>%
+          pull(consequent)
+        
+        par_acts <- other_relations_as_antec %>% 
+          filter(rel %in% MERGE_FOLLOWS_RELS,
+                 consequent %in% par_acts) %>%
+          pull(consequent)
+        
+        if(length(par_acts) > 0){
+          other_relations_as_antec <- other_relations_as_antec %>%
+            filter(!(consequent %in% par_acts))
+          
+          removed_acts <- par_acts
+        }
+      }
+      
       if(other_relations_as_antec %>% 
          filter(n < length(mutual_exclude_activities)) %>%
          nrow == 0){
@@ -42,6 +65,27 @@ explore_mutual_exclusive_relationship <- function(
         filter(consequent %in% mutual_exclude_activities) %>%
         filter(!(antecedent %in%mutual_exclude_activities) ) %>%
         count(antecedent,rel) 
+      
+      
+      ## We consider activities that have a SOFTPAR relation
+      ## with some, but follows relations with others
+      ## not as conflicts 
+      if(other_relations_as_consequent %>% 
+         filter(rel==RScoreDict$PARALLEL_IF_PRESENT) %>% nrow > 0){
+        par_acts <- other_relations_as_consequent %>% 
+          filter(rel==RScoreDict$PARALLEL_IF_PRESENT) %>%
+          pull(antecedent)
+        
+        par_acts <- other_relations_as_consequent %>% 
+          filter(rel %in% MERGE_FOLLOWS_RELS,
+                 antecedent %in% par_acts) %>%
+          pull(antecedent)
+        
+        if(length(c(par_acts, removed_acts)) > 0){
+          other_relations_as_consequent <- other_relations_as_consequent %>%
+            filter(!(antecedent %in% c(par_acts, removed_acts)))
+        }
+      }
       
       if(other_relations_as_consequent %>% 
          filter(n < length(mutual_exclude_activities)) %>%
