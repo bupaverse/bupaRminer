@@ -8,14 +8,16 @@ calculate_exclusive_relation <- function(
     nr_cases,
     ev_log
 ){
-
-  if(nr_cases_with_A_B > (exclusive_thres * nr_cases_with_B) ){
+  chance_of_a <- nr_cases_with_A / nr_cases
+  chance_of_b <- nr_cases_with_B / nr_cases
+  
+  if(nr_cases_with_A_B > (exclusive_thres * nr_cases * chance_of_a * chance_of_b) ){
     EXCL_score_ab <- 0
   } else {
     EXCL_score_ab <- 1 - ( nr_cases_with_A_B /  nr_cases_with_A  )
   }
 
-  if(nr_cases_with_A_B > (exclusive_thres * nr_cases_with_A) ){
+  if(nr_cases_with_A_B > (exclusive_thres * nr_cases * chance_of_a * chance_of_b) ){
     EXCL_score_ba <- 0
   } else {
     EXCL_score_ba <- 1 - ( nr_cases_with_A_B / nr_cases_with_B )

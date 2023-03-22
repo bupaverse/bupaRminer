@@ -4,8 +4,7 @@ explore_XOR_split <- function(
     snippet_dict,
     XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS),
     split_symbol = ">X>"){
-
-
+  
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -337,6 +336,38 @@ explore_XOR_split <- function(
     return(return_list)
   }
   
+  ## If some branches are exclusive from all others,
+  ## but the others have more complex relationships between them, 
+  ## then we must try to solve the other part of the branch first
+  if(mutual_branch_relationships %>%
+     filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow() > 0){
+    exclusive_relations <- mutual_branch_relationships %>%
+      filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE)
+    
+    not_fully_exclusive <- mutual_branch_relationships %>%
+      filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>%
+      filter(antecedent %in% c(exclusive_relations$antecedent, exclusive_relations$consequent)
+             | consequent %in% c(exclusive_relations$antecedent, exclusive_relations$consequent))
+    
+    full_exclusive_relations <- unique(exclusive_relations$antecedent, exclusive_relations$consequent)
+    full_exclusive_relations <- intersect(full_exclusive_relations,not_fully_exclusive)
+    
+    branch_in_focus <- mutual_branch_relationships %>%
+      filter(!(antecedent %in% full_exclusive_relations),
+             !(çconsequent %in% full_exclusive_relations)) 
+    
+    if(branch_in_focus %>% filter(rel %in% MERGE_FOLLOWS_RELS) %>% nrow > 0){
+      sampled_pair <- branch_in_focus %>%
+        sample_pair(MERGE_FOLLOWS_RELS)
+      
+      return_list <- solve_sequence_relationship(
+        sampled_pair,
+        rel_df,
+        snippet_dict
+      )
+      return(return_list)
+    }
+  }
 
   if(other_branches %>%
      filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS)) %>% nrow() > 0){
@@ -401,7 +432,7 @@ explore_XOR_split <- function(
            ! consequent %in% branches_with_only_mutual_relations$antecedent)
 
   if(branches_with_only_mutual_relations %>% nrow > 0){
-
+    
     return_list <- solve_XOR_relationship(
       XOR_pair$antecedent,
       branches_with_only_mutual_relations$antecedent %>% unique,
@@ -490,7 +521,7 @@ explore_XOR_split <- function(
 
       return(return_list)
     }
-
+    
     sampled_conflict <- rel_df %>%
       filter(antecedent == sampled_conflict$antecedent,
              consequent == sampled_conflict$consequent)
