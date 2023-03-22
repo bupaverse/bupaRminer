@@ -11,7 +11,7 @@ assign_relationships <- function(relationships_df,
   } else{
     masked_df <- relationships_df %>%
       filter(score > 0) %>%
-      # group_by(rel) %>%
+      group_by(rel) %>%
       filter(score >= mean(score)) %>%
       mutate(score = round(score,1)) %>%
       group_by(antecedent, consequent) %>%
