@@ -12,6 +12,8 @@ generate_bpmn <- function(snippet_dictionary) {
     start_events <- bpmn_obj$start_events %>% as.data.frame() %>% unique
     end_events <- bpmn_obj$end_events %>% as.data.frame() %>% unique
 
+    if(nrow(gateways) > 0) {
+
     seqs %>%
       as_tibble() %>%
       left_join(select(gateways, id, gatewayType, gatewayDirection), by = c("sourceRef" = "id"), suffix = c("","_source")) %>%
@@ -40,6 +42,9 @@ generate_bpmn <- function(snippet_dictionary) {
 
     seqs <- seqs %>%
       filter(!(id %in% c(remove_parallels, remove_exclusives)))
+
+    }
+
     bpmn_out <- create_bpmn(tasks, seqs, gateways, start_events, end_events)
 
     return(bpmn_out)

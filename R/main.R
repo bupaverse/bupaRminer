@@ -9,19 +9,19 @@
 #'
 #'
 #' @export
-discover_process <- function(log) {
-  UseMethod("discover_process")
+discover <- function(log) {
+  UseMethod("discover")
 }
 
 
-#' @describeIn discover_process eventlog
+#' @describeIn discover eventlog
 #' @export
 
 
-discover_process.eventlog <- function(log, 
+discover.eventlog <- function(log,
                                       loop_strategy = "skip") {
-  
-  ## Loopstrategy "omit" : no loopbacks, "skip": Create loopbacks from second iteration, "all": create loopbacks from first iteration 
+
+  ## Loopstrategy "omit" : no loopbacks, "skip": Create loopbacks from second iteration, "all": create loopbacks from first iteration
 
   #TO DO: make sure start and complete are present for all activities
   cli::cli_alert_info("Preprocess log")

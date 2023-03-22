@@ -2,15 +2,14 @@
 end_counter <- 1
 
 create_snippet <- function(
-  start_point,
-  end_point,
-  branches = list(),
-  connection_type = c("SEQ","XOR","AND","OR","INTER","NONINTER"),
-  snippet_dict = list(),
-  start_event_name = c("START","__START__"),
-  end_event_name = c("END","__END__")
+    start_point,
+    end_point,
+    branches = list(),
+    connection_type = c("SEQ","XOR","AND","OR","INTER","NONINTER"),
+    snippet_dict = list(),
+    start_event_name = c("START","__START__"),
+    end_event_name = c("END","__END__")
 ){
-
   new_snippet <- list(
     tasks = tibble(),
     seqs = tibble(),
@@ -35,8 +34,6 @@ create_snippet <- function(
   if(!is.null(start_point$close) && start_point$end_events %>% nrow > 0 && start_point$close %in% (start_point$end_events$id)){
 
     END_SKIPPED <- TRUE
-    print("END skipped")
-
     gateway_before_end <- tibble(
       id = paste("XOR_SPLIT_INSERTED", as.numeric(Sys.time()), sep = "_"),
       name = "To end?",
@@ -98,9 +95,9 @@ create_snippet <- function(
     ## them.
     same_type_branches <- list()
     other_type_branches <- list()
-    
+
     branch_has_start<- FALSE
-    
+
     for(branch in branches){
 
       same_type <- FALSE
@@ -109,24 +106,22 @@ create_snippet <- function(
                             snippet_dict,
                             start_event_name,
                             end_event_name)
-      
+
       if(!is.null(branch$start_events) && branch$start_events %>% nrow > 0){
-        print("Branch already has a start event")
         branch_has_start <- TRUE
-        start_event_id <- branch$start_events %>% 
+        start_event_id <- branch$start_events %>%
           head(1) %>%
           pull(id)
         artefact_from_start <- branch$seqs %>%
           filter(sourceRef == start_event_id) %>%
           pull(targetRef)
-        
+
         branch$init <- artefact_from_start
         branch$seqs <- branch$seqs %>%
           filter(sourceRef != start_event_id)
       }
 
       if(!is.null(branch$gateways) & branch$gateways %>% nrow() > 0){
-
         branch_gateways_start <- branch$gateways %>%
           filter(gatewayType == gw_type,
                  id == branch$init)
@@ -136,7 +131,7 @@ create_snippet <- function(
             filter(gatewayType == gw_type,
                    gatewayDirection == "converging",
                    id == branch$close
-                   )
+            )
 
           if (branch_gateways_end %>% nrow > 0) {
             branch_to_branch <- branch$seqs %>%
@@ -152,7 +147,7 @@ create_snippet <- function(
           }
         }
       }
-      
+
       if(same_type == FALSE){
         other_type_branches[[length(other_type_branches)+1]] <- branch
       }
@@ -233,8 +228,8 @@ create_snippet <- function(
           connection_type = "SEQ")
 
 
-          branch_snippet <- branch_snippet %>%
-            expand_snippet(branch_out)
+        branch_snippet <- branch_snippet %>%
+          expand_snippet(branch_out)
       } else {
 
         print("BRANCH DEAD END")
@@ -295,17 +290,17 @@ create_snippet <- function(
     used_gateways <- c(new_snippet$seqs %>% pull(sourceRef),new_snippet$seqs %>% pull(targetRef) )
     new_snippet$gateways <- new_snippet$gateways %>%
       filter(id %in% used_gateways)
-    
+
     if(branch_has_start){
       start_id <-  new_snippet$start_events %>%
         head(1) %>%
         pull(id)
-      
+
       new_sequence <- establish_sequence(
         start_id,
         new_snippet$init
       )
-      
+
       new_snippet$init <- start_id
       new_snippet$seqs <- new_snippet$seqs %>%
         bind_rows(new_sequence)
@@ -396,8 +391,11 @@ decode_task <- function(task_name,
 
 dead_end_check <- function(snippet){
   dead_end <- FALSE
-  if(!is.null(snippet$end_events$id) & snippet$close %in% snippet$end_events$id){
-    dead_end <- TRUE
+
+  if(nrow(snippet$end_events) > 0) {
+    if(!is.null(snippet$end_events$id) & snippet$close %in% snippet$end_events$id){
+      dead_end <- TRUE
+    }
   }
 
   return(dead_end)
@@ -504,8 +502,8 @@ add_loop_back <- function(bpmn_obj){
   )
 
   bpmn_obj$gateways <- bpmn_obj$gateways %>%
-      bind_rows(init_gateway) %>%
-      bind_rows(close_gateway)
+    bind_rows(init_gateway) %>%
+    bind_rows(close_gateway)
 
   bpmn_obj$seqs <- bpmn_obj$seqs %>%
     bind_rows(
