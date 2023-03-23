@@ -130,10 +130,7 @@ explore_mutual_exclusive_relationship <- function(
           
           found_none <- FALSE
         }
-        
-        
       }
-      
     }
   }
   return(return_list)

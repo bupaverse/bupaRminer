@@ -34,7 +34,7 @@ solve_directly_follows <- function(
     return(return_list)
   }
 
-  if(startsWith(act_a, "START") & act_b == "END" & rel_df %>% nrow > 2){
+  if(check_start(act_a, snippet_dict) & act_b == "END" & rel_df %>% nrow > 2){
 
     return_list <- list(
       snippet = NULL,
@@ -184,12 +184,10 @@ solve_directly_follows <- function(
            RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)){
         seq_pair <- mutual_pre_join_rels %>%
-          filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+          sample_pair(c(RScoreDict$DIRECTLY_FOLLOWS,
                             RScoreDict$EVENTUALLY_FOLLOWS,
                             RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) %>%
-          arrange(-importance, -score) %>%
-          head(1)
+                            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) 
 
         return_list <- solve_sequence_relationship(
           seq_pair,

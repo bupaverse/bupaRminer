@@ -28,6 +28,20 @@ explore_XOR_split <- function(
   ## If there is only 1 branch, we need to check
   ## the reverse relationship
   if(length(branch_names) == 1){
+    
+    if(check_split(branch_names, snippet_dict)){
+      XOR_turned_seq <-XOR_pair %>% mutate(rel = RScoreDict$EVENTUALLY_FOLLOWS)
+      return_list <- solve_directly_follows(
+        XOR_turned_seq,
+        rel_df %>%
+          anti_join(XOR_pair, by = c("antecedent","consequent")) %>%
+          bind_rows(XOR_turned_seq),
+        snippet_dict
+      )
+      
+      return(return_list)
+    }
+    
     reverse_rel <- rel_df %>%
       filter(
         antecedent == branch_names,
@@ -283,7 +297,7 @@ explore_XOR_split <- function(
       relation_to_root <- relation_to_root$rel
     }
 
-    if(relation_to_root != RScoreDict$REQUIRES & !startsWith(XOR_pair$antecedent, "START")){
+    if(relation_to_root != RScoreDict$REQUIRES & check_start(XOR_pair$antecedent, snippet_dict)){
 
       rel_df <- rel_df %>%
         filter(!(antecedent == XOR_pair$antecedent & consequent == seq_pair$consequent)) %>%
@@ -354,7 +368,7 @@ explore_XOR_split <- function(
     
     branch_in_focus <- mutual_branch_relationships %>%
       filter(!(antecedent %in% full_exclusive_relations),
-             !(çconsequent %in% full_exclusive_relations)) 
+             !(consequent %in% full_exclusive_relations)) 
     
     if(branch_in_focus %>% filter(rel %in% MERGE_FOLLOWS_RELS) %>% nrow > 0){
       sampled_pair <- branch_in_focus %>%

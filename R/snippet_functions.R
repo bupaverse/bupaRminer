@@ -1,6 +1,7 @@
 
 end_counter <- 1
 
+
 create_snippet <- function(
     start_point,
     end_point,
@@ -486,6 +487,7 @@ add_start_end <- function(bpmn_obj){
   return(bpmn_obj)
 }
 
+
 ## TODO Check this
 add_loop_back <- function(bpmn_obj){
   init_gateway <- data.frame(
@@ -521,4 +523,57 @@ add_loop_back <- function(bpmn_obj){
   bpmn_obj$close <- close_gateway$id
 
   return(bpmn_obj)
+}
+
+check_start <- function(snippet_name, 
+                        snippet_dict,
+                        start_event_name = c("START","__START__")){
+  if(snippet_name %in% start_event_name){
+    return(TRUE)
+  }
+  if(snippet_name %in% names(snippet_dict)){
+    snippet <- snippet_dict[[snippet_name]]
+    
+    if(snippet$start_events %>% nrow > 0){
+      if(snippet$init %in% snippet$start_events$id){
+        return(TRUE)
+      }
+    }
+    
+  }
+  return(FALSE)
+}
+
+check_split <- function(snippet_name, 
+                        snippet_dict){
+  if(snippet_name %in% names(snippet_dict)){
+    snippet <- snippet_dict[[snippet_name]]
+    if(snippet$gateways %>% nrow == 0){
+      return(FALSE)
+    }
+    init_gateway <- snippet$gateways %>%
+      filter(id == snippet$init)
+    
+    if(init_gateway %>% nrow != 1){
+      return(FALSE)
+    }
+    
+    init_gateway_sequences <- snippet$seqs %>%
+      filter(sourceRef == init_gateway$id)
+    
+    if(init_gateway_sequences %>% nrow == 2){
+      direct_gateway <- snippet$gateways %>%
+        filter(id %in% init_gateway_sequences$targetRef,
+               gatewayType == init_gateway$gatewayType,
+               gatewayDirection == "converging"
+        )
+      
+      if(direct_gateway %>% nrow == 1){
+        return(TRUE)
+      }
+    }
+    
+  }
+  
+  return(FALSE)
 }
