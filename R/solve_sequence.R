@@ -414,13 +414,16 @@ solve_sequence_relationship <- function(
             filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE)
           
           if(non_mutual_exclusions %>% nrow == 0){
-            return_list <- solve_XOR_relationship(
-              XOR_root = "",
-              XOR_branches = mutual_exclusions$antecedent %>% unique,
-              rel_df = rel_df,
-              snippet_dict
-            )
-            return(return_list)
+            if(mutual_exclusions$antecedent %>% unique %>% length > 1){
+              
+              return_list <- solve_XOR_relationship(
+                XOR_root = "",
+                XOR_branches = mutual_exclusions$antecedent %>% unique,
+                rel_df = rel_df,
+                snippet_dict
+              )
+              return(return_list)
+            }
           }
           
           
