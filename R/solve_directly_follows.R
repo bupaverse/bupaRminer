@@ -241,8 +241,7 @@ solve_directly_follows <- function(
     }
     
     sampled_pair <- mutual_preceeding_relations %>%
-      sample_pair(c(RScoreDict$ALWAYS_PARALLEL,
-                    RScoreDict$PARALLEL_IF_PRESENT))
+      sample_pair(MERGE_FOLLOWS_RELS)
     
     if(!is.null(sampled_pair)){
       
@@ -251,9 +250,27 @@ solve_directly_follows <- function(
         rel_df,
         snippet_dict
       )
+    } else {
       
-      return(return_list)
+      sampled_pair <- mutual_preceeding_relations %>%
+        sample_pair(RScoreDict$REQUIRES)
+      
+      reverse_pair <- sampled_pair %>%
+        mutate(antecedent = sampled_pair$consequent,
+               consequent = sampled_pair$antecedent,
+               rel = RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
+      
+      
+      return_list <- solve_sequence_relationship(
+        reverse_pair,
+        rel_df %>%
+          bind_rows(reverse_pair),
+        snippet_dict
+      )
+      
     }
+    
+    return(return_list)
     
   }
   msg <- "UNABLE TO ESTABLISH DIRECTLY FOLLOWS RELATIONSHIP"
