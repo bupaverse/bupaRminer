@@ -13,10 +13,10 @@ construct_process <- function(assigned_rel_df,
     mutate(
       score=ifelse(consequent=="END",0,score),
       importance=ifelse(consequent=="END",0,importance)
-    ) %>%
-    reset_memory()
+    )
 
-  rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df, strict = FALSE)
+  rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df, strict = FALSE) %>%
+    reset_memory()
   
   RELS_IN_FOCUS <- determine_rels_in_focus(
     rel_notebook_df
