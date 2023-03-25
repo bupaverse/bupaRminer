@@ -5,10 +5,11 @@ discover_R_sequence_relations <- function(
     parallel_thres = 0.95,
     exclusive_thres = 0.95,
     interrupting_theta = 0,
-    GENERAL_THRES = 0.95
+    GENERAL_THRES = 0.95,
+    case_count_list = case_count_list
 ){
 
-  nr_cases <- n_distinct(ev_log$CID)
+  nr_cases <- N_CASES(ev_log$CID, case_count_list)
 
   outer_output <- list_along(1:(length(ev_activities) - 1))
 
@@ -33,7 +34,7 @@ discover_R_sequence_relations <- function(
         events_A,
         by = "CID",
       )
-    nr_cases_with_A <- n_distinct(cases_with_A[["CID"]])
+    nr_cases_with_A <- sum(cases_with_A[["CASE_COUNT"]])
 
     fromA_event_log <- cases_with_A[TS >= reference_timestamp_start & !(AID %chin% c(prec_act, par_relationships)),]
     afterA_event_log <- cases_with_A[TS >= reference_timestamp_end & !(AID %chin% c(prec_act, par_relationships)),]
@@ -51,13 +52,13 @@ discover_R_sequence_relations <- function(
                                    score > GENERAL_THRES] %>% nrow() > 0){
         next
       }
-      
+
       unique(as.data.table(rel_par_df)[rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL) &
                                          antecedent == succ_act &
                                          score >= parallel_thres][["consequent"]]) -> par_B_relationships
-      
+
       all_par_relationships <- unique(c(par_relationships, par_B_relationships))
-      
+
       # cli::cli_alert_info(glue::glue("{prec_act} ~ {succ_act}"))
 
       events_B <- references[AID == succ_act, -"AID"]
@@ -67,15 +68,15 @@ discover_R_sequence_relations <- function(
           events_B,
           by = "CID",
         )
-      
-      nr_cases_with_B <- n_distinct(cases_with_B[["CID"]])
+
+      nr_cases_with_B <- N_CASES(cases_with_B$CID, case_count_list)
 
       fromB_event_log <- cases_with_B[TS >= reference_timestamp_start & !(AID %chin% c(succ_act, all_par_relationships)),]
       afterB_event_log <- cases_with_B[TS >= reference_timestamp_end & !(AID %chin% c(succ_act, all_par_relationships)),]
 
       fromA_event_log_B <- fromA_event_log[!(AID %chin% par_B_relationships),]
       afterA_event_log_B <- afterA_event_log[!(AID %chin% par_B_relationships),]
-      
+
       # cli::cli_alert_info("Requirement")
       ## REQ - The execution of A requires the execution of B as a predecessor
       REQ_results <- calculate_requirement_score(
@@ -86,15 +87,15 @@ discover_R_sequence_relations <- function(
         nr_cases_with_A,
         nr_cases_with_B,
         nr_cases,
-        ev_log)
+        ev_log,
+        case_count_list)
 
       ## Mutually exclusive
-
 
       if(any(REQ_results$score < GENERAL_THRES)){
         # cli::cli_alert_info("Exclusion")
 
-        nr_cases_with_A_B <- n_distinct(cases_with_A[AID == succ_act][["CID"]])
+        nr_cases_with_A_B <- N_CASES(cases_with_A[AID == succ_act][["CID"]], case_count_list)
 
 
         EXCL_results <- calculate_exclusive_relation(
@@ -106,6 +107,7 @@ discover_R_sequence_relations <- function(
           exclusive_thres,
           nr_cases,
           ev_log
+
         )
 
       } else {
@@ -134,7 +136,8 @@ discover_R_sequence_relations <- function(
             afterA_event_log_B,
             afterB_event_log,
             nr_cases,
-            ev_log
+            ev_log,
+            case_count_list
           )
 
           if(any(EF_results$score >= 0.75*GENERAL_THRES)) {
@@ -148,7 +151,8 @@ discover_R_sequence_relations <- function(
               afterA_event_log_B,
               afterB_event_log,
               nr_cases,
-              ev_log
+              ev_log,
+              case_count_list
             )
 
           } else {
@@ -189,7 +193,8 @@ discover_R_sequence_relations <- function(
             cases_before_A,
             nr_cases,
             ev_log,
-            EF_results)
+            EF_results,
+            case_count_list)
 
 
           if(any(MEF_results$score >= 0.75*GENERAL_THRES)){
@@ -208,7 +213,8 @@ discover_R_sequence_relations <- function(
               par_relationships,
               nr_cases,
               ev_log,
-              DF_results)
+              DF_results,
+              case_count_list)
           } else {
             MDF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
                                    prec_act, succ_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS , 0, 0, "skip",

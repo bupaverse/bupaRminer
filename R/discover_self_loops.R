@@ -8,9 +8,6 @@ discover_self_loops <- function(
 
   renamed_entries <- tibble()
 
-  nr_cases <- n_distinct(ev_log$CID)
-
-
   for(dup_act in duplicated_activities){
 
     #cli::cli_alert_info(glue::glue("Checking self-loops: {dup_act}"))
@@ -37,7 +34,7 @@ discover_self_loops <- function(
     suppressWarnings({
 
       cases_between_As[LC == "start"][, is_not_act_A := orig_name != dup_act][order(CID, TS),] -> ordered_between_As
-      
+
       ordered_between_As[,acts_in_between := cumsum(is_not_act_A), by = CID][,lag_acts_in_between := lag(acts_in_between), by = CID][, part_of_chain := lag_acts_in_between == acts_in_between, by = CID] -> chained_As
 
       chained_As %>%
@@ -47,7 +44,7 @@ discover_self_loops <- function(
       chained_As_complete[, start_of_chain := (part_of_chain == TRUE) & ( lag(part_of_chain) == FALSE | is.na(lag(part_of_chain))),
                           by = CID][,
                                     chain_nr := cumsum(start_of_chain), by = CID][part_of_chain == TRUE & !is.na(part_of_chain)] -> tmp4
-      
+
       tmp4[part_of_chain==TRUE, new_concatenated_name := paste(orig_name,"REP",chain_nr, sep = "_")] -> tmp5
       tmp5[part_of_chain==FALSE, new_concatenated_name := as.character(AID)] -> tmp6
     })

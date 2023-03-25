@@ -14,7 +14,7 @@ calculate_intermittent_relationship <- function(
   B_started_during_A <- events_started_during_A[AID == act_B]
 
 
-  DURING_score <- (n_distinct(B_started_during_A$CID)) / nr_cases_with_B
+  DURING_score <- (sum(B_started_during_A$CASE_COUNT)) / nr_cases_with_B
 
   return(DURING_score)
 }

@@ -17,7 +17,7 @@ calculate_terminating_relationship <- function(
 
   B_killing_A <- events_killing_A[AID == act_B]
 
-  INTERRUPTING_score <- n_distinct(B_killing_A$CID) / nr_cases_with_B
+  INTERRUPTING_score <- sum(B_killing_A$CASE_COUNT) / nr_cases_with_B
 
   return(INTERRUPTING_score)
 }

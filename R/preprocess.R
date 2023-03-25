@@ -1,109 +1,54 @@
 
-
 preprocess <- function(eventlog) {
 
+  ev_log <- select(eventlog) %>%
+    as.data.table() %>%
+    rename(AID = .data[[activity_id(eventlog)]],
+           AIID = .data[[activity_instance_id(eventlog)]],
+           CID = .data[[case_id(eventlog)]],
+           TS = .data[[timestamp(eventlog)]],
+           LC =.data[[lifecycle_id(eventlog)]]) %>%
+    mutate(AIID:= as.character(AIID)) %>%
+    as.data.table()
 
-    eventlog <- select(eventlog)
+  melt(ev_log[, .(CID, START = min(TS) - 10000, END = max(TS) + 10000)],
+       id.vars = "CID", measure.vars = c("START","END"), variable.name = "AID", value.name = "TS")[, AIID := paste(CID, AID, sep = "_")][, LC := "complete"] -> endpoints
 
-    activity_colname <- activity_id(eventlog)
-    activity_instance_colname <- activity_instance_id(eventlog)
-    case_colname <- case_id(eventlog)
-    timestamp_colname <- timestamp(eventlog)
-    lifecycle_colname <- lifecycle_id(eventlog)
-    
-    eventlog <- eventlog %>%
-      mutate(!!sym(activity_instance_colname):= as.character(!!sym(activity_instance_colname)))
-    
-    ## Add opposite lifecycle if not present
-    lifecycle_summary <- eventlog %>% 
-      as_tibble() %>%
-      count(!!sym(lifecycle_colname))
-    
-    if(lifecycle_summary %>% nrow == 1){
-      if(lifecycle_summary %>% pull(!!sym(lifecycle_colname)) == "start"){
-        missing_lifecycle_name <- "complete"
-      } else {
-        missing_lifecycle_name <- "start"
-      }
-      eventlog <- eventlog %>%
-        bind_rows(
-          eventlog %>% mutate(!!sym(lifecycle_colname) := missing_lifecycle_name)
-        )
-    }
-    
+  rbindlist(list(ev_log, endpoints), fill = TRUE) -> ev_log
 
-    ## Add START and END events
-    start_events <- tibble(
-        !!sym(case_colname) := eventlog %>% pull(!!sym(case_colname)) %>% unique,
-        !!sym(timestamp_colname) := eventlog %>% pull(!!sym(timestamp_colname)) %>% min() - 10000,
-        !!sym(activity_instance_colname) := paste(eventlog %>% pull(!!sym(case_colname)) %>% unique,"START", sep="_"),
-        !!sym(activity_colname) := "START"
-    )
 
-    end_events <- tibble(
-        !!sym(case_colname) := eventlog %>% pull(!!sym(case_colname)) %>% unique,
-        !!sym(timestamp_colname) := eventlog %>% pull(!!sym(timestamp_colname)) %>% max() + 10000,
-        !!sym(activity_instance_colname) := paste(eventlog %>% pull(!!sym(case_colname)) %>% unique,"END", sep="_"),
-        !!sym(activity_colname) := "END"
-    )
+  lc <- melt(ev_log[,.(start = min(TS), complete = max(TS)), by = AIID], id.vars = "AIID", measure.vars = c("start","complete"),
+             variable.name = "LC", value.name = "TS")
 
-    eventlog <- eventlog %>%
-        bind_rows(
-            start_events %>% mutate(!!sym(lifecycle_colname) := "start"),
-            start_events %>%mutate(!!sym(lifecycle_colname) := "complete"),
-            end_events %>% mutate(!!sym(lifecycle_colname) := "start"),
-            end_events %>%mutate(!!sym(lifecycle_colname) := "complete")
-        )
 
-    completed_only <- eventlog %>%
-        filter(!!sym(lifecycle_colname) == "complete") %>%
-        re_map(mapping(eventlog))
+  merge(unique(ev_log[, .(CID,AID,AIID)]), lc) -> ev_log
 
-    ## Calculate time elapsed since first event in case
-    ## Assign ordinal timestep per event in case
-    completed_only <- completed_only %>%
-        as_tibble() %>%
-        group_by(!!sym(case_colname)) %>%
-        arrange(!!sym(timestamp_colname)) %>%
-        mutate(timestep = row_number()) %>%
-        ungroup()
-    
+  ev_log[LC == "complete", ] -> completes
 
-    ## Append suffix _sequence_number to activity names
-    completed_only <- completed_only  %>%
-        as_tibble() %>%
-        group_by(!!sym(case_colname),!!sym(activity_colname)) %>%
-        mutate(first_act_occ_step = min(timestep)) %>%
-        mutate(is_repeat = (timestep > first_act_occ_step)) %>%
-        mutate(is_repeat = cumsum(is_repeat),
-               is_repeat = is_repeat + 1) %>%
-        ungroup() %>%
-        mutate(
-            !!sym(activity_colname) := as.character(!!sym(activity_colname) ),
-            !!sym(activity_colname) := ifelse(is_repeat > 1,
-                                              paste(!!sym(activity_colname), is_repeat, sep = "_"),
-                                              !!sym(activity_colname)))
-    
-    # activity_occurrences <- completed_only %>%
-    #     activities
-    #
-    # all_activities <- activity_occurrences %>%
-    #     pull(!!sym(activity_colname))
-    
-    eventlog <- eventlog %>%
-        left_join(completed_only %>%
-                      as_tibble() %>%
-                      select(!!sym(case_colname),
-                             !!sym(activity_instance_colname),
-                             new_act_name = !!sym(activity_colname),
-                             is_repeat
-                             ),
-                  by = c(case_colname, activity_instance_colname))
-    
-    eventlog <- eventlog %>%
-        mutate(orig_name = !!sym(activity_colname),
-               !!sym(activity_colname) := new_act_name) %>%
-      re_map(mapping(eventlog))
-    
-    return(eventlog)
+  completes[order(TS), timestep := 1:.N, by = CID][, first_act_occ_step := min(timestep), by = .(CID, AID)][, is_repeat := timestep > first_act_occ_step][, is_repeat_cnt := cumsum(is_repeat) + 1, by = .(CID,AID)]
+
+  completes[, new_act_name := AID]
+  completes[is_repeat_cnt > 1, new_act_name := paste(AID, is_repeat_cnt, sep = "_")][, .(CID, AIID, new_act_name, is_repeat)] -> completes
+
+  merge(ev_log, completes, by = c("CID","AIID")) -> ev_log
+
+  ev_log %>%
+    rename(orig_name = AID) %>%
+    mutate(AID = new_act_name) -> ev_log
+
+
+  ev_log[,act_lc := paste(AID, LC, sep = "___")]
+  ev_log[,TS := as.numeric(TS)]
+  ev_log[,block_content := paste(sort(act_lc), collapse = "|||"), by = .(TS, CID)]
+
+  ev_log[, .N , by = block_content][,block_id := 1:.N][,.(block_content, block_id)] -> blocks
+
+
+
+  unique(merge(ev_log, blocks, by = "block_content")[,.(CID, TS, block_content)])[order(TS), .(trace = paste(block_content, collapse = "+++")), by = CID] -> traces
+
+  traces[, .(CID = first(CID), CASE_COUNT = .N), by = trace] -> unique_traces
+  ev_log <- merge(ev_log, unique_traces, by = "CID")
+  ev_log[, AID := as.character(AID)]
+
 }

@@ -12,29 +12,30 @@ calculate_sometimes_directly_follows_relation <- function(
     par_relationships_A,
     nr_cases,
     ev_log,
-    DF_results){
-  
+    DF_results,
+    case_count_list){
+
   ## What is the chance that A just completed
   ## if we know that B is about to start
   ## (The change that there is an A_complete
   ## without any events between A_complete and B_start
   ## given that there is a B_start)
-  
+
   cases_before_B[AID != act_B & LC == "complete" & !(AID %chin% par_relationships_B),][order(CID,TS, decreasing = TRUE),] -> tmp_dt
-  
+
   A_happens_directly_before <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_A]
-  
+
   ## If B happens, how often does it happen right after A
-  SOMETIMES_DIRECT_ab <- n_distinct(A_happens_directly_before$CID) / nr_cases_with_B
-  
-  
+  SOMETIMES_DIRECT_ab <- N_CASES(A_happens_directly_before$CID, case_count_list) / nr_cases_with_B
+
+
   cases_before_A[AID != act_A & LC == "complete" & !(AID %chin% par_relationships_A),][order(CID,TS, decreasing = TRUE),] -> tmp_dt
-  
+
   B_happens_directly_before <- tmp_dt[tmp_dt[,.I[1], by = CID]$V1][AID == act_B]
-  
+
   ## If B happens, how often does it happen right after A
-  SOMETIMES_DIRECT_ba <- n_distinct(B_happens_directly_before$CID) / nr_cases_with_A
-  
+  SOMETIMES_DIRECT_ba <- N_CASES(B_happens_directly_before$CID, case_count_list) / nr_cases_with_A
+
   tribble(~antecedent,~consequent,~rel,~score,~importance,
           act_A, act_B, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, SOMETIMES_DIRECT_ab, DF_results$importance[1],
           act_B, act_A, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, SOMETIMES_DIRECT_ba, DF_results$importance[2])
