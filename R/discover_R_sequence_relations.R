@@ -34,7 +34,7 @@ discover_R_sequence_relations <- function(
         events_A,
         by = "CID",
       )
-    nr_cases_with_A <- sum(cases_with_A[["CASE_COUNT"]])
+    nr_cases_with_A <- N_CASES(cases_with_A[["CID"]], case_count_list)
 
     fromA_event_log <- cases_with_A[TS >= reference_timestamp_start & !(AID %chin% c(prec_act, par_relationships)),]
     afterA_event_log <- cases_with_A[TS >= reference_timestamp_end & !(AID %chin% c(prec_act, par_relationships)),]
@@ -77,6 +77,7 @@ discover_R_sequence_relations <- function(
       fromA_event_log_B <- fromA_event_log[!(AID %chin% par_B_relationships),]
       afterA_event_log_B <- afterA_event_log[!(AID %chin% par_B_relationships),]
 
+
       # cli::cli_alert_info("Requirement")
       ## REQ - The execution of A requires the execution of B as a predecessor
       REQ_results <- calculate_requirement_score(
@@ -91,7 +92,6 @@ discover_R_sequence_relations <- function(
         case_count_list)
 
       ## Mutually exclusive
-
       if(any(REQ_results$score < GENERAL_THRES)){
         # cli::cli_alert_info("Exclusion")
 

@@ -30,15 +30,15 @@ discover_parallels_one_to_many <- function(eventlog,
     } else {
 
 
-      sum(cases_with_A_and_B[TS >= reference_timestamp_start & AID == act_B & LC == "complete"][["CASE_COUNT"]]) -> A_starts_before_B_ends
+      N_CASES(cases_with_A_and_B[TS >= reference_timestamp_start & AID == act_B & LC == "complete"][["CID"]], case_count_list) -> A_starts_before_B_ends
 
-      sum(cases_with_A_and_B[TS <= reference_timestamp_start & AID == act_B & LC == "start"][["CASE_COUNT"]]) -> A_starts_after_B_starts
+      N_CASES(cases_with_A_and_B[TS <= reference_timestamp_start & AID == act_B & LC == "start"][["CID"]], case_count_list) -> A_starts_after_B_starts
 
 
       par_score <- 1 - ( abs(A_starts_before_B_ends - A_starts_after_B_starts) / N_CASES(case_list_with_A_B, case_count_list))
 
       ## We lower the R score as A and B are less likely to occur together
-      modifier <- sum(cases_with_A_and_B[["CASE_COUNT"]]) / N_CASES(cases_with_A$CID, case_count_list)
+      modifier <- N_CASES(cases_with_A_and_B[["CID"]], case_count_list) / N_CASES(cases_with_A$CID, case_count_list)
       full_par_score <- par_score * modifier
     }
 

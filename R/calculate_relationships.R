@@ -26,8 +26,8 @@ calculate_relationships <- function(ev_log,
     if(renamed_entries %>% nrow > 0){
       ev_log %>%
         inner_join(renamed_entries,
-                   by = c(new_mapping$case_identifier,
-                          new_mapping$activity_instance_identifier)) %>%
+                   by = c("CID",
+                          "AIID")) %>%
         as_tibble() %>%
         mutate(AID = as.character(AID)) %>%
         mutate(AID := new_concatenated_name) %>%
@@ -41,12 +41,11 @@ calculate_relationships <- function(ev_log,
         as.data.table() -> adjusted_log
 
       ev_log %>%
-        anti_join(renamed_entries) -> old_log
+        anti_join(renamed_entries, by = c("CID", "AIID")) -> old_log
 
 
       bind_rows(adjusted_log, old_log) %>%
         arrange(CID,TS) %>%
-        re_map(new_mapping) %>%
         as.data.table -> ev_log
     }
   }
@@ -104,11 +103,11 @@ calculate_relationships <- function(ev_log,
 
   }
 
-  act_frequency <- ev_log[, .(absolute_frequency = n_distinct(AIID)), by = AID]
+  act_frequency <- ev_log[, .(N_AIID = n_distinct(AIID), CASE_COUNT = first(CASE_COUNT)), by = .(AID, trace)][, freq := CASE_COUNT*N_AIID][, .(absolute_frequency = sum(freq)), by = AID]
 
   rel_df <- rel_df %>%
     left_join(act_frequency, by =c("antecedent"="AID")) %>%
-    mutate(freq = absolute_frequency / n_distinct(ev_log$CID)) %>%
+    mutate(freq = absolute_frequency / sum(case_count_list$CASE_COUNT)) %>%
     mutate(freq = ifelse(is.na(freq),0,freq)) %>%
     mutate(or_importance = importance) %>%
     mutate(importance = importance * score * freq)

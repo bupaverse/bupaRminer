@@ -5,6 +5,10 @@ discover_loop_block <- function(preproc_event_log,
   ## We are only interested in the activities that repeat
   ## An activity repeats if its original name occurs
   ## multiple times in the same case.
+  preproc_event_log[LC == "start"][, .N, by = .(CID, orig_name, CASE_COUNT)] -> tmp
+
+  tmp[,.(max_n = max(N)), by = orig_name][max_n > 1] -> repeat_act
+
   repeat_correlations <- preproc_event_log %>%
     as_tibble() %>%
     filter(LC == "start") %>%
@@ -15,7 +19,7 @@ discover_loop_block <- function(preproc_event_log,
   loop_blocks <- NULL
   ## If we have more than one activity that repeats within a case
   ## then we are interested to see if they form part of a loop
-  if (repeat_correlations %>% nrow > 0 & repeat_correlations$orig_name %>% unique %>% length > 1) {
+  if (repeat_act$orig_name %>% unique %>% length() > 1) {
 
     ## We take the activities that repeat within a case.
     ## And tabulate how often (n) each activity repeats per case
@@ -25,14 +29,13 @@ discover_loop_block <- function(preproc_event_log,
     ## If there is a correlation between the number of times each
     ## activity repeats, then we assume that the activities
     ## occur together in a loop.
-    repeat_correlations <- repeat_correlations %>%
-      ungroup %>%
-      pivot_wider(
-        names_from = orig_name,
-        values_from = n,
-        values_fill = 0
-      ) %>%
-      select(-CID) %>%
+
+    base_cor <- dcast(tmp[orig_name %chin% repeat_act$orig_name], CID + CASE_COUNT ~ orig_name, value.var = "N", fill = 0)
+    full_cor <- base_cor[rep(1:.N, CASE_COUNT)]
+
+
+    repeat_correlations <- full_cor %>%
+      select(-CID, -CASE_COUNT) %>%
       cor %>%
       as_tibble() %>%
       mutate(., antecedent = colnames(.)) %>%

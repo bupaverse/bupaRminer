@@ -9,7 +9,7 @@
 #'
 #'
 #' @export
-discover <- function(log) {
+discover <- function(log, loop_strategy) {
   UseMethod("discover")
 }
 
@@ -19,7 +19,7 @@ discover <- function(log) {
 
 
 discover.eventlog <- function(log,
-                                      loop_strategy = "skip") {
+                              loop_strategy = "skip") {
 
   ## Loopstrategy "omit" : no loopbacks, "skip": Create loopbacks from second iteration, "all": create loopbacks from first iteration
 

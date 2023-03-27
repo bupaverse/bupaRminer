@@ -41,29 +41,30 @@ construct_loop_blocks <- function(event_log,
       new_log <- event_log %>%
         filter(orig_name %in% block_activities,
                is_repeat >= repeat_indicator) %>%
-        group_by(!!sym(case_id(event_log)), !!sym(lifecycle_id(event_log))) %>%
+        group_by(CID, LC) %>%
         summarise(
-          !!sym(activity_id(event_log)) := snippet_name,
-          !!sym(timestamp(event_log)) := min(!!sym(timestamp(event_log))),
-          early_ts = min(!!sym(timestamp(event_log))),
-          late_ts = max(!!sym(timestamp(event_log))),
-          !!sym(activity_instance_id(event_log)) := min(!!sym(activity_instance_id(event_log))),
+          AID = snippet_name,
+          TS = min(TS),
+          early_ts = min(TS),
+          late_ts = max(TS),
+          AIID = min(AIID),
           orig_name = snippet_name,
           new_act_name = snippet_name,
           is_repeat = 1,
-          .order = min(.order)
+          CASE_COUNT = min(CASE_COUNT)
         ) %>%
         ungroup %>%
         mutate(
-          !!sym(timestamp(event_log)) := if_else(!!sym(lifecycle_id(event_log)) == "start",
-                                                early_ts,
-                                                late_ts)
+          TS = if_else(LC == "start", early_ts, late_ts)
         ) %>%
         select(-early_ts, -late_ts)
 
       event_log <- event_log %>%
         filter(!(orig_name %in% block_activities & is_repeat >= repeat_indicator)) %>%
         bind_rows(new_log)
+
+      event_log <- event_log %>% data.table() %>% as_tibble() %>% as.data.table()
+
     }
   }
 
