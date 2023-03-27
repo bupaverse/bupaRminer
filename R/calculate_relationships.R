@@ -4,7 +4,8 @@ calculate_relationships <- function(ev_log,
   unique(ev_log[, .(CID, CASE_COUNT)]) -> case_count_list
 
   rel_df <- discover_parallels_complete(ev_log,
-                                        unique(ev_log[!(AID %chin% c("START","END")),][["orig_name"]]), case_count_list)
+                                        unique(ev_log[!(AID %chin% c("START","END")),][["orig_name"]]),
+                                        case_count_list = case_count_list)
 
   ## Retrieve activities that have duplicates
 
@@ -47,11 +48,12 @@ calculate_relationships <- function(ev_log,
       bind_rows(adjusted_log, old_log) %>%
         arrange(CID,TS) %>%
         as.data.table -> ev_log
-    }
-  }
 
+    }
 
   ## Check again for parallel relationships, but now taking the self loops into account
+
+  }
   rel_df_temp <- discover_parallels_complete(ev_log,
                                              ev_log %>%
                                                filter(!(AID %in% c("START","END"))) %>%
@@ -60,9 +62,9 @@ calculate_relationships <- function(ev_log,
                                              ev_log %>%
                                                filter(AID != orig_name) %>%
                                                pull(AID) %>% unique)
-
   rel_df <- rel_df %>%
     bind_rows(rel_df_temp)
+
 
   ## Then we calculate the other scores
   # cases_with_act_memory <- obtain_case_ids_per_activity(ev_log)
