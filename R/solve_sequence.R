@@ -484,7 +484,23 @@ solve_sequence_relationship <- function(
           )
           return(return_list)
         }
-      }
+
+        ## Else we just assume an OR split
+        selected_pair <- mutual_antec_relations %>%
+          sample_pair(c())
+        return_list <- solve_PAR_relationship(
+          selected_pair,
+          mutual_antec_relations,
+          snippet_dict,
+          mode = "SOFT"
+        )
+        
+        return_list$rel_df <- rel_df %>%
+          remember_pair(selected_pair,
+                        "OR")
+        
+        return(return_list)
+        }
     }
     
     
