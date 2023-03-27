@@ -28,7 +28,7 @@ preprocess <- function(eventlog) {
 
   ev_log[LC == "complete", ] -> completes
 
-  completes[order(TS), timestep := 1:.N, by = CID][, first_act_occ_step := min(timestep), by = .(CID, AID)][, is_repeat := timestep > first_act_occ_step][, is_repeat_cnt := cumsum(is_repeat) + 1, by = .(CID,AID)]
+  completes[order(TS), timestep := 1:.N, by = CID][, first_act_occ_step := min(timestep), by = .(CID, AID)][, is_repeat := timestep > first_act_occ_step][order(TS), is_repeat_cnt := cumsum(is_repeat) + 1, by = .(CID,AID)]
 
   completes[, new_act_name := AID]
   completes[is_repeat_cnt > 1, new_act_name := paste(AID, is_repeat_cnt, sep = "_")]
@@ -53,8 +53,8 @@ preprocess <- function(eventlog) {
 
   unique(merge(ev_log, blocks, by = "block_content")[,.(CID, TS, block_content)])[order(TS), .(trace = paste(block_content, collapse = "+++")), by = CID] -> traces
 
-  #traces[, .(CID = first(CID), CASE_COUNT = .N), by = trace] -> unique_traces
-  #ev_log <- merge(ev_log, unique_traces, by = "CID")
+  # traces[, .(CID = first(CID), CASE_COUNT = .N), by = trace] -> unique_traces
+  # ev_log <- merge(ev_log, unique_traces, by = "CID")
 
   ev_log[["CASE_COUNT"]] <- 1
   ev_log[["trace"]] <- ev_log[["CID"]]
