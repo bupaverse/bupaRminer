@@ -152,12 +152,19 @@ explore_XOR_split <- function(
         branch_pair <- mutual_branch_relationships %>%
           sample_pair(MERGE_FOLLOWS_RELS)
         
-        return_list <- solve_sequence_relationship(
-          branch_pair,
-          rel_df,
-          snippet_dict
-        )
-        return(return_list)
+        reverse_pair <- mutual_branch_relationships %>%
+          inner_join(branch_pair %>% select(antecedent, consequent),
+                     by = c("antecedent"="consequent","consequent"="antecedent"))
+        
+        if(reverse_pair %>% nrow == 0 | reverse_pair$rel != RScoreDict$MUTUALLY_EXCLUSIVE){
+          
+          return_list <- solve_sequence_relationship(
+            branch_pair,
+            rel_df,
+            snippet_dict
+          )
+          return(return_list)
+        }
       }
     }
   }

@@ -58,6 +58,43 @@ solve_PAR_relationship <- function(
   acts_after_split <- acts_happening_after_split %>%
     pull(consequent) %>%
     unique
+  
+  ## If some acts require activities that other acts in the branch
+  ## do not require, then we can first solve those relations
+  ## if the required activities are in parallel with the other
+  ## branches
+  required_for_split <- rel_df %>%
+    filter(antecedent %in% R6_acts,
+           rel == RScoreDict$REQUIRES)
+  
+  if(required_for_split %>% nrow > 0 & 
+     required_for_split %>% count(consequent) %>% filter(n != length(R6_acts)) %>% nrow() != 0 ){
+    required_but_parallel <- rel_df %>%
+      filter(
+        antecedent %in% R6_acts,
+        rel %in% valid_relationships,
+        consequent %in% required_for_split$consequent)
+    
+    if(required_but_parallel %>% nrow > 0){
+      reverse_pairs <- rel_df %>% 
+        inner_join(required_but_parallel %>% 
+                     select(antecedent, consequent), 
+                   by=c("antecedent"="consequent","consequent"="antecedent")) %>%
+        filter(rel %in% MERGE_FOLLOWS_RELS)
+      if(reverse_pairs%>%
+         nrow > 0){
+        sampled_pair <- reverse_pairs %>%
+          sample_pair(MERGE_FOLLOWS_RELS)
+        
+        return_list <- solve_sequence_relationship(
+          sampled_pair,
+          rel_df,
+          snippet_dict
+        )
+        return(return_list)
+      }
+    }
+  }
 
   ## If none of the branches has a follows-relationship,
   ## the split can be created otherwise, we have to check.

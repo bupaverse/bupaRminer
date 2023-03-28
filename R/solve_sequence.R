@@ -174,24 +174,18 @@ solve_sequence_relationship <- function(
           filter(rel == min(rel)) %>%
           mutate(rel = RScoreDict$ALWAYS_PARALLEL)
         
+        sampled_pair <- relevant_pairs %>% 
+          sample_pair(c())
         return_list <- solve_PAR_relationship(
-          relevant_pairs %>% arrange(
-            -importance,
-            -score
-          ) %>%
-            head(1),
-          relevant_pairs,
+          sampled_pair,
+          rel_df,
           snippet_dict
         )
         
         ## We only examined on a partial log.
         ## We need to safeguard the entire log though
         return_list$rel_df <- rel_df %>% remember_pair(
-          relevant_pairs %>% arrange(
-            -importance,
-            -score
-          ) %>%
-            head(1),
+          sampled_pair,
           "OR"
         )
         return(return_list)
