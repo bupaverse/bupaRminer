@@ -67,7 +67,9 @@ construct_process <- function(assigned_rel_df,
   
   completed_FOL <- FALSE
   while(rel_notebook_df %>%
-        nrow() > 0 & completed_FOL == FALSE){
+        nrow() > 0 & 
+        rel_notebook_df %>% filter(is.na(consequent)) %>% nrow < 1 &
+        completed_FOL == FALSE){
     
     
     EXCLUDE_PAIRS_POSSIBLE <- TRUE
