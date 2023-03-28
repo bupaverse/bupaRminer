@@ -156,7 +156,7 @@ explore_XOR_split <- function(
           inner_join(branch_pair %>% select(antecedent, consequent),
                      by = c("antecedent"="consequent","consequent"="antecedent"))
         
-        if(reverse_pair %>% nrow == 0 | reverse_pair$rel != RScoreDict$MUTUALLY_EXCLUSIVE){
+        if(reverse_pair %>% nrow == 0 || reverse_pair$rel != RScoreDict$MUTUALLY_EXCLUSIVE){
           
           return_list <- solve_sequence_relationship(
             branch_pair,
