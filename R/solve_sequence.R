@@ -378,7 +378,7 @@ solve_sequence_relationship <- function(
           }
           if(SEQ_pair$rel %in% c(RScoreDict$ALWAYS_PARALLEL, RScoreDict$REQUIRES)){
             return_list <- solve_PAR_relationship(
-              SEQ_pair %>% mutate(rel == RScoreDict$ALWAYS_PARALLEL),
+              SEQ_pair %>% mutate(rel = RScoreDict$ALWAYS_PARALLEL),
               rel_df %>%
                 filter(antecedent %in% c(SEQ_pair$antecedent, SEQ_pair$consequent),
                        consequent %in% c(SEQ_pair$antecedent, SEQ_pair$consequent)) %>%
@@ -474,7 +474,7 @@ solve_sequence_relationship <- function(
           return_list <- solve_PAR_relationship(
             sampled_par_pair,
             mutual_antec_relations %>%
-              mutate(rel == RScoreDict$PARALLEL_IF_PRESENT),
+              mutate(rel = RScoreDict$PARALLEL_IF_PRESENT),
             snippet_dict,
             mode = "SOFT"
           )

@@ -161,6 +161,21 @@ explore_XOR_split <- function(
       }
     }
   }
+  
+  ## If there are no mutual relations, then the branches appear separate from each other
+  ## and should not be merged into the same split
+  if(mutual_branch_relationships %>% nrow == 0){
+    new_pair <- other_branches %>%
+      anti_join(XOR_pair, by=c("antecedent","consequent")) %>%
+      sample_pair(MERGE_FOLLOWS_RELS)
+    
+    return_list <- solve_sequence_relationship(
+      new_pair,
+      rel_df,
+      snippet_dict
+    )
+    return(return_list)
+    }
 
   ## If all branches are mutually exclusive, then we can create a XOR split
   ## on them.

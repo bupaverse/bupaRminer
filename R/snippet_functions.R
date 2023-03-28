@@ -121,6 +121,21 @@ create_snippet <- function(
         branch$seqs <- branch$seqs %>%
           filter(sourceRef != start_event_id)
       }
+      
+      if(dead_end_check(branch) == TRUE & connection_type == "AND"){
+        print("END in AND removed")
+        branch_end_id <- branch$close
+        new_close <- branch$seqs %>%
+          filter(targetRef == branch_end_id) %>%
+          head(1) %>%
+          pull(sourceRef)
+        branch$close <- new_close
+        branch$seqs <- branch$seqs %>%
+          filter(targetRef != branch_end_id,
+                 sourceRef != branch_end_id)
+        branch$end_events <- branch$end_events  %>%
+          filter(id != branch_end_id)
+      }
 
       if(!is.null(branch$gateways) & branch$gateways %>% nrow() > 0){
         branch_gateways_start <- branch$gateways %>%
