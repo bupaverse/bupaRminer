@@ -57,6 +57,7 @@ solve_directly_follows <- function(
             consequent == act_a) %>% nrow == 0) reverse_rel <- ""
   
   if(reverse_rel == "" && act_a %in% names(snippet_dict)) reverse_rel <- RScoreDict$REQUIRES
+  if(reverse_rel == "" && rel_df %>% nrow == 1) reverse_rel <- RScoreDict$REQUIRES
 
   if(reverse_rel  == RScoreDict$REQUIRES){
     snippet_name <- paste(act_a, act_b, sep = " >> ")
