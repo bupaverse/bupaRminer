@@ -155,7 +155,7 @@ construct_process <- function(assigned_rel_df,
     } else {
       completed_RxREQ <- FALSE
       while(rel_notebook_df %>%
-            filter(rel %in%  MERGE_OTHER_RELS) %>%
+            filter(!is.na(rel)) %>%
             nrow() > 0 & completed_RxREQ == FALSE){
         
         ## We sample any pair between an early activity
@@ -164,23 +164,40 @@ construct_process <- function(assigned_rel_df,
           c(RScoreDict$DIRECT_JOIN,
             RScoreDict$REQUIRES) )
         
-        if(sampled_pair$rel == RScoreDict$REQUIRES){
-          seq_pair <- tibble(
-            antecedent = sampled_pair$consequent,
-            consequent = sampled_pair$antecedent,
-            rel = RScoreDict$DIRECTLY_FOLLOWS,
-            score = NA
+        if(!is.null(sampled_pair)){
+          
+          if(sampled_pair$rel == RScoreDict$REQUIRES){
+            seq_pair <- tibble(
+              antecedent = sampled_pair$consequent,
+              consequent = sampled_pair$antecedent,
+              rel = RScoreDict$DIRECTLY_FOLLOWS,
+              score = NA
+            )
+          } else {
+            seq_pair <- sampled_pair %>%
+              mutate(rel = RScoreDict$DIRECTLY_FOLLOWS)
+          }
+          
+          
+          
+          result <- solve_directly_follows(
+            seq_pair,
+            seq_pair,
+            snippet_dictionary
           )
         } else {
-          seq_pair <- sampled_pair %>%
-            mutate(rel = RScoreDict$DIRECTLY_FOLLOWS)
+          exclusive_pair <- rel_notebook_df %>% 
+            sample_pair(c())
+          
+          result <- solve_XOR_relationship(
+              XOR_root = "",
+              c(exclusive_pair$antecedent, exclusive_pair$consequent),
+              exclusive_pair,
+              snippet_dictionary
+            )
+          
         }
         
-        result <- solve_directly_follows(
-          seq_pair,
-          seq_pair,
-          snippet_dictionary
-        )
         
         if(is.null(result)){
           print("---- No result for sample")
