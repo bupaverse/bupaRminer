@@ -5,7 +5,7 @@
 \alias{discover.eventlog}
 \title{Discover process}
 \usage{
-discover(log)
+discover(log, loop_strategy)
 
 \method{discover}{eventlog}(log, loop_strategy = "skip")
 }

@@ -53,11 +53,11 @@ preprocess <- function(eventlog) {
 
   unique(merge(ev_log, blocks, by = "block_content")[,.(CID, TS, block_content)])[order(TS), .(trace = paste(block_content, collapse = "+++")), by = CID] -> traces
 
-  # traces[, .(CID = first(CID), CASE_COUNT = .N), by = trace] -> unique_traces
-  # ev_log <- merge(ev_log, unique_traces, by = "CID")
+  traces[, .(CID = first(CID), CASE_COUNT = .N), by = trace] -> unique_traces
+  ev_log <- merge(ev_log, unique_traces, by = "CID")
 
-  ev_log[["CASE_COUNT"]] <- 1
-  ev_log[["trace"]] <- ev_log[["CID"]]
+  # ev_log[["CASE_COUNT"]] <- 1
+  # ev_log[["trace"]] <- ev_log[["CID"]]
   ev_log[, AID := as.character(AID)]
 
   ev_log[, orig_name := as.character(orig_name)]
