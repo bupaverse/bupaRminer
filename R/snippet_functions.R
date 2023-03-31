@@ -502,6 +502,38 @@ add_start_end <- function(bpmn_obj){
   return(bpmn_obj)
 }
 
+merge_end_events <- function(bpmn_obj){
+  if(bpmn_obj$end_events %>% nrow < 2){
+    return(bpmn_obj)
+  }
+  end_ids <- bpmn_obj$end_events %>% pull(id)
+  new_gateway <- data.frame(
+    id = paste("END_MERGE",as.numeric(Sys.time()), sep = "_"),
+    name = "MERGE",
+    gatewayType = "ExclusiveGateway",
+    gatewayDirection= "converging"
+  )
+  bpmn_obj$seqs <- bpmn_obj$seqs %>%
+    mutate(targetRef = ifelse(targetRef %in% end_ids, 
+                              new_gateway,
+                              targetRef))
+  
+  only_end_event <- bpmn_obj$end_events %>%
+    head(1)
+  bpmn_obj$end_events <- only_end_event
+  new_sequence <- data.frame(
+    id = paste("MERGE_END",as.numeric(Sys.time()), sep = "_"),
+    name = "",
+    sourceRef = new_gateway$id,
+    targetRef = only_end_event$id
+  )
+  bpmn_obj$seqs <- bpmn_obj$seqs %>%
+    bind_rows(new_sequence)
+  bpmn_obj$gateways <- bpmn_obj$gateways %>%
+    bind_rows(new_gateway)
+  
+  return(bpmn_obj)
+}
 
 ## TODO Check this
 add_loop_back <- function(bpmn_obj){
