@@ -24,7 +24,6 @@ explore_soft_PAR_relationship <- function(
         ) %>%
         head(1)
       
-      
       mutual_soft_par <- rel_df %>%
         filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>%
         filter((antecedent %in% c(sampled_soft_par$antecedent, sampled_soft_par$consequent)) |

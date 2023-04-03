@@ -137,6 +137,10 @@ solve_apriori_conflicts <- function(
                         "consequent"="antecedent"))
     
     if(reverse_rels %>% nrow > 0){
+      always_pars <- always_pars %>%
+        inner_join(reverse_rels %>% select(antecedent, consequent),
+                   by = c("antecedent"="consequent",
+                          "consequent"="antecedent"))
       rel_df <- rel_df %>%
         anti_join(always_pars %>% select(antecedent, consequent),
                   by=c("antecedent","consequent")) %>%
