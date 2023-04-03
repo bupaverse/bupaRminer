@@ -41,47 +41,47 @@ explore_soft_PAR_relationship <- function(
       #          consequent %in% potential_pars,
       #          rel == RScoreDict$MUTUALLY_EXCLUSIVE)
       # 
-      # if(mutual_exclusives %>% nrow > 0 & 
-      #    mutual_exclusives %>% 
-      #    inner_join(mutual_exclusives, 
-      #               by=c("antecedent"="consequent","consequent"="antecedent")) %>% 
+      # if(mutual_exclusives %>% nrow > 0 &
+      #    mutual_exclusives %>%
+      #    inner_join(mutual_exclusives,
+      #               by=c("antecedent"="consequent","consequent"="antecedent")) %>%
       #    nrow == mutual_exclusives %>% nrow){
-      #   
+      # 
       #   selected_pair <- mutual_exclusives %>%
       #     arrange(-importance) %>%
       #     head(1)
-      #   
+      # 
       #   selected_exclusives <- mutual_exclusives %>%
       #     filter(antecedent %in% c(selected_pair$antecedent, selected_pair$consequent))
-      #   
+      # 
       #   ## Check if there are activities that are exclusive with some branches but required for other
-      #   relevant_relations <- rel_df %>% 
+      #   relevant_relations <- rel_df %>%
       #     filter(antecedent %in% c(selected_exclusives$antecedent, selected_exclusives$consequent),
       #            consequent %in% c(selected_exclusives$antecedent, selected_exclusives$consequent))
-      #   
+      # 
       #   if(relevant_relations %>%
       #      filter(rel %in% MERGE_FOLLOWS_RELS) %>% nrow > 0){
       #     new_pair <- relevant_relations %>%
       #       sample_pair(MERGE_FOLLOWS_RELS)
-      #     
+      # 
       #     return_list <- solve_sequence_relationship(new_pair,
       #                                                rel_df,
       #                                                snippet_dict)
-      #     
+      # 
       #     found_none = FALSE
-      #     
+      # 
       #     return(return_list)
       #   }
-      #   
+      # 
       #   return_list <- solve_XOR_relationship(
       #     XOR_root = "",
       #     XOR_branches = unique(selected_exclusives$antecedent),
       #     rel_df = rel_df,
       #     snippet_dict,
       #     split_symbol = ">X>")
-      #   
+      # 
       #   found_none = FALSE
-      #   
+      # 
       #   return(return_list)
       # }
       

@@ -37,7 +37,6 @@ construct_process <- function(assigned_rel_df,
       rel_notebook_df,
       RELS_IN_FOCUS)
 
-
     result <- rel_solver_function(
       sampled_pair,
       rel_notebook_df,
@@ -98,7 +97,7 @@ construct_process <- function(assigned_rel_df,
     SOFT_PAR_POSSIBLE <- TRUE
 
     while(SOFT_PAR_POSSIBLE & rel_notebook_df %>% count(rel) %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>% nrow > 0){
-
+      
       result <- explore_soft_PAR_relationship(rel_notebook_df,
                                               snippet_dictionary)
 
@@ -226,8 +225,6 @@ construct_process <- function(assigned_rel_df,
     }
 
   }
-
- 
 
   return(snippet_dictionary)
 

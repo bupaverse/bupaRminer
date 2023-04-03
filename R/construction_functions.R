@@ -12,16 +12,46 @@ sample_pair <- function(
       pull(rel) %>%
       unique
   }
+  
+  if(any(rel_vect %in% MERGE_FOLLOWS_RELS)){
+    REQ_PREF <- TRUE
+  } else {
+    REQ_PREF <- FALSE
+  }
 
   domain <- rel_df %>%
     filter(rel %in% c(rel_vect))
 
   sampled_pair <- NULL
   if(domain %>% nrow() > 0){
+    
     sampled_pair <- domain %>%
       arrange(-importance,
               -score) %>%
       head(1)
+    
+    if(REQ_PREF == TRUE){
+      new_domain <- rel_df %>%
+        filter(rel == RScoreDict$REQUIRES) %>%
+        inner_join(domain %>% select(antecedent, consequent),
+                   by=c("antecedent"="consequent",
+                        "consequent"="antecedent"))
+      
+      if(new_domain %>% nrow > 0){
+        
+        reverse_pair <- new_domain %>%
+          arrange(-importance,
+                  -score) %>%
+          head(1)
+        
+        sampled_pair <- domain %>%
+          filter(
+            antecedent == reverse_pair$consequent,
+            consequent == reverse_pair$antecedent
+          )
+      }
+    }
+    
   }
 
   return(sampled_pair)
@@ -93,6 +123,26 @@ solve_apriori_conflicts <- function(
     anti_join(antecedents_with_multiple_DF, by=c("antecedent","consequent")) %>%
     bind_rows(antecedents_with_multiple_DF %>% mutate(rel = RScoreDict$DIRECT_JOIN))
   
+  
+  ## Select always parallel where opposite is sometimes parallel and
+  ## switch them to sometimes parallel
+  always_pars <- rel_df %>%
+    filter(rel == RScoreDict$ALWAYS_PARALLEL)
+  
+  if(always_pars %>% nrow > 0){
+    reverse_rels <- rel_df %>%
+      filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>%
+      inner_join(always_pars %>% select(antecedent, consequent),
+                 by = c("antecedent"="consequent",
+                        "consequent"="antecedent"))
+    
+    if(reverse_rels %>% nrow > 0){
+      rel_df <- rel_df %>%
+        anti_join(always_pars %>% select(antecedent, consequent),
+                  by=c("antecedent","consequent")) %>%
+        bind_rows(always_pars %>% mutate(rel = RScoreDict$PARALLEL_IF_PRESENT))
+    }
+  }
 
   return(rel_df)
 }
