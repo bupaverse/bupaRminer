@@ -377,6 +377,11 @@ decode_task <- function(task_name,
     task_id = str_replace_all(task_name, " ", "_")
     task_id = str_replace_all(task_id, "\\(", "_")
     task_id = str_replace_all(task_id, "\\)", "_")
+    task_name = str_replace_all(task_name, "_REP_", "_")
+    task_name = str_replace_all(task_name, "_", " ")
+    task_name = trimws(task_name)
+    task_name = gsub("\\d+$", "", task_name)
+    task_name = trimws(task_name)
 
     atomic_task_snippet <- list(
       tasks = tibble(id = task_id,

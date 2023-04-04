@@ -18,6 +18,7 @@ sample_pair <- function(
   } else {
     REQ_PREF <- FALSE
   }
+  REQ_PREF <- FALSE
 
   domain <- rel_df %>%
     filter(rel %in% c(rel_vect))
@@ -43,6 +44,7 @@ sample_pair <- function(
           arrange(-importance,
                   -score) %>%
           head(1)
+
         
         sampled_pair <- domain %>%
           filter(
@@ -51,6 +53,7 @@ sample_pair <- function(
           )
       }
     }
+    
     
   }
 
