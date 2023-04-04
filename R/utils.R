@@ -1,3 +1,5 @@
+#' @importFrom dplyr tibble
+
 RScoreDict <- list(
   DIRECTLY_FOLLOWS = "R1",
   DIRECT_JOIN = "Rx",
@@ -50,7 +52,7 @@ R_levels <- c(RScoreDict$DIRECT_JOIN,
               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
               RScoreDict$REQUIRES)
 
-smart_thres_df <- tibble(
+smart_thres_df <- dplyr::tibble(
   rel = c(  RScoreDict$DIRECTLY_FOLLOWS,
             RScoreDict$EVENTUALLY_FOLLOWS,
             RScoreDict$MAYBE_DIRECTLY_FOLLOWS,

@@ -11,6 +11,13 @@ discover(log, loop_strategy)
 }
 \arguments{
 \item{log}{Event log}
+
+\item{loop_strategy}{The argument loopstrategy indicates how bupaRminer will deal with blocks of activities (or subprocesses) that occur in a loop.
+\itemize{
+\item "none": bupaRminer will not attempt to detect any  looped subprocesses.
+\item "skip": bupaRminer will detect looped subprocesses. However, the first occurrence of this subprocess just occurs in the regular process flow. The loop subprocess will only appear from the second occurrence onwards. This is used when a block of work is repeated only in certain circumstances.
+\item "all": bupaRminer will detect looped subprocesses. The subprocess will occur in a loop from the very first occurrence. This setting is useful when the loop is always expected to occur instead of being an exception flow.
+}}
 }
 \description{
 Discover process

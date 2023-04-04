@@ -1,3 +1,8 @@
+
+#' @importFrom tidyr pivot_longer
+#' @importFrom dplyr as_tibble filter count group_by select mutate
+
+
 discover_loop_block <- function(preproc_event_log,
                                 loop_thres = 0.5){
 
