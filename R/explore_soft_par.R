@@ -150,6 +150,7 @@ explore_soft_PAR_relationship <- function(
                      by = c("antecedent"="consequent","consequent"="antecedent"))
         
         if(seq_pairs %>% nrow > 0){
+          
           seq_pair <- seq_pairs %>%
             sample_pair(MERGE_FOLLOWS_RELS)
           

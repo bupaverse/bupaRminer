@@ -42,7 +42,7 @@ construct_process <- function(assigned_rel_df,
       rel_notebook_df,
       snippet_dictionary
     )
-
+    
     rel_notebook_df <- update_rel_notebook(
       result,
       rel_notebook_df
@@ -100,11 +100,12 @@ construct_process <- function(assigned_rel_df,
       
       result <- explore_soft_PAR_relationship(rel_notebook_df,
                                               snippet_dictionary)
-
+      
+      
       rel_notebook_df <- update_rel_notebook(
         result,
         rel_notebook_df
-      )
+        )
       
       rel_notebook_df <- rel_notebook_df %>%
         reset_memory()
@@ -204,6 +205,7 @@ construct_process <- function(assigned_rel_df,
           snippet_dictionary <- result$snippet_dictionary
           cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
         }
+        
         rel_notebook_df <- update_rel_notebook(
           result,
           rel_notebook_df
