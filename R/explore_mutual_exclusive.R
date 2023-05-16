@@ -113,7 +113,7 @@ explore_mutual_exclusive_relationship <- function(
           filter(rel == RScoreDict$REQUIRES)
         
         REQ_excluded <- other_relations_as_consequent %>%
-          filter(antecedent %in% REQ_activities,
+          filter(antecedent %in% REQ_activities$antecedent,
                  rel == RScoreDict$MUTUALLY_EXCLUSIVE)
         
         if(REQ_excluded %>% nrow > 0){
@@ -122,13 +122,45 @@ explore_mutual_exclusive_relationship <- function(
                    consequent %in% REQ_excluded$antecedent) %>%
             sample_pair(MERGE_FOLLOWS_RELS)
           
-          return_list <- solve_sequence_relationship(
-            selected_pair,
-            rel_df,
-            snippet_dict
-          )
+          if(!is.null(selected_pair) & selected_pair %>% nrow > 0){
+            
+            return_list <- solve_sequence_relationship(
+              selected_pair,
+              rel_df,
+              snippet_dict
+            )
+            
+            found_none <- FALSE
+          }
+        }
+      }
+      
+      if(other_relations_as_antec %>% filter(rel == RScoreDict$REQUIRES) %>% nrow > 0){
+        REQ_activities <- other_relations_as_antec %>% 
+          filter(rel == RScoreDict$REQUIRES)
+        
+        REQ_excluded <- other_relations_as_antec %>%
+          filter(consequent %in% REQ_activities$consequent,
+                 rel == RScoreDict$MUTUALLY_EXCLUSIVE)
+        
+        if(REQ_excluded %>% nrow > 0){
           
-          found_none <- FALSE
+          
+          selected_pair <- rel_df %>%
+            filter(antecedent %in% REQ_excluded$consequent,
+                   consequent %in% mutual_exclude_activities) %>%
+            sample_pair(MERGE_FOLLOWS_RELS)
+          
+          if(!is.null(selected_pair) & selected_pair %>% nrow > 0){
+            
+            return_list <- solve_sequence_relationship(
+              selected_pair,
+              rel_df,
+              snippet_dict
+            )
+            
+            found_none <- FALSE
+          }
         }
       }
     }

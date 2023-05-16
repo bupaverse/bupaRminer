@@ -18,7 +18,7 @@ assign_relationships <- function(relationships_df,
       mutate(reference_score = mean(score)) %>%
       ungroup() %>%
       mutate(reference_score = ifelse(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT,RScoreDict$ALWAYS_PARALLEL),
-                                      mean(score),
+                                      mean(score, na.rm=TRUE),
                                       reference_score)) %>%
       filter(score >= reference_score) %>%
       mutate(score = round(score,1)) %>%

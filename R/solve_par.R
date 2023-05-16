@@ -41,16 +41,16 @@ solve_PAR_relationship <- function(
 
   ## We create a vector of all activities that
   ## happen in parallel (R6) with both A and B
-  R6_acts <- c(antec,conseq,intersect(R6_with_antec, R6_with_conseq))
+  par_acts <- c(antec,conseq,intersect(R6_with_antec, R6_with_conseq))
 
-  ## We can't just put the R6_acts in a parallel block
+  ## We can't just put the par_acts in a parallel block
   ## we need to check whether any of these activities
   ## is actually part of a branch with multiple
   ## Activities in it. Theregore, for each activity in
   ## the split, we need to check if there are more
   ## down the line
   acts_happening_after_split <- rel_df %>%
-    filter(antecedent %in% R6_acts,
+    filter(antecedent %in% par_acts,
            rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
                       RScoreDict$EVENTUALLY_FOLLOWS,
                       RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
@@ -64,14 +64,14 @@ solve_PAR_relationship <- function(
   ## if the required activities are in parallel with the other
   ## branches
   required_for_split <- rel_df %>%
-    filter(antecedent %in% R6_acts,
+    filter(antecedent %in% par_acts,
            rel == RScoreDict$REQUIRES)
   
   if(required_for_split %>% nrow > 0 & 
-     required_for_split %>% count(consequent) %>% filter(n != length(R6_acts)) %>% nrow() != 0 ){
+     required_for_split %>% count(consequent) %>% filter(n != length(par_acts)) %>% nrow() != 0 ){
     required_but_parallel <- rel_df %>%
       filter(
-        antecedent %in% R6_acts,
+        antecedent %in% par_acts,
         rel %in% valid_relationships,
         consequent %in% required_for_split$consequent)
     
@@ -86,12 +86,14 @@ solve_PAR_relationship <- function(
         sampled_pair <- reverse_pairs %>%
           sample_pair(MERGE_FOLLOWS_RELS)
         
-        return_list <- solve_sequence_relationship(
-          sampled_pair,
-          rel_df,
-          snippet_dict
-        )
-        return(return_list)
+        if(!is.null(sampled_pair) & sampled_pair %>% nrow > 0){
+          return_list <- solve_sequence_relationship(
+            sampled_pair,
+            rel_df,
+            snippet_dict
+          )
+          return(return_list)
+        }
       }
     }
   }
@@ -104,7 +106,7 @@ solve_PAR_relationship <- function(
       count(consequent, rel) %>%
       group_by(consequent) %>%
       mutate(min_n = min(n), max_n = max(n)) %>%
-      mutate(all_same = (n == length(R6_acts)) & (min_n == max_n))
+      mutate(all_same = (n == length(par_acts)) & (min_n == max_n))
 
     ## If all follows relationships are the same for all branches
     ## then those branches can be merged first into a split
@@ -116,7 +118,7 @@ solve_PAR_relationship <- function(
       
       relations_with_different_follows <- rel_df %>% 
         filter(consequent %in% different_follows, 
-               antecedent %in% R6_acts)
+               antecedent %in% par_acts)
       
       relation_analysis <- relations_with_different_follows %>% 
         count(consequent, rel) %>% 
@@ -189,7 +191,7 @@ solve_PAR_relationship <- function(
       }
 
       mutual_relationships <- rel_df %>%
-        filter(antecedent %in% R6_acts,
+        filter(antecedent %in% par_acts,
                consequent %in% acts_after_split)
       ## If there are only follows relationships, then we assume we can proceed,
       ## otherwise we have to check
@@ -206,7 +208,7 @@ solve_PAR_relationship <- function(
         ## be created.
         if(mutual_relationships %>%
            count(consequent, rel) %>%
-           filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE, n >= (length(R6_acts) / 2)) %>%
+           filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE, n >= (length(par_acts) / 2)) %>%
            filter(n > 1) %>%
            nrow() > 0){
 
@@ -216,10 +218,10 @@ solve_PAR_relationship <- function(
           ## We need tp remove the R6 relationships that we are doubting.
           ## We do this only for the activities that created the conflict
           ## Or, if the split consisted of just two activities, for both.
-          if(length(R6_acts) == 2){
-            invalid_R6_acts <- R6_acts
+          if(length(par_acts) == 2){
+            invalid_par_acts <- par_acts
           } else {
-            invalid_R6_acts <- mutual_relationships %>%
+            invalid_par_acts <- mutual_relationships %>%
               filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE) %>%
               pull(antecedent) %>%
               unique
@@ -228,11 +230,11 @@ solve_PAR_relationship <- function(
 
           ## Create the new rows and update the rel_df
           new_rows <- rel_df %>%
-            filter(antecedent %in% invalid_R6_acts,
-                   consequent %in% R6_acts) %>%
+            filter(antecedent %in% invalid_par_acts,
+                   consequent %in% par_acts) %>%
             mutate(rel = RScoreDict$PARALLEL_IF_PRESENT)
           rel_df <- rel_df %>%
-            filter(!(antecedent %in% invalid_R6_acts & consequent %in% R6_acts)) %>%
+            filter(!(antecedent %in% invalid_par_acts & consequent %in% par_acts)) %>%
             bind_rows(new_rows)
 
           return_list$messages <- c(return_list$messages,
@@ -293,19 +295,19 @@ solve_PAR_relationship <- function(
   PAR_SYMBOL_START = "++["
   PAR_SYMBOL_END = "]++"
 
-  modified_acts <- R6_acts
+  modified_acts <- par_acts
 
   if(mode == "SOFT"){
     ## branches that aren't required from START are made optional
     rels_from_start <- rel_df %>%
       filter((antecedent == "START" | startsWith(antecedent, "START ") ),
-             consequent %in% R6_acts) %>%
+             consequent %in% par_acts) %>%
       filter(rel == RScoreDict$EVENTUALLY_FOLLOWS)
 
     required_from_start <- rels_from_start$consequent
 
     if(length(required_from_start) > 0){
-      optional_acts <- setdiff(R6_acts, required_from_start)
+      optional_acts <- setdiff(par_acts, required_from_start)
 
       if(length(optional_acts) > 0){
         optional_acts <- paste(">X>[",optional_acts,"]>X>", sep="")
@@ -338,7 +340,7 @@ solve_PAR_relationship <- function(
   
   snippet_acts = list()
   i <- 1
-  for(act in R6_acts){
+  for(act in par_acts){
     snippet_acts[i] <- act
     i <- i+1
   }
@@ -352,7 +354,7 @@ solve_PAR_relationship <- function(
     )
 
   return_list$snippet <- snippet_name
-  return_list$activities <- R6_acts
+  return_list$activities <- par_acts
   return_list$rel_df <- rel_df
   return_list$messages <- c(return_list$messages,
                             paste("Created process snippet:",
