@@ -64,6 +64,4 @@ preprocess <- function(eventlog) {
   ev_log[, new_act_name := as.character(new_act_name)]
   ev_log[, LC := as.character(LC)]
 
-
-
 }

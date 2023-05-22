@@ -24,12 +24,12 @@ construct_loop_blocks <- function(event_log,
         filter(orig_name %in% block_activities,
                is_repeat == repeat_indicator)
 
-      cli::cli_alert_info("Calculate block relationships")
+      # cli::cli_alert_info("Calculate block relationships")
       block_relationships <- calculate_relationships(block_log,
-                                                     skip_self_loops = TRUE)
+                                                     skip_self_loops = TRUE, source = "loop", id = loop_block)
       assigned_block_relationships <- assign_relationships(block_relationships)
-      cli::cli_alert_info("Construct block process")
-      block_process <- construct_process(assigned_block_relationships)
+      # cli::cli_alert_info("Construct block process")
+      block_process <- construct_process(assigned_block_relationships, source = "loop", id = loop_block)
       ## Get relevant snippet
       snippet_name <- names(block_process)[length(block_process)]
       block_bpmn_obj <- block_process[[length(block_process)]]

@@ -6,22 +6,34 @@ discover_R_sequence_relations <- function(
     exclusive_thres = 0.95,
     interrupting_theta = 0,
     GENERAL_THRES = 0.95,
-    case_count_list = case_count_list
+    case_count_list = case_count_list,
+    source,
+    id
 ){
+
 
   nr_cases <- N_CASES(ev_log$CID, case_count_list)
 
   outer_output <- list_along(1:(length(ev_activities) - 1))
+
+  n <- length(outer_output)
+  i <- 0
+  if(source == "main")
+    cli::cli_progress_step("Calculating relationships - {i}/{n}", spinner = TRUE)
+  else
+    cli::cli_progress_step("[loop block {id}] Calculating relationships - {i}/{n}", spinner = TRUE)
 
 
   references <- ev_log[, .(reference_timestamp_start = min(TS),
                            reference_timestamp_end = max(TS)), by = .(AID,CID)]
 
   for(A in c(1:(length(ev_activities)-1))){
+    i <- A
+    cli::cli_progress_update()
 
     prec_act <-as.character(ev_activities[[A]])
 
-    cli::cli_alert_info(prec_act)
+    # cli::cli_alert_info(prec_act)
 
     unique(as.data.table(rel_par_df)[rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL) &
                                 antecedent == prec_act &

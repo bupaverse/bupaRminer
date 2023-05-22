@@ -1,5 +1,7 @@
 calculate_relationships <- function(ev_log,
-                                    skip_self_loops = FALSE){
+                                    skip_self_loops = FALSE,
+                                    source,
+                                    id){
 
   unique(ev_log[, .(CID, CASE_COUNT)]) -> case_count_list
 
@@ -82,7 +84,9 @@ calculate_relationships <- function(ev_log,
     all_activities,
     rel_df,
     parallel_thres = par_thres,
-    case_count_list = case_count_list
+    case_count_list = case_count_list,
+    source = source,
+    id = id
   )
 
   if("END" %in% unique(ev_log[["AID"]])){

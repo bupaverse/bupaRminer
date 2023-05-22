@@ -4,15 +4,17 @@
 ## usethis namespace: start
 #' @import bupaR
 #' @importFrom stats cor
-#' @importFrom purrr list_along
+#' @importFrom purrr list_along map_chr
 #' @importFrom utils head
 #' @import bpmnR
-#' @importFrom tidyr spread pivot_wider
+#' @importFrom tidyr spread pivot_wider gather unnest
 #' @importFrom edeaR filter_activity_presence
-#' @importFrom stringr str_replace_all
+#' @importFrom stringr str_replace_all str_detect
 #' @import data.table
 #' @importFrom forcats fct_recode
-#' @importFrom dplyr tibble bind_rows anti_join case_when distinct full_join everything left_join pull summarize tribble n_distinct n lag inner_join if_else
+#' @importFrom lubridate now
+#' @importFrom petrinetR create_marked_PN create_PN
+#' @importFrom dplyr tibble bind_rows anti_join case_when distinct full_join everything left_join pull summarize tribble n_distinct n lag inner_join if_else row_number rename_with transmute
 ## usethis namespace: end
 NULL
 globalVariables(c(".","AID","AIID","CASE_COUNT",".data","CID","LC","EXCL_count",
