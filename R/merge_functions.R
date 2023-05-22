@@ -1,7 +1,8 @@
 merge_relationships <- function(
+    rel_df,
     snippet_name,
     activities,
-    rel_df
+    last_snippet
 ){
   
   ## Remove empty activities
@@ -15,8 +16,20 @@ merge_relationships <- function(
   real_activities <- activities[! activities %in% c('END')]
 
   HAS_END <- "END" %in% activities | endsWith(snippet_name, " END")
-  HAS_START <- "START" %in% activities | startsWith(snippet_name, "START ")
+  HAS_START <- "START" %in% activities | last_snippet$start_events %>% nrow > 0  # startsWith(snippet_name, "START ")
 
+  IS_GATEWAY_BLOCK <- FALSE
+  if(last_snippet$init %in% last_snippet$gateways$id){
+    if(last_snippet$close %in% last_snippet$gateways$id){
+      if(last_snippet$seqs %>%
+         filter(sourceRef == last_snippet$init,
+                targetRef == last_snippet$close) %>%
+         nrow  == 1){
+        IS_GATEWAY_BLOCK <- TRUE
+      }
+    }
+  }
+  
   ## If we have added an END event, we want to remove
   ## all relationships between the activities in the block
   ## and the end event
@@ -54,6 +67,28 @@ merge_relationships <- function(
   antecedent_rel <- rel_df %>%
     filter(antecedent %in% real_activities,
            !(consequent %in% real_activities) )
+  
+  if(IS_GATEWAY_BLOCK){
+    if(antecedent_rel %>% filter(rel == RScoreDict$EVENTUALLY_FOLLOWS) %>% nrow > 0){
+      if(antecedent_rel %>% filter(rel == RScoreDict$MAYBE_EVENTUALLY_FOLLOWS) %>% nrow > 0){
+        block_R_levels <- c(RScoreDict$PARALLEL_IF_PRESENT,
+                            RScoreDict$ALWAYS_PARALLEL,
+                            RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                            RScoreDict$DIRECT_JOIN,
+                            RScoreDict$DIRECTLY_FOLLOWS,
+                            RScoreDict$EVENTUALLY_FOLLOWS,
+                            RScoreDict$MUTUALLY_EXCLUSIVE,
+                            RScoreDict$REQUIRES,
+                            RScoreDict$TERMINATING,
+                            RScoreDict$HAPPENS_DURING)
+        
+        antecedent_rel <- antecedent_rel %>%
+          mutate(rel = factor(rel, levels = block_R_levels, ordered = TRUE))
+      }
+    }
+  }
+  
 
   ## Remove old relationships
   original_rel_df <- rel_df
@@ -96,16 +131,13 @@ merge_relationships <- function(
           filter(!(antecedent %in% closest_direct_XOR_roots$antecedent & consequent  %in% activities)) %>%
           bind_rows(closest_direct_XOR_roots)
 
-      } else {
-        consequent_rel <- consequent_rel %>%
-          mutate(importance = importance/20)
-
-      }
+      } 
 
     }
 
     consequent_rel <- consequent_rel %>%
       group_by(antecedent) %>%
+      filter(rel == min(rel, na.rm = TRUE)) %>%
       summarize(rel = min(rel, na.rm = TRUE),
                 score = min(score, na.rm=TRUE),
                 importance = min(importance, na.rm =TRUE)) %>%
@@ -119,11 +151,13 @@ merge_relationships <- function(
   if(antecedent_rel %>% nrow() > 0){
     antecedent_rel <- antecedent_rel %>%
       group_by(consequent) %>%
+      filter(rel == min(rel, na.rm = TRUE)) %>%
       summarize(rel = min(rel, na.rm = TRUE),
                 score = min(score, na.rm=TRUE),
                 importance = min(importance, na.rm =TRUE)) %>%
       ungroup() %>%
-      mutate(antecedent = snippet_name)
+      mutate(antecedent = snippet_name) %>%
+      mutate(rel = factor(rel, levels = MERGE_R_levels, ordered = TRUE))
 
     rel_df <- rel_df %>%
       bind_rows(antecedent_rel)
@@ -210,10 +244,12 @@ update_rel_notebook <- function(
   }
 
   if(!is.null(constrc_result$snippet)){
-    rel_df <- merge_relationships(
+    last_snippet <- constrc_result$snippet_dict[[length(constrc_result$snippet_dict)]]
+    
+    rel_df <- rel_df %>% merge_relationships(
       constrc_result$snippet,
       constrc_result$activities,
-      rel_df
+      last_snippet
     )
   }
 
