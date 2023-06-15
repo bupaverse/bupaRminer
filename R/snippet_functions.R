@@ -9,7 +9,8 @@ create_snippet <- function(
     connection_type = c("SEQ","XOR","AND","OR","INTER","NONINTER"),
     snippet_dict = list(),
     start_event_name = c("START","__START__"),
-    end_event_name = c("END","__END__")
+    end_event_name = c("END","__END__"),
+    seq_name = ""
 ){
   new_snippet <- list(
     tasks = tibble(),
@@ -74,7 +75,8 @@ create_snippet <- function(
   if(connection_type == "SEQ"){
     new_sequence <- establish_sequence(
       outgoing_connection_A,
-      incoming_connection_B
+      incoming_connection_B,
+      seq_name = seq_name
     )
 
     new_snippet$seqs <- new_snippet$seqs %>%
@@ -424,10 +426,11 @@ dead_end_check <- function(snippet){
 
 establish_sequence <- function(
     out_A,
-    in_B){
+    in_B,
+    seq_name = ""){
   new_sequence <- tibble(
     id = paste(out_A,in_B,sep = "__"),
-    name = "",
+    name = seq_name,
     sourceRef = out_A,
     targetRef = in_B
   )

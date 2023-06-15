@@ -193,7 +193,8 @@ solve_interrupt_relationship <- function(
       conseq,
       c(),
       "SEQ",
-      snippet_dict
+      snippet_dict,
+      seq_name = rel_pair$rel
     )
 
   return_list <- list(
