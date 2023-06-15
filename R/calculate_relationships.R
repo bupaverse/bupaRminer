@@ -93,7 +93,7 @@ calculate_relationships <- function(ev_log,
     always_end <- tibble(
       antecedent = all_activities,
       consequent = "END",
-      rel="R2",
+      rel=RScoreDict$EVENTUALLY_FOLLOWS,
       score = 1,
       importance = 0.01
     )
