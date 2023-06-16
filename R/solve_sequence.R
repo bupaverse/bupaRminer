@@ -264,12 +264,29 @@ solve_sequence_relationship <- function(
           relevant_relations <- closest_antecedents$rel %>%
             unique
           
-          closest_antecedents <- closest_antecedents %>%
-            mutate(rel = RScoreDict$DIRECT_JOIN)
+          if(length(relevant_relations) == 1 & relevant_relations == RScoreDict$DIRECT_JOIN){
+            new_mutual_rels <- expand.grid(
+              antecedent = closest_antecedents$antecedent,
+              consequent = closest_antecedents$antecedent) %>%
+              filter(antecedent != consequent) %>%
+              mutate(
+                rel = RScoreDict$PARALLEL_IF_PRESENT,
+                score = 0,
+                importance = 0
+              )
+            
+            
+            rel_df <- rel_df %>%
+              bind_rows(new_mutual_rels)
+          } else {
+            closest_antecedents <- closest_antecedents %>%
+              mutate(rel = RScoreDict$DIRECT_JOIN)
+            
+            rel_df <- rel_df %>%
+              filter(!(antecedent %in% closest_antecedents$antecedent & consequent %in% closest_antecedents$consequent)) %>%
+              bind_rows(closest_antecedents)
+          }
           
-          rel_df <- rel_df %>%
-            filter(!(antecedent %in% closest_antecedents$antecedent & consequent %in% closest_antecedents$consequent)) %>%
-            bind_rows(closest_antecedents)
           
           return_list$rel_df <- rel_df
           

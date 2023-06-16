@@ -141,9 +141,11 @@ fetch_mutual_exclude <- function(
   exclude_df <- rel_df %>%
     filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE)
   
-  exclude_df <- exclude_df %>%
-    inner_join(exclude_df %>% select(antecedent, consequent),
-               c("antecedent"="consequent","consequent"="antecedent"))
+  if(exclude_df %>% nrow > 0){
+    exclude_df <- exclude_df %>%
+      inner_join(exclude_df %>% select(antecedent, consequent),
+                 c("antecedent"="consequent","consequent"="antecedent"))
+  }
   
   return(exclude_df)
 }

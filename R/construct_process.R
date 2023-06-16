@@ -99,8 +99,10 @@ construct_process <- function(assigned_rel_df,
       i <- n - nrow(rel_notebook_df)
       cli::cli_progress_update()
 
-      rel_notebook_df <- rel_notebook_df %>%
-        reset_memory()
+      if(rel_notebook_df %>% nrow > 1){
+        rel_notebook_df <- rel_notebook_df %>%
+          reset_memory()
+      }
 
       if(is.null(result$snippet)){
         EXCLUDE_PAIRS_POSSIBLE <- FALSE
@@ -125,9 +127,11 @@ construct_process <- function(assigned_rel_df,
       )
       i <- n - nrow(rel_notebook_df)
       cli::cli_progress_update()
-
-      rel_notebook_df <- rel_notebook_df %>%
-        reset_memory()
+      
+      if(rel_notebook_df %>% nrow > 1){
+        rel_notebook_df <- rel_notebook_df %>%
+          reset_memory()
+      }
 
       if(is.null(result$snippet)){
         SOFT_PAR_POSSIBLE <- FALSE
@@ -173,6 +177,7 @@ construct_process <- function(assigned_rel_df,
 
       rel_notebook_df <- rel_notebook_df %>%
         reset_memory()
+      
     } else {
       completed_RxREQ <- FALSE
       while(rel_notebook_df %>%
