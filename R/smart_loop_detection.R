@@ -1,6 +1,6 @@
 ## martllops on sys_10_2
 
-my_log <- read_xes("data/system_10_2_1_1_0.xes")
+my_log <- read_xes("data/system_10_2_4_5_3.xes")
 
 my_log <- my_log %>% preprocess
 
@@ -111,7 +111,7 @@ loop_back_scores <- loop_scores %>%
 
 loop_block_counter <- 0
 loop_block_info_df <- tibble()
-while(norm_looped_scores %>% filter(score == 1, loop_block_id==0) %>% nrow() > 0){
+while(norm_looped_scores %>% filter(rel == RScoreDict$LOOP_BLOCK, score == 1, loop_block_id==0) %>% nrow() > 0){
   loop_block_counter <- loop_block_counter + 1
   
   preceeding_acts <-  norm_looped_scores %>% 
@@ -138,19 +138,29 @@ while(norm_looped_scores %>% filter(score == 1, loop_block_id==0) %>% nrow() > 0
            loop_block_counter,
            loop_block_id))
   
-  relevant_loop_backs <- loop_back_scores %>%
-    filter(antecedent %in% loop_acts)
-  
-  most_likely_endpoint <- relevant_loop_backs %>%
+  most_likely_endpoint <- loop_back_scores %>%
+    filter(antecedent %in% loop_acts) %>%
     arrange(-score) %>%
     head(1) %>%
     pull(antecedent)
   
-  most_likely_start_points <- relevant_loop_backs %>%
+  most_likely_start_points <- loop_back_scores %>%
     filter(antecedent == most_likely_endpoint) %>%
     pull(consequent)
   
-  remaining_loop_backs <- relevant_loop_backs %>%
+  loop_acts <- c(
+    loop_acts,
+    norm_looped_scores %>% 
+      filter(
+        rel==RScoreDict$LOOP_BLOCK,
+        score == 1,
+        antecedent %in% most_likely_start_points) %>%
+      pull(consequent)
+  ) %>%
+    unique
+  
+  remaining_loop_backs <- loop_back_scores %>%
+    filter(antecedent %in% loop_acts) %>%
     filter(!(antecedent %in% c(most_likely_endpoint, most_likely_start_points)))
   
   ##If there are still loopbacks, then there are probably myultiple possibel end points
@@ -163,7 +173,8 @@ while(norm_looped_scores %>% filter(score == 1, loop_block_id==0) %>% nrow() > 0
     
     print(second_end_point)
     
-    second_start_points <- relevant_loop_backs %>%
+    second_start_points <- loop_back_scores %>%
+      filter(antecedent %in% loop_acts) %>%
       filter(antecedent == second_end_point) %>%
       pull(consequent)
     
@@ -225,7 +236,8 @@ for(loop_block in 1:loop_blocks){
   
   
   first_loop_log <- loop_log %>%
-    filter(loop_id == 1) %>%
+    filter(loop_id == 1,
+           is_repeat == 1) %>%
     as.data.table()
   
   first_loop_rel <- calculate_relationships(first_loop_log, source = "main") %>%

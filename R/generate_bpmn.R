@@ -82,7 +82,8 @@ generate_bpmn <- function(snippet_dictionary) {
         filter(gatewayType == "ExclusiveGateway") %>%
         left_join(outgoing_arcs, by = "sourceRef") %>%
         left_join(incoming_arcs, by = "targetRef") %>%
-        filter(n_outgoing > 2) %>%
+        filter(n_outgoing > 2,
+               n_incoming > 2) %>%
         pull(id) -> remove_exclusives
 
       seqs <- seqs %>%
@@ -106,7 +107,7 @@ generate_bpmn <- function(snippet_dictionary) {
 
     flows <- seqs %>%
       mutate(objectType = "sequenceFlow")
-
+   
     bpmnR::create_bpmn(nodes, flows, events)
 
   }
