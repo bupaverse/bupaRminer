@@ -1,17 +1,18 @@
 ## martllops on sys_10_2
 
-# my_log <- read_xes("data/system_10_2_4_5_3.xes")
+# my_log <- read_xes("data/system_10_2_1_1_0.xes")
 # my_log <- sepsis
 # 
 # my_log <- my_log %>% preprocess
-# loop_scores <- calculate_loop_scores(my_log)
-# if(loop_scores %>% nrow > 0){
-#  loop_block_df <- detect_loop_blocks(loop_scores)
-# loop_result <- solve_loop_blocks(loop_block_df,
-#                                  my_log)
-# } else {
-#  loop_result$log <- my_log
-#  loop_result$process <- list()
+# loop_result <- list()
+# loop_result$log <- my_log
+# loop_result$process <- list()
+# if(my_log %>% pull(is_repeat) %>% max() > 1 ){
+#   loop_scores <- calculate_loop_scores(my_log)
+#   if(loop_scores %>% nrow > 0){
+#     loop_block_df <- detect_loop_blocks(loop_scores)
+#     loop_result <- solve_loop_blocks(loop_block_df,my_log)
+#   }
 # }
 # 
 # all_rel <- calculate_relationships(loop_result$log, source = "main") %>%
@@ -138,7 +139,7 @@ detect_loop_blocks <- function(loop_scores){
   while(norm_looped_scores %>% filter(rel == RScoreDict$LOOP_BLOCK, score == 1, loop_block_id==0) %>% nrow() > 0){
     temp_loop_block_info_df <- tibble()
     loop_block_counter <- loop_block_counter + 1
-    new_counter <- 1
+    new_counter <- loop_block_counter
     
     preceeding_acts <-  norm_looped_scores %>% 
       filter(loop_block_id == 0) %>%
