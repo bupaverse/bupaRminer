@@ -5,9 +5,14 @@
 # 
 # my_log <- my_log %>% preprocess
 # loop_scores <- calculate_loop_scores(my_log)
-# loop_block_df <- detect_loop_blocks(loop_scores)
+# if(loop_scores %>% nrow > 0){
+#  loop_block_df <- detect_loop_blocks(loop_scores)
 # loop_result <- solve_loop_blocks(loop_block_df,
 #                                  my_log)
+# } else {
+#  loop_result$log <- my_log
+#  loop_result$process <- list()
+# }
 # 
 # all_rel <- calculate_relationships(loop_result$log, source = "main") %>%
 #   assign_relationships()
@@ -20,6 +25,10 @@ calculate_loop_scores <- function(prep_log){
     filter(is_repeat > 1) %>%
     pull(orig_name) %>%
     unique()
+  
+  if(length(repeating_acts) == 1){
+    return(tibble())
+  }
   
   repeat_log <- prep_log %>%
     filter(orig_name %in% repeating_acts) %>%
@@ -161,6 +170,24 @@ detect_loop_blocks <- function(loop_scores){
       head(1) %>%
       pull(antecedent)
     
+    if(length(most_likely_endpoint) == 0){
+      ## Not loopback in loopblock
+      ## Search for other candidates further down the line
+      extra_acts <- norm_looped_scores %>% 
+        filter(antecedent %in% loop_acts, 
+               rel == RScoreDict$LOOP_BLOCK,
+               score > 0) %>%
+        pull(consequent)
+      
+      loop_acts <- c(loop_acts, extra_acts) %>% unique()
+      
+      most_likely_endpoint <- loop_back_scores %>%
+        filter(antecedent %in% loop_acts) %>%
+        arrange(-score) %>%
+        head(1) %>%
+        pull(antecedent)
+    }
+    
     most_likely_start_points <- loop_back_scores %>%
       filter(antecedent == most_likely_endpoint) %>%
       pull(consequent)
@@ -270,6 +297,10 @@ detect_loop_blocks <- function(loop_scores){
         acts_to_replace <- temp_loop_block_info_df %>%
           filter(loop_block_id == shortest_loops$loop_block_id) %>%
           pull(activity)
+        
+        norm_looped_scores <- norm_looped_scores %>%
+          filter(!(antecedent %in% acts_to_replace & consequent %in% acts_to_replace))
+        
         temp_loop_block_info_df <- temp_loop_block_info_df %>%
           mutate(activity = ifelse(
             activity %in% acts_to_replace & loop_block_id  != shortest_loops$loop_block_id,
