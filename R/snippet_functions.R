@@ -174,13 +174,13 @@ create_snippet <- function(
     timestamp <- as.numeric(Sys.time())
     new_gateway_A <- tibble(
       id = paste(connection_type, "SPLIT", outgoing_connection_A, timestamp, sep = "__"),
-      name = "SPLIT",
+      name = if_else(seq_name == "","SPLIT", seq_name),
       gatewayType = gw_type,
       gatewayDirection = "diverging"
     )
     new_gateway_B <- tibble(
       id = paste(connection_type, "MERGE", incoming_connection_B, timestamp, sep = "__"),
-      name = "MERGE",
+      name = if_else(seq_name == "","MERGE", seq_name),
       gatewayType = gw_type,
       gatewayDirection = "converging"
     )

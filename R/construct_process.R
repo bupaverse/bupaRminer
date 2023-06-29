@@ -37,6 +37,7 @@ construct_process <- function(assigned_rel_df,
 
 
     if(any(MERGE_INTERRUPTING_RELS %in% RELS_IN_FOCUS)){
+      print("Interrupt")
       rel_solver_function <- solve_interrupt_relationship
     } else if(RELS_IN_FOCUS == RScoreDict$DIRECTLY_FOLLOWS){
       rel_solver_function <- solve_DF_relationship
@@ -58,6 +59,7 @@ construct_process <- function(assigned_rel_df,
       result,
       rel_notebook_df
     )
+    
     i <- n - nrow(rel_notebook_df)
     cli::cli_progress_update()
 
