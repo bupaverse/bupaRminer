@@ -3,25 +3,7 @@
 # my_log <- read_xes("data/system_10_2_1_1_0.xes")
 # my_log <- sepsis
 # 
-# my_log <- my_log %>% preprocess
-# loop_result <- list()
-# loop_result$log <- my_log
-# loop_result$process <- list()
-# if(my_log %>% pull(is_repeat) %>% max() > 1 ){
-#   loop_scores <- calculate_loop_scores(my_log)
-#   if(loop_scores %>% nrow > 0){
-#     loop_block_df <- detect_loop_blocks(loop_scores)
-#     loop_result <- solve_loop_blocks(loop_block_df,my_log)
-#   }
-# }
-# 
-# all_rel <- calculate_relationships(loop_result$log, source = "main") %>%
-#   assign_relationships()
-# 
-# all_snippets <- construct_process(all_rel,
-#                                   loop_result$process, source = "main")
-
-calculate_loop_scores <- function(prep_log){
+calculate_loop_relations <- function(prep_log){
   repeating_acts <- prep_log %>%
     filter(is_repeat > 1) %>%
     pull(orig_name) %>%
@@ -39,6 +21,15 @@ calculate_loop_scores <- function(prep_log){
     mutate(is_repeat = 1) %>%
     calculate_relationships(source='main')
   
+  return(repeat_rels)
+}
+
+calculate_loop_scores <- function(repeat_rels, prep_log){
+  repeating_acts <- prep_log %>%
+    filter(is_repeat > 1) %>%
+    pull(orig_name) %>%
+    unique()
+  
   loop_scores <- tibble()
   for(act_a in repeating_acts){
     act_a_rep <- prep_log %>%
@@ -55,7 +46,7 @@ calculate_loop_scores <- function(prep_log){
                is_repeat == 2) %>%
         pull(AID) %>%
         unique
-      print(paste("Analysing", act_a, act_b, sep = " "))
+      
       sef_a_b <- repeat_rels %>%
         filter(rel == RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
                antecedent == act_a,
@@ -68,11 +59,13 @@ calculate_loop_scores <- function(prep_log){
       scores_a_b <- repeat_rels %>%
         filter(antecedent == act_a,
                consequent == act_b) %>%
+        arrange(rel) %>%
         pull(score)
       
       scores_a2_b2 <- repeat_rels %>%
         filter(antecedent == act_a_rep,
                consequent == act_b_rep) %>%
+        arrange(rel) %>%
         pull(score)
       
       score_diff <- mean(abs(scores_a_b - scores_a2_b2))
@@ -123,7 +116,7 @@ calculate_loop_scores <- function(prep_log){
   return(loop_scores)
 }
 
-detect_loop_blocks <- function(loop_scores){
+detect_loop_blocks <- function(loop_scores, repeat_rels){
   norm_looped_scores <- loop_scores %>%
     group_by(rel) %>%
     mutate(score = ifelse(score >= mean(score), 1,0)) %>%
@@ -131,8 +124,7 @@ detect_loop_blocks <- function(loop_scores){
     ungroup()
   
   loop_back_scores <- loop_scores %>% 
-    filter(rel == RScoreDict$LOOP_BACK, 
-           score > 0)
+    filter(rel == RScoreDict$LOOP_BACK)
   
   loop_block_counter <- 0
   loop_block_info_df <- tibble()
@@ -166,6 +158,7 @@ detect_loop_blocks <- function(loop_scores){
                                     loop_block_id))
     
     most_likely_endpoint <- loop_back_scores %>%
+      filter(score > 0) %>%
       filter(antecedent %in% loop_acts) %>%
       arrange(-score) %>%
       head(1) %>%
@@ -190,11 +183,27 @@ detect_loop_blocks <- function(loop_scores){
     }
     
     most_likely_start_points <- loop_back_scores %>%
-      filter(antecedent == most_likely_endpoint) %>%
-      pull(consequent)
+      filter(score > 0) %>%
+      filter(antecedent == most_likely_endpoint) 
+    
+    if(most_likely_start_points %>% nrow > 0){
+      most_likely_start_points <- loop_back_scores %>%
+        filter(score >= mean(score)) %>%
+        filter(antecedent == most_likely_endpoint) 
+    } 
+    if(most_likely_start_points %>% nrow > 0){
+      most_likely_start_points <- most_likely_start_points %>%
+        pull(consequent)
+    } else {
+      most_likely_start_points <- loop_back_scores %>%
+        filter(score > 0) %>%
+        filter(antecedent == most_likely_endpoint) %>%
+        pull(consequent)
+    }
     
     loop_acts <- c(
       loop_acts,
+      most_likely_start_points,
       norm_looped_scores %>% 
         filter(
           rel==RScoreDict$LOOP_BLOCK,
@@ -205,10 +214,22 @@ detect_loop_blocks <- function(loop_scores){
       unique
     
     remaining_loop_backs <- loop_back_scores %>%
+      filter(score >= mean(score)) %>%
       filter(antecedent %in% loop_acts) %>%
       filter(!(antecedent %in% c(most_likely_endpoint, most_likely_start_points)))
     
-    ##If there are still loopbacks, then there are probably myultiple possibel end points
+    ##If there are still loopbacks, then there are probably multiple possible end points
+    
+    ## But we can disregard the loopback that also have a high Par if present score
+    ## Since PIP is high if activities appear in a choice in a loop
+    ## (First occurrence of A may always be beofre or after first occurrence of B)
+    remaining_loop_backs <- remaining_loop_backs %>% 
+      inner_join(repeat_rels %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>% 
+                   select(antecedent, consequent, PIP=score), 
+                 by=c("antecedent","consequent")) %>%
+      filter(score >= PIP) %>%
+      select(antecedent, consequent, rel, score)
+    
     while(remaining_loop_backs %>% nrow > 0){
       
       second_end_point <- remaining_loop_backs %>%
@@ -217,9 +238,22 @@ detect_loop_blocks <- function(loop_scores){
         pull(antecedent)
       
       second_start_points <- loop_back_scores %>%
-        filter(antecedent %in% loop_acts) %>%
-        filter(antecedent == second_end_point) %>%
-        pull(consequent)
+        filter(score > 0) %>%
+        filter(antecedent == second_end_point)
+      
+      if(second_start_points %>% nrow > 0){
+        second_start_points <- loop_back_scores %>%
+          filter(score >= mean(score)) %>%
+          filter(antecedent == second_end_point)
+      } 
+      if(second_start_points %>% nrow > 0){
+        second_start_points <- second_start_points %>%
+          pull(consequent)
+      } else {
+        most_likely_start_points <- loop_back_scores %>%
+          filter(antecedent == second_end_point) %>%
+          pull(consequent)
+      }
       
       if(setequal(most_likely_start_points, second_start_points)){
         most_likely_endpoint <- c(most_likely_endpoint, second_end_point)
@@ -240,6 +274,8 @@ detect_loop_blocks <- function(loop_scores){
             antecedent %in% second_end_point) %>%
           pull(consequent)
         
+        
+        acts_outside_block <- acts_outside_block[!acts_outside_block %in% second_start_points]
         other_loop_acts <- other_loop_acts[!other_loop_acts %in% acts_outside_block]
         
         other_loop_block_info <- tibble(
