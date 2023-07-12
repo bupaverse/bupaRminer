@@ -4,6 +4,51 @@
 generate_bpmn <- function(snippet_dictionary) {
 
   bpmn_obj <- snippet_dictionary[[length(snippet_dictionary)]]
+  
+  floating_gws <- bpmn_obj$gateways %>%
+    filter(!id %in% bpmn_obj$seqs$sourceRef)
+  
+  if(floating_gws %>% nrow > 0){
+    for(floating_gw in floating_gws$id){
+      if(bpmn_obj$seqs %>% filter(targetRef == floating_gw) %>% nrow <= 2){
+        ## Replace gateway with end event
+        new_end <- tibble(
+          id = floating_gw,
+          name = "END")
+        bpmn_obj$end_events <- bpmn_obj$end_events %>%
+          bind_rows(new_end)
+        
+        bpmn_obj$gateways <- bpmn_obj$gateways %>%
+          filter(id != floating_gw)
+        
+        seqs_to_gw <- bpmn_obj$seqs %>% filter(
+          targetRef == floating_gw
+        ) %>% filter(
+          !sourceRef %in% bpmn_obj$tasks$id
+        )
+        
+        if(seqs_to_gw %>% nrow > 0){
+          bpmn_obj$seqs <- bpmn_obj$seqs %>%
+            filter(!id %in% seqs_to_gw$id)
+        }
+        
+      } else{
+        ## Connect end event to gatexay
+        new_end <- tibble(
+          id = paste("END",floating_gw, sep = "__"),
+          name = "END")
+        bpmn_obj$end_events <- bpmn_obj$end_events %>%
+          bind_rows(new_end)
+        
+        new_sequence <- establish_sequence(
+          floating_gw,
+          new_end$id
+        )
+        bpmn_obj$seqs <- bpmn_obj$seqs %>%
+          bind_rows(new_sequence)
+      }
+    }
+  }
 
   map_to_bpmn <- function(bpmn_obj){
     tasks <- bpmn_obj$tasks %>% as.data.frame()

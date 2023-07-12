@@ -171,14 +171,15 @@ create_snippet <- function(
       }
     }
 
+    timestamp <- as.numeric(Sys.time())
     new_gateway_A <- tibble(
-      id = paste(connection_type, "SPLIT", outgoing_connection_A, as.numeric(Sys.time()), sep = "__"),
+      id = paste(connection_type, "SPLIT", outgoing_connection_A, timestamp, sep = "__"),
       name = "SPLIT",
       gatewayType = gw_type,
       gatewayDirection = "diverging"
     )
     new_gateway_B <- tibble(
-      id = paste(connection_type, "MERGE", incoming_connection_B, as.numeric(Sys.time()), sep = "__"),
+      id = paste(connection_type, "MERGE", incoming_connection_B, timestamp, sep = "__"),
       name = "MERGE",
       gatewayType = gw_type,
       gatewayDirection = "converging"
@@ -249,8 +250,6 @@ create_snippet <- function(
         branch_snippet <- branch_snippet %>%
           expand_snippet(branch_out)
       } else {
-
-        print("BRANCH DEAD END")
 
         branch_in <- create_snippet(
           start_point = list(
@@ -323,6 +322,7 @@ create_snippet <- function(
       new_snippet$seqs <- new_snippet$seqs %>%
         bind_rows(new_sequence)
     }
+    
   }
 
   return(new_snippet)
