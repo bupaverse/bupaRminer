@@ -20,6 +20,7 @@ knitr::opts_chunk$set(
 <!-- badges: end -->
 
 bupaRminer is a novel process discovery tool that is designed to discover sound BPMN models from event logs. The resulting BPMN diagram is based on a declarative model that is expressed as statistical likelihoods of pairwise relationships between activities. The likelihood metrics are standardized to enable a fair comparison. One of the advantages of bupaRminer is that it does not require fine-tuning of hyperparameters, making it easy to use for those who are not familiar with process discovery or process mining. Additionally, its statistical foundations ensure that it handles noise in the event log naturally. Contrary to most other techniques, bupaRminer considers both start and complete timestamps of activities.
+
 ## Installation
 
 You can install the development version of bupaRminer from [GitHub](https://github.com/) with:

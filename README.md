@@ -16,7 +16,9 @@ hyperparameters, making it easy to use for those who are not familiar
 with process discovery or process mining. Additionally, its statistical
 foundations ensure that it handles noise in the event log naturally.
 Contrary to most other techniques, bupaRminer considers both start and
-complete timestamps of activities. \## Installation
+complete timestamps of activities.
+
+## Installation
 
 You can install the development version of bupaRminer from
 [GitHub](https://github.com/) with:
