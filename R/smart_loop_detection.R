@@ -117,6 +117,8 @@ calculate_loop_scores <- function(repeat_rels, prep_log){
 }
 
 detect_loop_blocks <- function(loop_scores, repeat_rels){
+  ## We want to discard irrelevant/maginal scores
+  ## by introducing a threshold per relationship-type
   norm_looped_scores <- loop_scores %>%
     group_by(rel) %>%
     mutate(score = ifelse(score >= mean(score), 1,0)) %>%
@@ -128,11 +130,23 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
   
   loop_block_counter <- 0
   loop_block_info_df <- tibble()
+  
+  ## We keep going as long as there are activities that are not assigned to a loop. 
   while(norm_looped_scores %>% filter(rel == RScoreDict$LOOP_BLOCK, score == 1, loop_block_id==0) %>% nrow() > 0){
+    
+    ## Initialize parameters for new loop block
     temp_loop_block_info_df <- tibble()
     loop_block_counter <- loop_block_counter + 1
     new_counter <- loop_block_counter
     
+    ## We are looking for the loop block that contains most (unassigned) activities.
+    ## We do this by searching for the activity that is part of the loop block of
+    ## other activities. 
+    ## The activity (or activities) that are part of the loop block of the most activities
+    ## are necessarily also the "last" activities in the loop block.
+    ## F.e. in a looped sequence A-B-C-D, by design, activity D will be the consequent of 
+    ## a LOOP_BLOCK relation for A, B and C, whereas activity B is only the LOOP_BLOCK 
+    ## consequent of A. In the following code, we are looking for activity D. 
     preceeding_acts <-  norm_looped_scores %>% 
       filter(loop_block_id == 0) %>%
       filter(rel == RScoreDict$LOOP_BLOCK) %>%
@@ -144,6 +158,10 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       head(1) %>%
       pull(consequent)
     
+    ## Find all activities that are within the loop block.
+    ## We assume now that the loop block ends with the
+    ## "most connected activity", which is referred to as actiity D
+    ## in the previous comment.
     loop_acts <- norm_looped_scores %>% 
       filter(score == 1, 
              rel == RScoreDict$LOOP_BLOCK,
@@ -152,11 +170,17 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       unique %>%
       c(.,most_connected_act)
     
+    ## We assign those activities to the new loop_block by reference number
     norm_looped_scores <- norm_looped_scores %>% 
       mutate(loop_block_id = ifelse(antecedent %in% loop_acts & score == 1,
                                     loop_block_counter,
                                     loop_block_id))
     
+    ## There may be nested loops, so we need to check what
+    ## each activity within the loop block is most likely
+    ## to loop back to. 
+    ## We selelect the activty woth the strongest
+    ## loop_back relation as the new endpoint of our loop.
     most_likely_endpoint <- loop_back_scores %>%
       filter(score > 0) %>%
       filter(antecedent %in% loop_acts) %>%
@@ -164,9 +188,11 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       head(1) %>%
       pull(antecedent)
     
+    ## If there is no loop_back activity, then we are in trouble.
     if(length(most_likely_endpoint) == 0){
-      ## Not loopback in loopblock
-      ## Search for other candidates further down the line
+      ## We first extend our search to other candidates 
+      ## further down the line (after the activity that
+      ## we assumed to be last)
       extra_acts <- norm_looped_scores %>% 
         filter(antecedent %in% loop_acts, 
                rel == RScoreDict$LOOP_BLOCK,
@@ -175,6 +201,7 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       
       loop_acts <- c(loop_acts, extra_acts) %>% unique()
       
+      ## We again search for the most likely end point
       most_likely_endpoint <- loop_back_scores %>%
         filter(antecedent %in% loop_acts) %>%
         arrange(-score) %>%
@@ -182,25 +209,43 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
         pull(antecedent)
     }
     
+    ## We want to know what activity to loop back to from our end point
+    ## this can only be an activity that had a  LOOP_BACK score with
+    ## that end point.
     most_likely_start_points <- loop_back_scores %>%
       filter(score > 0) %>%
       filter(antecedent == most_likely_endpoint) 
     
+    ## Id there are multiple potential start points,
+    ## then we can downsize the list by adding a threshold
+    ## to the required score. 
     if(most_likely_start_points %>% nrow > 0){
       most_likely_start_points <- loop_back_scores %>%
         filter(score >= mean(score)) %>%
         filter(antecedent == most_likely_endpoint) 
     } 
+    
+    ## If there is at least 1 candidate, we extract all
+    ## of the as potential candidates
     if(most_likely_start_points %>% nrow > 0){
       most_likely_start_points <- most_likely_start_points %>%
         pull(consequent)
     } else {
+      
+      ## Else, we are forced to move back to the extended list
+      ## and select them all as candidates
       most_likely_start_points <- loop_back_scores %>%
         filter(score > 0) %>%
         filter(antecedent == most_likely_endpoint) %>%
         pull(consequent)
     }
     
+    ### WHAT IF ZERO CANDIDATES?
+    
+    
+    ## Gather all activities that we consider to be
+    ## part of the loop. We use the most likely
+    ## starting activity(es) as reference point
     loop_acts <- c(
       loop_acts,
       most_likely_start_points,
@@ -213,12 +258,11 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     ) %>%
       unique
     
+    ##If there are still loopbacks, then there are probably multiple possible end points
     remaining_loop_backs <- loop_back_scores %>%
       filter(score >= mean(score)) %>%
       filter(antecedent %in% loop_acts) %>%
       filter(!(antecedent %in% c(most_likely_endpoint, most_likely_start_points)))
-    
-    ##If there are still loopbacks, then there are probably multiple possible end points
     
     ## But we can disregard the loopback that also have a high Par if present score
     ## Since PIP is high if activities appear in a choice in a loop
