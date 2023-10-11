@@ -312,7 +312,7 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       ## Remember that A > B X>{A, C X>[A,..]} is the same as 
       ## A > B X>[C, ] X>[A,..]
       if(setequal(most_likely_start_points, second_start_points)){
-        most_likely_endpoint <- c(most_likely_endpoint, second_end_point)
+        most_likely_endpoint <- c(most_likely_endpoint, second_end_point) %>% unique
       } else{
         ## If not, we will construct an inner loop first.
         ## these must contain all activities that are part of 
@@ -391,15 +391,6 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       shortest_loops <- block_counts %>%
         filter(n == min(n))
       
-      
-      ## As long as there are other blocks left, we are dealing with an
-      ## inner loop.
-      if(block_counts %>% nrow > 0){
-        LOOPTYPE = "inner"
-      } else {
-        LOOPTYPE = "outer"
-      }
-      
       ## There may be an equal number of shortest loops. If so, we have to 
       ## deal with that. 
       if(shortest_loops %>% nrow > 1){
@@ -429,6 +420,14 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       ## The block in examination need not be considered anywmore afterwards.
       block_counts <- block_counts %>%
         filter(!loop_block_id %in% shortest_loops$loop_block_id)
+      
+      ## As long as there are other blocks left, we are dealing with an
+      ## inner loop.
+      if(block_counts %>% nrow > 0){
+        LOOPTYPE = "inner"
+      } else {
+        LOOPTYPE = "outer"
+      }
       
       ## Assign loopblock id and looptype to each activity in the data structure
       temp_loop_block_info_df <- temp_loop_block_info_df %>%
@@ -578,6 +577,3 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
   
   return(result)
 }
-
-
-## jkfqm
