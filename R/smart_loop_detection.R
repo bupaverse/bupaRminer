@@ -266,7 +266,7 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     
     ## But we can disregard the loopback that also have a high Par if present score
     ## Since PIP is high if activities appear in a choice in a loop
-    ## (First occurrence of A may always be beofre or after first occurrence of B)
+    ## (First occurrence of A may always be before or after first occurrence of B)
     remaining_loop_backs <- remaining_loop_backs %>% 
       inner_join(repeat_rels %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>% 
                    select(antecedent, consequent, PIP=score), 
@@ -276,20 +276,27 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     
     while(remaining_loop_backs %>% nrow > 0){
       
+      ## Sekect the activity that has the strongest LOOP_BACK score
+      ## This is likely an inner loop. 
       second_end_point <- remaining_loop_backs %>%
         arrange(-score) %>%
         head(1) %>%
         pull(antecedent)
       
+      ## Select all activities to which the second end point is 
+      ## looping back. 
       second_start_points <- loop_back_scores %>%
         filter(score > 0) %>%
         filter(antecedent == second_end_point)
       
+      ## If there are many candidate starting points for the inner loop
+      ## then we can afford to be more stringent in our selection.
       if(second_start_points %>% nrow > 0){
         second_start_points <- loop_back_scores %>%
           filter(score >= mean(score)) %>%
           filter(antecedent == second_end_point)
       } 
+      ## Otherwise we just select all candidates as inner staring points.
       if(second_start_points %>% nrow > 0){
         second_start_points <- second_start_points %>%
           pull(consequent)
@@ -299,9 +306,17 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
           pull(consequent)
       }
       
+      ## If there is no difference between the old and the new startpoint,
+      ## then we assume that both the old and the new end point are both
+      ## considered as loop end point. 
+      ## Remember that A > B X>{A, C X>[A,..]} is the same as 
+      ## A > B X>[C, ] X>[A,..]
       if(setequal(most_likely_start_points, second_start_points)){
         most_likely_endpoint <- c(most_likely_endpoint, second_end_point)
       } else{
+        ## If not, we will construct an inner loop first.
+        ## these must contain all activities that are part of 
+        ## the loop block of the inner starting activity.
         other_loop_acts <- norm_looped_scores %>% 
           filter(
             rel==RScoreDict$LOOP_BLOCK,
@@ -311,6 +326,9 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
           c(.,second_start_points) %>%
           unique
         
+        
+        ## But we do not need any activity that comes
+        ## after the inner loop's end point.
         acts_outside_block <- norm_looped_scores %>% 
           filter(
             rel==RScoreDict$LOOP_BLOCK,
@@ -322,6 +340,8 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
         acts_outside_block <- acts_outside_block[!acts_outside_block %in% second_start_points]
         other_loop_acts <- other_loop_acts[!other_loop_acts %in% acts_outside_block]
         
+        ## Create a data structure that contains start and end activity of
+        ## the inner loop block, along with the other activities inside that block.
         other_loop_block_info <- tibble(
           loop_block_id  = loop_block_counter,
           activity = other_loop_acts,
@@ -329,16 +349,22 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
           mutate(is_start = (activity %in% second_start_points),
                  is_end = (activity %in% second_end_point))
         
+        ## Add the block to the temp loop_blocks and augment
+        ## the counter. 
         temp_loop_block_info_df <- temp_loop_block_info_df %>%
           bind_rows(other_loop_block_info)
         
         loop_block_counter <- loop_block_counter + 1
       }
       
+      ## Remove the end points from the loopbacks so that the next
+      ## one cna be examined. 
       remaining_loop_backs <- remaining_loop_backs %>%
         filter(!(antecedent %in% c(second_end_point, second_start_points)))
     }
     
+    ## If inner loop blocks are dealt with, we can collect the activites in the outer loop
+    ## in a new datastructure. Start and end points must be indicated.
     loop_block_info <- tibble(
       loop_block_id  = loop_block_counter,
       activity = loop_acts,
@@ -351,46 +377,88 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       mutate(loop_type = NA,
              new_loop_block_id = NA) 
     
+    ## Create a summary of outer and inner loop blocks created.
+    ## Smallest should be first (remember that outer loops contain
+    ## elements of the inner loop). We want to solve the inner loops
+    ## first.
     block_counts <- temp_loop_block_info_df %>%
       count(loop_block_id) %>%
       arrange(n)
     
+    ## We wull have to inspect the loop blocks iteratively.
+    ## starting with the smallest block. 
     while(block_counts %>% nrow > 0){
       shortest_loops <- block_counts %>%
         filter(n == min(n))
       
-      block_counts <- block_counts %>%
-        filter(!loop_block_id %in% shortest_loops$loop_block_id)
       
+      ## As long as there are other blocks left, we are dealing with an
+      ## inner loop.
       if(block_counts %>% nrow > 0){
         LOOPTYPE = "inner"
       } else {
         LOOPTYPE = "outer"
       }
       
-      if(shortest_loops %>% nrow == 1){
-        temp_loop_block_info_df <- temp_loop_block_info_df %>%
-          mutate(loop_type = ifelse(loop_block_id == shortest_loops$loop_block_id, LOOPTYPE, loop_type),
-                 new_loop_block_id = ifelse(loop_block_id == shortest_loops$loop_block_id, new_counter, new_loop_block_id))
-        loop_name <- paste("LOOP",new_counter,sep="__")
-        new_counter <- new_counter + 1
+      ## There may be an equal number of shortest loops. If so, we have to 
+      ## deal with that. 
+      if(shortest_loops %>% nrow > 1){
+        ## If activities overlap, we can assume that they are all part of the same loop
+        act_occurrence_in_block <- temp_loop_block_info_df %>%
+          filter(loop_block_id %in% shortest_loops$loop_block_id) %>%
+          count(activity)
         
-        acts_to_replace <- temp_loop_block_info_df %>%
-          filter(loop_block_id == shortest_loops$loop_block_id) %>%
-          pull(activity)
-        
-        norm_looped_scores <- norm_looped_scores %>%
-          filter(!(antecedent %in% acts_to_replace & consequent %in% acts_to_replace))
-        
-        temp_loop_block_info_df <- temp_loop_block_info_df %>%
-          mutate(activity = ifelse(
-            activity %in% acts_to_replace & loop_block_id  != shortest_loops$loop_block_id,
-            loop_name,
-            activity))
-      } else {
-        ## TODO
+        if(act_occurrence_in_block %>% pull(n) %>% max() > 1){
+          temp_loop_block_info_df <- temp_loop_block_info_df %>%
+            mutate(loop_block_id = ifelse(loop_block_id %in% shortest_loops$loop_block_id,
+                                          min(shortest_loops$loop_block_id),
+                                          loop_block_id))
+          
+          ## The block in examination need not be considered anywmore afterwards.
+          block_counts <- block_counts %>%
+            filter(!loop_block_id %in% shortest_loops$loop_block_id)
+          
+          shortest_loops <- shortest_loops %>%
+            filter(loop_block_id == min(loop_block_id))
+        } else {
+          shortest_loops <- shortest_loops %>%
+            filter(loop_block_id == min(loop_block_id))
+        }
       }
+      
+      ## The block in examination need not be considered anywmore afterwards.
+      block_counts <- block_counts %>%
+        filter(!loop_block_id %in% shortest_loops$loop_block_id)
+      
+      ## Assign loopblock id and looptype to each activity in the data structure
+      temp_loop_block_info_df <- temp_loop_block_info_df %>%
+        mutate(loop_type = ifelse(loop_block_id == shortest_loops$loop_block_id, LOOPTYPE, loop_type),
+               new_loop_block_id = ifelse(loop_block_id == shortest_loops$loop_block_id, new_counter, new_loop_block_id))
+      ## We create a name that we can later use for referencing the entire loop
+      loop_name <- paste("LOOP",new_counter,sep="__")
+      new_counter <- new_counter + 1
+        
+        
+      ## Abd we fulter out all activities that have been placed in the loopblock
+      acts_to_replace <- temp_loop_block_info_df %>%
+        filter(loop_block_id == shortest_loops$loop_block_id) %>%
+        pull(activity)
+        
+      norm_looped_scores <- norm_looped_scores %>%
+        filter(!(antecedent %in% acts_to_replace & consequent %in% acts_to_replace))
+        
+      ## In the outer loops, we replace the activity names with a reference to the inner loops
+      ## via the loop name. 
+      temp_loop_block_info_df <- temp_loop_block_info_df %>%
+        mutate(activity = ifelse(
+          activity %in% acts_to_replace & loop_block_id  != shortest_loops$loop_block_id,
+          loop_name,
+          activity))
     }
+    
+    ## We now have a final data structure containing outer and inner loops with their own labels.
+    ## because some activities that are renamed towards their (inner) loop_name, adjustments have to be
+    ## made. 
     temp_loop_block_info_df <- temp_loop_block_info_df %>%
       group_by(loop_block_id, activity) %>%
       summarize(
@@ -512,3 +580,4 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
 }
 
 
+## jkfqm
