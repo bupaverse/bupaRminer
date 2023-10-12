@@ -1,9 +1,6 @@
 assign_relationships <- function(relationships_df,
                                  mode = "variable"){
   
-  relationships_df <- relationships_df %>%
-    filter(!(rel %in% c(RScoreDict$HAPPENS_DURING, RScoreDict$TERMINATING)))
-  
   if(mode == "fixed"){
     # Set all rel values above threshold to 1
     masked_df <- relationships_df %>%

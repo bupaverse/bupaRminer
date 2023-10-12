@@ -172,6 +172,30 @@ solve_interrupt_relationship <- function(
     rel_pair,
     "BOUNDARY"
   )
+  
+  ## Check if others interrupt as well
+  if(rel_df %>% filter(antecedent == rel_pair$antecedent, rel == rel_pair$rel) %>% nrow > 1){
+    ## If so, solve them first
+    other_interrupting <- rel_df %>% 
+      filter(antecedent == rel_pair$antecedent, rel == rel_pair$rel) %>%
+      pull(consequent)
+    
+    mutual_relationships <- rel_df %>% 
+      filter(antecedent %in% other_interrupting,
+             consequent %in% other_interrupting)
+    
+    inter_proc <- construct_process(mutual_relationships, 
+                                    snippet_dict, 
+                                    source="main")
+    
+    last_snippet <- inter_proc[length(inter_proc)]
+    
+    return_list$snippet <- names(last_snippet)
+    return_list$activities <- other_interrupting
+    snippet_dict[[return_list$snippet]] <- last_snippet[[1]]
+    return_list$snippet_dictionary <- snippet_dict
+    return(return_list)
+  }
 
   antec <- rel_pair$antecedent
   conseq <- rel_pair$consequent
@@ -187,15 +211,29 @@ solve_interrupt_relationship <- function(
 
   msg <- paste("Created process snippet:", snippet_name, sep = " ")
 
-  snippet_dict[[snippet_name]] <-
-    create_snippet(
-      antec,
-      conseq,
-      c(),
-      "SEQ",
-      snippet_dict,
-      seq_name = rel_pair$rel
-    )
+  if(rel_pair$rel == RScoreDict$TERMINATING){
+    
+    snippet_dict[[snippet_name]] <-
+      create_snippet(
+        antec,
+        conseq,
+        c(),
+        "SEQ",
+        snippet_dict,
+        seq_name = rel_pair$rel
+      )
+  } else {
+    
+    snippet_dict[[snippet_name]] <-
+      create_snippet(
+        NULL,
+        NULL,
+        c(antec, conseq),
+        "AND",
+        snippet_dict,
+        seq_name = rel_pair$rel
+      )
+  }
 
   return_list <- list(
     snippet = snippet_name,
