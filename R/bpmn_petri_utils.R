@@ -12,6 +12,11 @@ find_corresponding_exit <- function(entry_id, bpmn, join_id) {
 
   while(next_step != join_id) {
     exit <-  bpmn$flows %>% filter(sourceRef == next_step)
+
+    if(nrow(exit) > 1) {
+      exit %>%
+        filter(!str_detect(targetRef, "LOOPBACK_MERGE")) -> exit
+    }
     next_step <- exit$targetRef[1]
   }
   return(exit$sourceRef)
@@ -38,7 +43,6 @@ replace_or_split <- function(bpmn, or_split_id) {
   outgoing %>%
     filter(!targetRef %in% current_join) -> to_be_replaced
 
-  to_be_replaced %>% slice(1) -> entry
 
   to_be_replaced %>%
     mutate(corresponding_exit = map_chr(targetRef, find_corresponding_exit, bpmn, current_join$targetRef)) -> to_be_replaced
@@ -54,7 +58,7 @@ replace_or_split <- function(bpmn, or_split_id) {
                 rep(to_be_replaced$targetRef, each = 2)),
     name = rep(c("SPLIT","MERGE"), times = nrow(to_be_replaced)),
     objectType = "exclusiveGateway",
-    gatewayDirection = rep(c("diverging","converging"), times = nrow(to_be_replaced)),
+    gatewayDirection = rep(c("Diverging","Converging"), times = nrow(to_be_replaced)),
     tmp = rep(to_be_replaced$targetRef, each = 2)
   )
 
@@ -63,7 +67,7 @@ replace_or_split <- function(bpmn, or_split_id) {
   new_gateways %>%
     select(id, tmp, gatewayDirection) %>%
     spread(gatewayDirection, id) %>%
-    rename(sourceRef = diverging, targetRef = converging) %>%
+    rename(sourceRef = Diverging, targetRef = Converging) %>%
     select(-tmp) %>%
     mutate(name = "") -> new_skips
 
@@ -81,7 +85,7 @@ replace_or_split <- function(bpmn, or_split_id) {
     mutate(objectType = if_else(id %in% c(current_split, current_join$targetRef), "parallelGateway", objectType)) %>%
     bind_rows(select(new_gateways, -tmp)) -> bpmn$nodes
 
-  return(bpmn)
+  create_bpmn(bpmn$nodes, bpmn$flows, bpmn$events)
 }
 
 

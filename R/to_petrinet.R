@@ -24,213 +24,87 @@ to_petrinet <- function(bpmn) {
   }
 
 
-
-
-
   tmp_bpmn$flows -> seqs
 
   tibble(data = list(tmp_bpmn$nodes, tmp_bpmn$events)) %>%
     unnest(data) -> nodes
 
+  nodes %>%
+    count(objectType, gatewayDirection)
+
+
   seqs %>%
-    left_join(nodes, by = c("sourceRef" = "id"), suffix = c("_seq","_from")) %>%
-    rename_with(.cols = c("gatewayDirection"), .fn = ~paste0(.x, "_from")) %>%
-    left_join(nodes, by = c("targetRef" = "id"), suffix = c("_seq","_to"))  %>%
-    rename_with(.cols = c("objectType","gatewayDirection"), .fn = ~paste0(.x, "_to")) %>%
+    mutate(from = sourceRef, to = targetRef) -> flows
+
+  nodes %>%
+    filter(objectType %in% c("task","parallelGateway")) %>%
+    mutate(label = name) -> transitions
+
+  nodes %>%
+    filter(objectType %in% c("startEvent","endEvent","exclusiveGateway")) %>%
+    mutate(label = name) -> places
+
+
+  pt <- bind_rows(mutate(transitions, type = "T"), mutate(places, type = "P"))
+
+
+  flows %>%
+    as_tibble() %>%
+    left_join(pt, by = c("from" = "id"), suffix = c("_seq","_from")) %>%
+    rename_with(.cols = c("gatewayDirection", "type"), .fn = ~paste0(.x, "_from")) %>%
+    left_join(pt, by = c("to" = "id"), suffix = c("_seq","_to"))  %>%
+    rename_with(.cols = c("objectType","gatewayDirection", "type"), .fn = ~paste0(.x, "_to")) %>%
     as_tibble() -> data
 
-  data  %>%
-    as_tibble() %>%
-    count(objectType_from,objectType_to)
-
-  flows <- tibble()
-
-  bind_rows(tmp_bpmn$events) %>%
-    rename(label = name) -> places
-
-  tmp_bpmn$nodes %>%
-    filter(objectType == "task") %>%
-    rename(label = name) -> transitions
+  data %>%
+    filter(type_from != type_to) -> flows
 
   data %>%
-    filter(objectType_from == "task",objectType_to == "task") -> task_task
+    filter(type_from == "T",type_to == "T") -> TT
 
-  task_task %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              label = id) -> new_places
+  TT %>%
+    mutate(id = paste(sourceRef, targetRef, sep = "____"), label = "") -> TT
+  TT %>%
+    select(id, label) -> new_places
 
+  TT %>%
+    select(from = sourceRef, to = id) -> new_flows_in
+  TT %>%
+    select(from = id, to = targetRef) -> new_flows_out
+
+  flows %>%
+    bind_rows(new_flows_in) %>%
+    bind_rows(new_flows_out) -> flows
 
   places %>%
     bind_rows(new_places) -> places
 
-  task_task %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              sourceRef, targetRef) -> prep_new_flows
-
-  new_flows <- list_along(1:nrow(prep_new_flows))
-  for(i in 1:nrow(prep_new_flows)) {
-    tibble(from = c(prep_new_flows$sourceRef[i], prep_new_flows$id[i]),
-           to = c(prep_new_flows$id[i], prep_new_flows$targetRef[i])) -> new_flows[[i]]
-  }
-  flows <- bind_rows(flows, bind_rows(new_flows))
-
-
   data %>%
-    filter(!(objectType_from == "task" & objectType_to == "task")) %>%
-    filter(!(gatewayDirection_from == "Diverging" & gatewayDirection_to == "Converging" &
-               objectType_from == "parallelGateway" & objectType_to == "parallelGateway") | is.na(objectType_from) | is.na(objectType_to)) -> data
+    filter(type_from == "P",type_to == "P") -> PP
 
+  PP %>%
+    mutate(id = paste(sourceRef, targetRef, sep = "____"), label = "") -> PP
 
-  data %>%
-    transmute(from = sourceRef, to = targetRef) %>%
-    bind_rows(flows) -> flows
+  PP %>%
+    select(id, label) -> new_transitions
 
-  nodes %>%
-    filter(objectType == "exclusiveGateway") %>%
-    transmute(id, label = name) %>%
-    bind_rows(places) -> places
+  PP %>%
+    select(from = sourceRef, to = id) -> new_flows_in
+  PP %>%
+    select(from = id, to = targetRef) -> new_flows_out
 
-  nodes %>%
-    filter(objectType == "parallelGateway") %>%
-    transmute(id, label = name) %>%
-    bind_rows(transitions) -> transitions
-
-
-  data %>%
-    filter(objectType_from == "exclusiveGateway", objectType_to == "exclusiveGateway",
-           gatewayDirection_from == "Diverging", gatewayDirection_to == "Converging") -> or_or
-
-  or_or %>%
-    transmute(sourceRef, targetRef, id = paste(sourceRef, targetRef, sep = "_"),
-              label = id) -> new_transitions
+  flows %>%
+    bind_rows(new_flows_in) %>%
+    bind_rows(new_flows_out) -> flows
 
   transitions %>%
     bind_rows(new_transitions) -> transitions
 
-  or_or %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              sourceRef, targetRef) -> prep_new_flows
 
-  if(nrow(prep_new_flows)>0) {
-    new_flows <- list_along(1:nrow(prep_new_flows))
-    for(i in 1:nrow(prep_new_flows)) {
-      tibble(from = c(prep_new_flows$sourceRef[i], prep_new_flows$id[i]),
-             to = c(prep_new_flows$id[i], prep_new_flows$targetRef[i])) -> new_flows[[i]]
-    }
-    flows %>%
-      anti_join(or_or, by = c("from" = "sourceRef", "to" = "targetRef")) %>%
-      bind_rows(bind_rows(new_flows)) -> flows
-  }
+  petrinet_model <- create_marked_PN(create_PN(as.data.frame(places), as.data.frame(transitions), as.data.frame(flows)), initial_marking =  tmp_bpmn$startEvent$id,  final_marking =  tmp_bpmn$endEvent$id) -> converted_petri
 
+  petrinet_model$initial_marking <- "START"
+  petrinet_model$final_marking <- "END_1"
 
-  data %>%
-    filter(objectType_from == "exclusiveGateway", objectType_to == "exclusiveGateway",
-           gatewayDirection_from == gatewayDirection_to) -> or_or
-
-  or_or %>%
-    transmute(sourceRef, targetRef, id = paste(sourceRef, targetRef, sep = "_"),
-              label = id) -> new_places
-
-  new_places %>%
-    gather(key, old_id, sourceRef, targetRef) -> new_places_long
-
-  flows %>%
-    anti_join(or_or, by = c("from" = "sourceRef", "to" = "targetRef")) %>%
-    left_join(new_places_long, by = c("from"= "old_id")) %>%
-    mutate(from = ifelse(is.na(id), from, id)) %>%
-    select(-id, -label, -key) %>%
-    left_join(new_places_long, by = c("to"= "old_id")) %>%
-    mutate(to = ifelse(is.na(id), to, id)) %>%
-    select(-id, -label, -key) -> flows
-
-  places %>%
-    filter(!(id %in% or_or$sourceRef | id %in% or_or$targetRef)) %>%
-    bind_rows(new_places %>% select(id, label)) -> places
-
-  data %>%
-    filter(objectType_from == "parallelGateway", objectType_to == "parallelGateway") -> and_and
-
-  and_and %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              label = id) -> new_places
-
-  places %>%
-    bind_rows(new_places) -> places
-
-  and_and %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              sourceRef, targetRef) -> prep_new_flows
-
-  if(nrow(prep_new_flows) > 0) {
-    new_flows <- list_along(1:nrow(prep_new_flows))
-    for(i in 1:nrow(prep_new_flows)) {
-      tibble(from = c(prep_new_flows$sourceRef[i], prep_new_flows$id[i]),
-             to = c(prep_new_flows$id[i], prep_new_flows$targetRef[i])) -> new_flows[[i]]
-    }
-    flows %>%
-      anti_join(and_and, by = c("from" = "sourceRef", "to" = "targetRef")) %>%
-      bind_rows(bind_rows(new_flows)) -> flows
-  }
-
-  data %>%
-    filter(objectType_from == "parallelGateway", gatewayDirection_from == "Diverging", objectType_to == "task") -> and_task
-
-  and_task %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              label = id) -> new_places
-
-  places %>%
-    bind_rows(new_places) -> places
-
-  and_task %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              sourceRef, targetRef) -> prep_new_flows
-
-  if(nrow(prep_new_flows) > 0) {
-
-    new_flows <- list_along(1:nrow(prep_new_flows))
-    for(i in 1:nrow(prep_new_flows)) {
-      tibble(from = c(prep_new_flows$sourceRef[i], prep_new_flows$id[i]),
-             to = c(prep_new_flows$id[i], prep_new_flows$targetRef[i])) -> new_flows[[i]]
-    }
-
-    flows %>%
-      anti_join(and_task, by = c("from" = "sourceRef", "to" = "targetRef")) %>%
-      bind_rows(bind_rows(new_flows)) -> flows
-
-  }
-
-  data %>%
-    filter(objectType_to == "parallelGateway", gatewayDirection_to == "Converging", objectType_from == "task") -> task_and
-
-  task_and %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              label = id) -> new_places
-
-  places %>%
-    bind_rows(new_places) -> places
-
-  task_and %>%
-    transmute(id = paste(sourceRef, targetRef, sep = "_"),
-              sourceRef, targetRef) -> prep_new_flows
-
-  if(nrow(prep_new_flows) > 0) {
-    new_flows <- list_along(1:nrow(prep_new_flows))
-    for(i in 1:nrow(prep_new_flows)) {
-      tibble(from = c(prep_new_flows$sourceRef[i], prep_new_flows$id[i]),
-             to = c(prep_new_flows$id[i], prep_new_flows$targetRef[i])) -> new_flows[[i]]
-    }
-
-    flows %>%
-      anti_join(task_and, by = c("from" = "sourceRef", "to" = "targetRef")) %>%
-      bind_rows(bind_rows(new_flows)) -> flows
-  }
-
-  transitions %>%
-    mutate(label = ifelse(label %in% c("SPLIT","MERGE"), NA, label)) %>%
-    mutate(label = ifelse(str_detect(label, "split|merge"), NA, label)) %>%
-    select(label, id) -> transitions
-
-    create_marked_PN(create_PN(as.data.frame(places), as.data.frame(transitions), as.data.frame(flows)), initial_marking =  tmp_bpmn$startEvent$id,  final_marking =  tmp_bpmn$endEvent$id) -> converted_petri
-
+  petrinet_model
 }
