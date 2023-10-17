@@ -14,7 +14,10 @@ assign_relationships <- function(relationships_df,
       group_by(rel) %>%
       mutate(reference_score = mean(score)) %>%
       ungroup() %>%
-      mutate(reference_score = ifelse(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT,RScoreDict$ALWAYS_PARALLEL),
+      mutate(reference_score = ifelse(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT,
+                                                 RScoreDict$ALWAYS_PARALLEL,
+                                                 RScoreDict$TERMINATING,
+                                                 RScoreDict$HAPPENS_DURING),
                                       mean(score),
                                       reference_score)) %>%
       filter(score >= reference_score) %>%
