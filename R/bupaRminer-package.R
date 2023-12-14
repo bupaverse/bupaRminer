@@ -14,10 +14,14 @@
 #' @importFrom forcats fct_recode
 #' @importFrom lubridate now
 #' @importFrom petrinetR create_marked_PN create_PN
-#' @importFrom dplyr tibble bind_rows anti_join case_when distinct full_join everything left_join pull summarize tribble n_distinct n lag inner_join if_else row_number rename_with transmute
+#' @importFrom dplyr tibble bind_rows anti_join case_when distinct full_join everything left_join pull summarize tribble n_distinct n lag inner_join if_else row_number rename_with transmute rename
 ## usethis namespace: end
 NULL
 globalVariables(c(".","AID","AIID","CASE_COUNT",".data","CID","LC","EXCL_count",
+                  "Diverging","Converging","is_start","is_end",
+                  "starts_per_act","starts_new_loop","start_counter","loop_id", "..col_names",
+                  "n_incoming",
+                  "type_from","type_to",
                   "N","N_AIID","PAR_count","TS","absolute_frequency",
                   "act_lc", "acts_in_between", "all_same", "antecedent", "block_content", "block_id",
                   "chain_nr", "complete", "consequent",  "count_of_this_rel", "current_focus",
