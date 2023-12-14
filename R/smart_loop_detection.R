@@ -93,7 +93,7 @@ calculate_loop_scores <- function(repeat_rels, prep_log){
         filter(TS== min(TS)) %>%
         ungroup() %>%
         filter(orig_name == act_b,
-               is_repeat == 2)
+               is_repeat >= 2)
 
       loop_back_score <- (loop_backs %>%
                             pull(CASE_COUNT) %>%
@@ -129,7 +129,9 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
 
   ## We want to discard irrelevant/maginal scores
   ## by introducing a threshold per relationship-type
-  norm_looped_scores <- loop_scores %>%
+  norm_looped_scores <- loop_scores %>% 
+    group_by(antecedent, consequent) %>% 
+    mutate(score = ifelse(score == max(score), score,0)) %>%
     group_by(rel) %>%
     mutate(score = ifelse(score >= mean(score), 1,0)) %>%
     mutate(loop_block_id = 0) %>%
@@ -524,17 +526,30 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
              is_repeat == 1) %>%
       as.data.table()
 
-    first_loop_rel <- calculate_relationships(first_loop_log, source = "main") %>%
-      assign_relationships()
-
-    first_loop_snippet <- construct_process(first_loop_rel,
-                                            relevant_snippets, source = "main")
-
-    relevant_snippet <- names(first_loop_snippet)[[length(first_loop_snippet)]]
-
-    loop_name <- this_loop_block$loop_name[1]
-    relevant_snippets[[loop_name]] <- first_loop_snippet[[relevant_snippet]] %>%
-      add_loop_back()
+    if(first_loop_log %>% pull(AID) %>% unique %>% length == 1){
+      sole_activity <- first_loop_log %>% pull(AID) %>% unique
+      print(sole_activity)
+      sole_activity <- decode_task(
+        sole_activity, 
+        relevant_snippets,
+        "START","END"
+      )
+      first_loop_snippet <- add_loop_back(sole_activity)
+      loop_name <- this_loop_block$loop_name[1]
+      relevant_snippets[[loop_name]] <- first_loop_snippet 
+    } else {
+      first_loop_rel <- calculate_relationships(first_loop_log, source = "main") %>%
+        assign_relationships()
+      
+      first_loop_snippet <- construct_process(first_loop_rel,
+                                              relevant_snippets, source = "main")
+      
+      relevant_snippet <- names(first_loop_snippet)[[length(first_loop_snippet)]]
+      
+      loop_name <- this_loop_block$loop_name[1]
+      relevant_snippets[[loop_name]] <- first_loop_snippet[[relevant_snippet]] %>%
+        add_loop_back()
+    }
 
 
     if(this_loop_block$loop_type %>% unique %in% c("outer")){

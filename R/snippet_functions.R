@@ -543,8 +543,10 @@ merge_end_events <- function(bpmn_obj){
   return(bpmn_obj)
 }
 
+
 ## TODO Check this
 add_loop_back <- function(bpmn_obj){
+  
   init_gateway <- data.frame(
     id = paste("LOOPBACK_MERGE",as.numeric(Sys.time()), sep = "_"),
     name = "merge",
