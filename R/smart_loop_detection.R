@@ -126,6 +126,9 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
   new_loop_block_id <- NULL
   is_start <- NULL
   is_end <- NULL
+  
+  assigned_rels  <- repeat_rels %>% 
+    assign_relationships
 
   ## We want to discard irrelevant/maginal scores
   ## by introducing a threshold per relationship-type
@@ -133,18 +136,33 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     group_by(antecedent, consequent) %>% 
     mutate(score = ifelse(score == max(score), score,0)) %>%
     group_by(rel) %>%
-    mutate(score = ifelse(score >= mean(score), 1,0)) %>%
-    mutate(loop_block_id = 0) %>%
-    ungroup()
+    mutate(relevant = ifelse(score >= mean(score), TRUE,FALSE)) %>%
+    group_by(antecedent) %>%
+    mutate(relevant = ifelse(score >= mean(score), TRUE,relevant)) %>%
+    group_by(consequent) %>%
+    mutate(relevant = ifelse(score >= mean(score), TRUE,relevant)) %>%
+    ungroup() %>%
+    mutate(score = ifelse(relevant==TRUE,1,0)) %>%
+    select(-relevant) %>%
+    mutate(loop_block_id = 0)
 
   loop_back_scores <- loop_scores %>%
     filter(rel == RScoreDict$LOOP_BACK)
 
   loop_block_counter <- 0
   loop_block_info_df <- tibble()
+  
+  loop_backs_to_solve <-  loop_back_scores %>% 
+    filter(score > 0) %>%
+    mutate(assigned = 0)
 
   ## We keep going as long as there are activities that are not assigned to a loop.
-  while(norm_looped_scores %>% filter(rel == RScoreDict$LOOP_BLOCK, score == 1, loop_block_id==0) %>% nrow() > 0){
+  while(loop_backs_to_solve %>%
+        filter(assigned == 0) %>%
+        nrow > 0
+        ){
+    
+    print(loop_backs_to_solve)
 
     ## Initialize parameters for new loop block
     temp_loop_block_info_df <- tibble()
@@ -182,18 +200,14 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       unique %>%
       c(.,most_connected_act)
 
-    ## We assign those activities to the new loop_block by reference number
-    norm_looped_scores <- norm_looped_scores %>%
-      mutate(loop_block_id = ifelse(antecedent %in% loop_acts & score == 1,
-                                    loop_block_counter,
-                                    loop_block_id))
 
     ## There may be nested loops, so we need to check what
     ## each activity within the loop block is most likely
     ## to loop back to.
     ## We selelect the activty woth the strongest
     ## loop_back relation as the new endpoint of our loop.
-    most_likely_endpoint <- loop_back_scores %>%
+    most_likely_endpoint <- norm_looped_scores %>% 
+      filter(rel == RScoreDict$LOOP_BACK) %>%
       filter(score > 0) %>%
       filter(antecedent %in% loop_acts) %>%
       arrange(-score) %>%
@@ -258,18 +272,99 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     ## Gather all activities that we consider to be
     ## part of the loop. We use the most likely
     ## starting activity(es) as reference point
-    loop_acts <- c(
-      loop_acts,
-      most_likely_start_points,
+    loop_acts <- generics::intersect(
       norm_looped_scores %>%
         filter(
           rel==RScoreDict$LOOP_BLOCK,
           score == 1,
           antecedent %in% most_likely_start_points) %>%
-        pull(consequent)
-    ) %>%
-      unique
-
+        pull(consequent),
+      norm_looped_scores %>%
+        filter(
+          rel==RScoreDict$LOOP_BLOCK,
+          score == 1,
+          consequent %in% most_likely_endpoint) %>%
+        pull(antecedent)
+    )
+    
+    priors_to_endpoint <- assigned_rels %>% 
+      filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS, RScoreDict$EVENTUALLY_FOLLOWS, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)) %>% 
+      filter(consequent %in% most_likely_endpoint ) %>% 
+      pull(antecedent) %>% 
+      unique()
+    
+    loop_acts <- c(
+      most_likely_start_points,
+      most_likely_endpoint,
+      generics::intersect(loop_acts,priors_to_endpoint)
+    ) %>% unique
+    
+    print(loop_acts)
+    loop_backs_to_solve <- loop_backs_to_solve %>%
+      mutate(assigned = ifelse(
+        antecedent %in% most_likely_endpoint | consequent %in% loop_acts,
+        1,
+        assigned
+      ))
+    
+    ## if all loop acts are already part of a loop, 
+    ## then we don't need this loop anymore
+    new_loop_acts <- loop_acts[
+      ! loop_acts %in% loop_block_info_df$activity
+    ]
+    
+    if(length(new_loop_acts) == 0){
+      norm_looped_scores <- norm_looped_scores %>% 
+        mutate(score =
+                 ifelse(
+                   rel == RScoreDict$LOOP_BLOCK & score == 1 & loop_block_id==0 & consequent %in% loop_acts,
+                   0,
+                   score))
+      next
+    }
+    
+    ## We assign those activities to the new loop_block by reference number
+    ## norm_looped_scores <- norm_looped_scores %>%
+    ##   mutate(loop_block_id = ifelse(antecedent %in% loop_acts & score == 1,
+    ##                                loop_block_counter,
+    ##                                loop_block_id))
+    if(loop_block_info_df %>% nrow > 0){
+      
+      activities_per_block <- loop_block_info_df %>% 
+        count(new_loop_block_id)
+      
+      loop_blocks_with_act <- loop_block_info_df %>% 
+        filter(activity %in% loop_acts) %>%
+        count(new_loop_block_id )
+      
+      detected_inner_loops <- activities_per_block %>% 
+        inner_join(loop_blocks_with_act, by="new_loop_block_id") %>%
+        filter(n.x == n.y) %>%
+        pull(new_loop_block_id)
+      
+      if(length(detected_inner_loops) == 1){
+        inner_loop_name <- loop_block_info_df %>%
+          filter(new_loop_block_id %in% detected_inner_loops) %>%
+          pull(loop_name) %>%
+          unique
+        
+        inner_loop_acts <- loop_block_info_df %>%
+          filter(new_loop_block_id %in% detected_inner_loops) %>%
+          pull(activity)
+        
+        loop_block_info_df <- loop_block_info_df %>%
+          mutate(loop_type = ifelse(new_loop_block_id %in% detected_inner_loops,
+                                    "inner",
+                                    loop_type))
+        
+        loop_acts <- loop_acts[! loop_acts %in% inner_loop_acts]
+        loop_acts <- c(loop_acts, inner_loop_name)
+      }
+    }
+    
+    ## If some of these activities are already in another loop_block
+    ## in its entirety, then we can refer to that loop_block here
+    
     ##If there are still loopbacks, then there are probably multiple possible end points
     remaining_loop_backs <- loop_back_scores %>%
       filter(score >= mean(score)) %>%
@@ -484,6 +579,13 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
 
     loop_block_info_df <- loop_block_info_df %>%
       bind_rows(temp_loop_block_info_df)
+    
+    norm_looped_scores <- norm_looped_scores %>%
+      select(-loop_block_id) %>%
+      left_join(loop_block_info_df %>% select(activity, loop_block_id), 
+                by=c("antecedent"="activity")) %>%
+      mutate(loop_block_id = ifelse(is.na(loop_block_id),0, loop_block_id))%>%
+      mutate(loop_block_id = ifelse(score > 0,loop_block_id, 0))
   }
 
   return(loop_block_info_df)
@@ -496,11 +598,27 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
     max()
   col_names <- colnames(prep_log)
   relevant_snippets <- list()
+  
+  has_been_skipped <- FALSE
+  
   for(loop_block in 1:loop_blocks){
-
+    
+    print(loop_block)
+    
     this_loop_block <- loop_block_info_df %>%
       filter(loop_block_id == loop_block)
 
+    if(loop_block == 4){
+      write_rds(loop_block_info_df, "loop_block.Rds")
+      write_rds(prep_log, "loop_log.Rds")
+    }
+    
+    if(this_loop_block %>% nrow == 0){
+      has_been_skipped <<- TRUE
+      print("Skip now")
+      next
+    }
+    
     loop_log <- prep_log %>%
       filter(orig_name %in% this_loop_block$activity) %>%
       full_join(this_loop_block %>% select(-loop_block_id),
@@ -525,6 +643,10 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
       filter(loop_id == 1,
              is_repeat == 1) %>%
       as.data.table()
+    
+    if(first_loop_log %>% pull(AID) %>% unique %>% length == 0){
+      next
+    }
 
     if(first_loop_log %>% pull(AID) %>% unique %>% length == 1){
       sole_activity <- first_loop_log %>% pull(AID) %>% unique
