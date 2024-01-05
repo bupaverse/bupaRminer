@@ -12,10 +12,10 @@ explore_branch_pair <- function(
   rel_in_focus <- branch_pair %>%
     pull(rel)
   
-  antecedent_contra_branch <- mutual_branches %>%
+  antecedent_contra_branch <- all_mutual_branches %>%
     filter(antecedent == branch_pair$antecedent,
            rel.x == rel_in_focus)
-  consequent_contra_branch <- mutual_branches %>%
+  consequent_contra_branch <- all_mutual_branches %>%
     filter(antecedent == branch_pair$consequent,
            rel.x == rel_in_focus)
   
@@ -156,6 +156,10 @@ fetch_mutual_branch_relationships <- function(
     filter(rel %in% c(RScoreDict$PARALLEL_IF_PRESENT,
                       RScoreDict$ALWAYS_PARALLEL,
                       RScoreDict$MUTUALLY_EXCLUSIVE))
+  
+  if(branch_rel_df %>% nrow == 0){
+    return(branch_rel_df)
+  }
   
   mutual_branch_rel_df <- branch_rel_df %>%
     inner_join(branch_rel_df,
