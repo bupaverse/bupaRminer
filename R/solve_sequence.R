@@ -196,7 +196,7 @@ solve_sequence_relationship <- function(
     ## If we have multiple direct predecessors
     ## then we have to examine
     if(closest_antecedents %>% nrow() > 1){
-      ## If all direct precedents are Rx
+      ## If all direct precedents are DJ
       ## Then we actually need to look for a split
       ## We try to create a new pair using one of the branches.
       if(closest_antecedents %>% count(rel) %>% filter(rel != RScoreDict$DIRECT_JOIN) %>% nrow == 0){
@@ -348,12 +348,22 @@ solve_sequence_relationship <- function(
           sampled_soft_par <- mutual_antec_relations %>%
             sample_pair(RScoreDict$PARALLEL_IF_PRESENT)
           
-          return_list <- solve_PAR_relationship(
+          ## TODO CHECK if this is OK
+          exploration_result <- explore_branch_pair(
             sampled_soft_par,
+            rel_df)
+          
+          return_list <- solve_branch_pair(
+            exploration_result,
             rel_df,
-            snippet_dict,
-            mode="SOFT"
-          )
+            snippet_dict)
+          
+          # return_list <- solve_PAR_relationship(
+          #   sampled_soft_par,
+          #   rel_df,
+          #   snippet_dict,
+          #   mode="SOFT"
+          # )
           
           return(return_list)
         }
