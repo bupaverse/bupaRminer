@@ -56,6 +56,24 @@ explore_branch_pair <- function(
       exploration_result$rel_type <- "SEQ"
       return(exploration_result)
     }
+    if(sampled_pair$rel %in% c(RScoreDict$MUTUALLY_EXCLUSIVE,
+                               RScoreDict$ALWAYS_PARALLEL,
+                               RScoreDict$PARALLEL_IF_PRESENT)){
+      ## Check reverse relation
+      reverse_pair <- rel_df %>%
+        filter(antecedent == sampled_pair$consequent,
+               consequent == sampled_pair$antecedent,
+               rel == sampled_pair$rel)
+      
+      if(reverse_pair %>% nrow > 0){
+        exploration_result$rel_type <- reverse_pair$rel
+        exploration_result$branch_acts <- c(
+          sampled_pair$antecedent,
+          sampled_pair$consequent
+        )
+        return(exploration_result)
+      }
+    }
   }
   
   
