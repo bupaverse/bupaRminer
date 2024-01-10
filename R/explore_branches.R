@@ -66,10 +66,9 @@ explore_branch_pair <- function(
                rel == sampled_pair$rel)
       
       if(reverse_pair %>% nrow > 0){
-        exploration_result$rel_type <- reverse_pair$rel
-        exploration_result$branch_acts <- c(
-          sampled_pair$antecedent,
-          sampled_pair$consequent
+        exploration_result <- explore_branch_pair(
+          sampled_pair,
+          rel_df
         )
         return(exploration_result)
       }
