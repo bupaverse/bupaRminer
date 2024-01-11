@@ -386,7 +386,9 @@ explore_XOR_split <- function(
              | consequent %in% c(exclusive_relations$antecedent, exclusive_relations$consequent))
     
     full_exclusive_relations <- unique(exclusive_relations$antecedent, exclusive_relations$consequent)
-    full_exclusive_relations <- intersect(full_exclusive_relations,not_fully_exclusive)
+    full_exclusive_relations <- intersect(full_exclusive_relations,
+                                          c(not_fully_exclusive$antecedent,
+                                            not_fully_exclusive$consequent))
     
     branch_in_focus <- mutual_branch_relationships %>%
       filter(!(antecedent %in% full_exclusive_relations),
@@ -458,6 +460,22 @@ explore_XOR_split <- function(
      return(return_list)
   }
 
+  
+  branches_with_req_to_root <- rel_df %>%
+    filter(antecedent %in% branch_names,
+           consequent == XOR_pair$antecedent,
+           rel == RScoreDict$REQUIRES) 
+  
+  if(branches_with_req_to_root %>% nrow > 0){
+    
+    return_list <- solve_XOR_relationship(
+      XOR_pair$antecedent,
+      branches_with_req_to_root$antecedent %>% unique,
+      rel_df,
+      snippet_dict)
+    
+    return(return_list)
+  }
 
   branches_with_only_mutual_relations <- mutual_branch_relationships %>%
     count(antecedent, rel) %>%
@@ -485,7 +503,7 @@ explore_XOR_split <- function(
     mutate(has_conflict = rel.x != rel.y)
 
   conflicted_relations <- mutual_branch_relationships %>%
-    filter(has_conflict == TRUE)
+    filter(has_conflict == TRUE | is.na(has_conflict))
 
   contradicting_sequences <- mutual_branch_relationships %>%
     filter(rel.x != RScoreDict$MUTUALLY_EXCLUSIVE) %>%
@@ -556,18 +574,139 @@ explore_XOR_split <- function(
                                             snippet_dict)
 
       return(return_list)
+    } else if(conflicted_relations %>%
+              filter(rel.x == RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+                     is.na(rel.y)) %>%
+              nrow() > 0){
+      ## If one is SEF and the other has no relation,
+      ## then we assume that they are not part of the 
+      ## same split.
+      
+      ## We then have to check which one is most likely
+      ## to split of from the root
+      
+      sampled_conflict <- conflicted_relations %>%
+        filter(rel.x == RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+               is.na(rel.y)) %>%
+        arrange(-importance,
+                -score) %>%
+        head(1)
+      
+    } else {
+      sampled_conflict <- conflicted_relations %>%
+        arrange(-importance,
+                -score) %>%
+        head(1)
+    }
+    
+    
+    ## If one requires the root and the other does not,
+    ## then we have our split. 
+    reqs_for_branches <- rel_df %>%
+      filter(antecedent %in% c(sampled_conflict$antecedent,
+                               sampled_conflict$consequent),
+             rel == RScoreDict$REQUIRES)
+    
+    reqs_root <- reqs_for_branches %>%
+      filter(consequent == XOR_pair$antecedent)
+    
+    if(reqs_root %>% nrow == 1){
+      return_list <- solve_XOR_relationship(XOR_pair$antecedent,
+                                            reqs_root$antecedent %>% unique,
+                                            rel_df,
+                                            snippet_dict)
+      return(return_list)
+    }
+    
+    ## Else, we check which branch has the most corresponding
+    ## requires relationships. 
+    reqs_for_root <- rel_df %>%
+      filter(antecedent == XOR_pair$antecedent,
+             rel == RScoreDict$REQUIRES) %>%
+      pull(consequent)
+    
+    corresponding_reqs <- reqs_for_branches %>%
+      filter(consequent %in% reqs_for_root) %>%
+      count(antecedent) %>%
+      rename(same_reqs=n)
+    missing_reqs <- reqs_for_branches %>%
+      filter(!consequent %in% reqs_for_root) %>%
+      count(antecedent)  %>%
+      rename(different_reqs=n)
+    
+    branch_scores <- corresponding_reqs %>%
+      full_join(missing_reqs,
+                by="antecedent") %>%
+      mutate(score = same_reqs - different_reqs)
+    
+    if(branch_scores %>% filter(score == max(score)) %>% nrow == 1){
+      
+      return_list <- solve_XOR_relationship(XOR_pair$antecedent,
+                                            branch_scores %>%
+                                              filter(score==max(score)) %>%
+                                              pull(antecedent),
+                                            rel_df,
+                                            snippet_dict)
+      return(return_list)
+    }
+    
+    ##And otherwise, we check which branch has relationships
+    ##That resemble the root the most. 
+    rels_to_root <- rel_df %>%
+      filter(consequent == XOR_pair$antecedent) %>%
+      select(antecedent, root_rel = rel)
+    rels_to_branches <- rel_df %>%
+      filter(consequent %in% c(sampled_conflict$antecedent,
+                               sampled_conflict$consequent)) %>%
+      left_join(rels_to_root, by="antecedent") %>%
+      select(antecedent, consequent, root_rel, rel) %>%
+      mutate(is_match = (root_rel == rel)) %>%
+      group_by(consequent) %>%
+      summarize(matching_antecedents = sum(is_match, na.rm = TRUE))
+    
+    
+    rels_from_root <- rel_df %>%
+      filter(antecedent == XOR_pair$antecedent) %>%
+      select(consequent, root_rel = rel)
+    rels_from_branches <- rel_df %>%
+      filter(antecedent %in% c(sampled_conflict$antecedent,
+                               sampled_conflict$consequent)) %>%
+      left_join(rels_from_root, by="consequent") %>%
+      select(antecedent, consequent, root_rel, rel) %>%
+      mutate(is_match = (root_rel == rel)) %>%
+      group_by(antecedent) %>%
+      summarize(matching_consequents = sum(is_match, na.rm = TRUE))
+    
+    combined_score <- rels_to_branches %>%
+      full_join(rels_from_branches, by= c("consequent"="antecedent")) %>%
+      mutate(score = matching_antecedents + matching_consequents)
+    
+    if(combined_score %>% filter(score == max(score)) %>% nrow == 1){
+      
+      return_list <- solve_XOR_relationship(XOR_pair$antecedent,
+                                            combined_score %>%
+                                              filter(score==max(score)) %>%
+                                              pull(consequent),
+                                            rel_df,
+                                            snippet_dict)
+      return(return_list)
     }
     
     sampled_conflict <- rel_df %>%
       filter(antecedent == sampled_conflict$antecedent,
              consequent == sampled_conflict$consequent)
 
-    return_list <- explore_XOR_split(
-      sampled_conflict,
-      rel_df,
-      snippet_dict = snippet_dict,
-      XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                   RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
+    return_list <- solve_PAR_relationship(
+      sampled_conflict %>% mutate(rel = RScoreDict$PARALLEL_IF_PRESENT),
+      rel_df %>%
+        filter(antecedent %in% c(sampled_conflict$antecedent, sampled_conflict$consequent),
+               consequent %in% c(sampled_conflict$antecedent, sampled_conflict$consequent)) %>%
+        mutate(rel = RScoreDict$PARALLEL_IF_PRESENT),
+      snippet_dict,
+      mode = "SOFT"
+    )
+    return_list$rel_df <- rel_df
+    
     return(return_list)
   }
   

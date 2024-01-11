@@ -53,14 +53,14 @@ solve_DF_relationship <- function(
     new_rows <- other_conseq_rels %>%
       filter(
         rel == RScoreDict$DIRECTLY_FOLLOWS) %>%
-      mutate(rel = RScoreDict$DIRECT_JOIN)
+      mutate(rel = RScoreDict$EVENTUALLY_FOLLOWS)
     rel_df <- rel_df %>%
       filter(!(consequent == conseq & rel == RScoreDict$DIRECTLY_FOLLOWS )) %>%
       bind_rows(new_rows)
 
     msg <- (paste("Morphed", other_conseq_rels %>%
                     filter(rel ==RScoreDict$DIRECTLY_FOLLOWS) %>%
-                    nrow(), RScoreDict$DIRECTLY_FOLLOWS, "relationships to", RScoreDict$DIRECT_JOIN))
+                    nrow(), RScoreDict$DIRECTLY_FOLLOWS, "relationships to", RScoreDict$EVENTUALLY_FOLLOWS))
 
     return_list <- list(
       snippet = NULL,

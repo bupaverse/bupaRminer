@@ -26,9 +26,9 @@ construct_process <- function(assigned_rel_df,
     rel_notebook_df
   )
   if(source == "main") {
-    cli::cli_progress_step("Constructing process - {n - nrow(rel_notebook_df)}/{n}", spinner = TRUE)
+    cli::cli_progress_step("Constructing process - {n - nrow(rel_notebook_df)}/{n-1}", spinner = TRUE)
   } else {
-    cli::cli_progress_step("[loop block {id}] Constructing process- {n - nrow(rel_notebook_df)}/{n}", spinner = TRUE)
+    cli::cli_progress_step("[loop block {id}] Constructing process- {n - nrow(rel_notebook_df)}/{n-1}", spinner = TRUE)
   }
 
   HAS_COMPLETED <- FALSE
@@ -37,7 +37,6 @@ construct_process <- function(assigned_rel_df,
 
 
     if(any(MERGE_INTERRUPTING_RELS %in% RELS_IN_FOCUS)){
-      print("Interrupt")
       rel_solver_function <- solve_interrupt_relationship
     } else if(RELS_IN_FOCUS == RScoreDict$DIRECTLY_FOLLOWS){
       rel_solver_function <- solve_DF_relationship
@@ -87,59 +86,87 @@ construct_process <- function(assigned_rel_df,
         completed_FOL == FALSE){
 
 
-    EXCLUDE_PAIRS_POSSIBLE <- TRUE
+    SPLITS_POSSIBLE <- TRUE
 
-    while(EXCLUDE_PAIRS_POSSIBLE & rel_notebook_df %>% fetch_mutual_exclude() %>% nrow > 0){
-
-      result <- explore_mutual_exclusive_relationship(rel_notebook_df,
-                                              snippet_dictionary)
-
-      rel_notebook_df <- update_rel_notebook(
-        result,
-        rel_notebook_df
-      )
-      i <- n - nrow(rel_notebook_df)
-      cli::cli_progress_update()
-
-      if(rel_notebook_df %>% nrow > 1){
-        rel_notebook_df <- rel_notebook_df %>%
-          reset_memory()
-      }
-
-      if(is.null(result$snippet)){
-        EXCLUDE_PAIRS_POSSIBLE <- FALSE
-      } else {
-        snippet_dictionary <- result$snippet_dictionary
-        # cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
-      }
-    }
-
-    SOFT_PAR_POSSIBLE <- TRUE
-
-    while(SOFT_PAR_POSSIBLE & rel_notebook_df %>% count(rel) %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>% nrow > 0){
-
-      result <- explore_soft_PAR_relationship(rel_notebook_df,
-                                              snippet_dictionary)
-
-
-      rel_notebook_df <- update_rel_notebook(
-        result,
-        rel_notebook_df
-
-      )
-      i <- n - nrow(rel_notebook_df)
-      cli::cli_progress_update()
+    explored_starting_pairs <- rel_notebook_df %>%
+      head(0)
+    while(SPLITS_POSSIBLE & rel_notebook_df %>% fetch_mutual_branch_relationships() %>% nrow > 0){
       
-      if(rel_notebook_df %>% nrow > 1){
-        rel_notebook_df <- rel_notebook_df %>%
-          reset_memory()
+      mutual_branches <- fetch_mutual_branch_relationships(
+        rel_notebook_df,
+        explored_starting_pairs
+        )
+      
+      if(mutual_branches %>% nrow == 0){
+        SPLITS_POSSIBLE <- FALSE
+        next
       }
+      
+      sampled_pair <- mutual_branches %>%
+        arrange(
+          -importance.x,
+          -score.x
+        ) %>%
+        head(1)
+      
+      branch_pair <- rel_notebook_df %>%
+        filter(antecedent == sampled_pair$antecedent,
+               consequent == sampled_pair$consequent)
+      
+      exploration_result <- explore_branch_pair(
+        branch_pair,
+        rel_notebook_df)
+      
+      if(!is.null(exploration_result)){
+        result <- solve_branch_pair(
+          exploration_result,
+          rel_notebook_df,
+          snippet_dictionary
+        )
+      } else{
+        
+        
+        result <- NULL
+        
+        explored_starting_pairs <- explored_starting_pairs %>%
+          bind_rows(
+            branch_pair %>% select(
+              antecedent, 
+              consequent, 
+              rel, 
+              score)
+          )
+      }
+      
+      
 
-      if(is.null(result$snippet)){
-        SOFT_PAR_POSSIBLE <- FALSE
-      } else {
+      if(!is.null(result$snippet)){
+        
+        rel_notebook_df <- result$rel_df
+        
+        rel_notebook_df <- update_rel_notebook(
+          result,
+          rel_notebook_df
+        )
+        
+        i <- n - nrow(rel_notebook_df)
+        cli::cli_progress_update()
+        
+        if(rel_notebook_df %>% nrow > 1){
+          rel_notebook_df <- rel_notebook_df %>%
+            reset_memory()
+        }
         snippet_dictionary <- result$snippet_dictionary
         # cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
+      } else {
+        explored_starting_pairs <- explored_starting_pairs %>%
+          bind_rows(
+            branch_pair %>% select(
+              antecedent, 
+              consequent, 
+              rel, 
+              score)
+          )
       }
     }
 

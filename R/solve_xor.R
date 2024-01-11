@@ -78,7 +78,12 @@ solve_XOR_relationship <- function(
       filter(! consequent %in% other_joins$consequent)
   }
 
-  if(length(XOR_branches) == 1 && startsWith(XOR_branches, ">X>") && endsWith(XOR_branches, ">X>") && join_points %>% nrow == 0){
+  if(
+    XOR_root == "" &&
+    length(XOR_branches) == 1 && 
+     startsWith(XOR_branches, ">X>") && 
+     endsWith(XOR_branches, ">X>") && 
+     join_points %>% nrow == 0){
     join_points <- orig_join_points
   }
 
