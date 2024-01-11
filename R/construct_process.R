@@ -3,7 +3,7 @@ construct_process <- function(assigned_rel_df,
                               snippet_dictionary = list(),
                               source = "main", id = NULL) {
 
-  n <- nrow(assigned_rel_df) + 1
+  n <- nrow(assigned_rel_df)
 
 
   pkg.env$end_event_counter <- 1
@@ -26,9 +26,9 @@ construct_process <- function(assigned_rel_df,
     rel_notebook_df
   )
   if(source == "main") {
-    cli::cli_progress_step("Constructing process - {n - nrow(rel_notebook_df)}/{n}", spinner = TRUE)
+    cli::cli_progress_step("Constructing process - {n - nrow(rel_notebook_df)}/{n-1}", spinner = TRUE)
   } else {
-    cli::cli_progress_step("[loop block {id}] Constructing process- {n - nrow(rel_notebook_df)}/{n}", spinner = TRUE)
+    cli::cli_progress_step("[loop block {id}] Constructing process- {n - nrow(rel_notebook_df)}/{n-1}", spinner = TRUE)
   }
 
   HAS_COMPLETED <- FALSE
