@@ -41,9 +41,7 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
         filter(assigned == 0) %>%
         nrow > 0
         ){
-    
-    print(loop_backs_to_solve)
-
+  
     ## Initialize parameters for new loop block
     temp_loop_block_info_df <- tibble()
     loop_block_counter <- loop_block_counter + 1
@@ -179,7 +177,6 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       generics::intersect(loop_acts,priors_to_endpoint)
     ) %>% unique
     
-    print(loop_acts)
     loop_backs_to_solve <- loop_backs_to_solve %>%
       mutate(assigned = ifelse(
         antecedent %in% most_likely_endpoint | consequent %in% loop_acts,
