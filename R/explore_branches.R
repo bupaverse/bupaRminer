@@ -8,6 +8,12 @@ explore_branch_pair <- function(
     branch_acts = c()
   )
   
+  ## We register the pair to avoid infintie loops
+  rel_df <- rel_df %>% 
+    remember_pair(
+      branch_pair,
+      "BRANCH")
+  
   all_mutual_branches <- fetch_mutual_branch_relationships(rel_df)
   rel_in_focus <- branch_pair %>%
     pull(rel)
@@ -38,6 +44,7 @@ explore_branch_pair <- function(
            rel != rel_in_focus)
   
   if(relationships_to_other_branches %>% nrow() > 0){
+      
     sampled_pair <- relationships_to_other_branches %>%
       sample_pair(c())
     
@@ -66,15 +73,21 @@ explore_branch_pair <- function(
                rel == sampled_pair$rel)
       
       if(reverse_pair %>% nrow > 0){
-        exploration_result <- explore_branch_pair(
-          sampled_pair,
-          rel_df %>% 
-            anti_join(
-              branch_pair %>%
-                select(antecedent, consequent),
-              by=c("antecedent","consequent")
-            )
-        )
+        ## If we have already been through this loop,
+        ## then we will force the resolution
+        ## otherwise, we explore further
+        
+        if(sampled_pair %>% filter(inspection_sequence >= 2) %>% 
+           nrow == 0){
+          exploration_result <- explore_branch_pair(
+            sampled_pair,
+            rel_df
+          )
+        } else {
+          exploration_result$pair <- sampled_pair
+          exploration_result$rel_type <- sampled_pair$rel
+          exploration_result$branch_acts <- c(sampled_pair$antecedent, sampled_pair$consequent)
+        }
         return(exploration_result)
       }
     }

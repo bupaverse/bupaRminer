@@ -696,12 +696,17 @@ explore_XOR_split <- function(
       filter(antecedent == sampled_conflict$antecedent,
              consequent == sampled_conflict$consequent)
 
-    return_list <- explore_XOR_split(
-      sampled_conflict,
-      rel_df,
-      snippet_dict = snippet_dict,
-      XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-                   RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
+    return_list <- solve_PAR_relationship(
+      sampled_conflict %>% mutate(rel = RScoreDict$PARALLEL_IF_PRESENT),
+      rel_df %>%
+        filter(antecedent %in% c(sampled_conflict$antecedent, sampled_conflict$consequent),
+               consequent %in% c(sampled_conflict$antecedent, sampled_conflict$consequent)) %>%
+        mutate(rel = RScoreDict$PARALLEL_IF_PRESENT),
+      snippet_dict,
+      mode = "SOFT"
+    )
+    return_list$rel_df <- rel_df
+    
     return(return_list)
   }
   

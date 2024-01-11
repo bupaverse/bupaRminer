@@ -3,7 +3,7 @@ construct_process <- function(assigned_rel_df,
                               snippet_dictionary = list(),
                               source = "main", id = NULL) {
 
-  n <- nrow(assigned_rel_df) -1
+  n <- nrow(assigned_rel_df) + 1
 
 
   pkg.env$end_event_counter <- 1
