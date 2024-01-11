@@ -158,6 +158,15 @@ construct_process <- function(assigned_rel_df,
         }
         snippet_dictionary <- result$snippet_dictionary
         # cli::cli_alert_info(names(snippet_dictionary)[length(names(snippet_dictionary))])
+      } else {
+        explored_starting_pairs <- explored_starting_pairs %>%
+          bind_rows(
+            branch_pair %>% select(
+              antecedent, 
+              consequent, 
+              rel, 
+              score)
+          )
       }
     }
 

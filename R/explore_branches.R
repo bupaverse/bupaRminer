@@ -32,6 +32,7 @@ explore_branch_pair <- function(
         filter(consequent %in% consequent_contra_branch$consequent) %>%
         pull(consequent))
   
+  
   activities_splitted_from_individual_branch <- rel_df %>%
     filter(!(antecedent %in% mutual_activity_set),
            consequent %in% mutual_activity_set,
@@ -77,22 +78,17 @@ explore_branch_pair <- function(
         ## then we will force the resolution
         ## otherwise, we explore further
         
-        if(sampled_pair %>% filter(inspection_sequence >= 2) %>% 
+        if(branch_pair %>% filter(inspection_sequence >= 2) %>% 
            nrow == 0){
           exploration_result <- explore_branch_pair(
             sampled_pair,
             rel_df
           )
-        } else {
-          exploration_result$pair <- sampled_pair
-          exploration_result$rel_type <- sampled_pair$rel
-          exploration_result$branch_acts <- c(sampled_pair$antecedent, sampled_pair$consequent)
+          return(exploration_result)
         }
-        return(exploration_result)
       }
     }
   }
-  
   
   ## We have to examine the activities before and after the branches
   ## It is possible that we need to explore within a branch
@@ -108,6 +104,7 @@ explore_branch_pair <- function(
     filter(n == 1) %>%
     pull(consequent)
   
+  
   if(length(follows_only_one) > 0){
     sequence_pair <- rel_df %>%
       filter(antecedent %in% mutual_activity_set,
@@ -119,15 +116,59 @@ explore_branch_pair <- function(
     exploration_result$pair <- sequence_pair
     exploration_result$rel_type <- "SEQ"
     return(exploration_result)
-  } else{
-    exploration_result$pair <- branch_pair
-    exploration_result$rel_type <- branch_pair$rel
-    exploration_result$branch_acts <- c(
-      branch_pair$antecedent,
-      branch_pair$consequent
-    )
-    return(exploration_result)
   }
+  
+  ## If we have activities that require only one of the
+  ##branches, then we can connect them first
+  ## but only if there is no long-term dependency
+  acts_requiring_branch <- rel_df %>%
+    filter(consequent %in% mutual_activity_set,
+           rel == RScoreDict$REQUIRES)
+  
+  acts_requiring_single_branch <- acts_requiring_branch %>%
+    count(antecedent) %>%
+    filter(n == 1)
+  
+  while(acts_requiring_single_branch %>% nrow > 0){
+    seq_pair <- rel_df %>%
+      filter(
+        consequent %in% acts_requiring_single_branch$antecedent,
+        antecedent %in% mutual_activity_set) %>%
+      sample_pair(c(
+        RScoreDict$DIRECTLY_FOLLOWS,
+        RScoreDict$EVENTUALLY_FOLLOWS,
+        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+        RScoreDict$DIRECT_JOIN
+      ))
+    if(seq_pair %>% nrow > 0){
+      closest_antecedents <- get_closest_antecedents(
+        seq_pair,
+        rel_df
+      )
+      ## If there is nothing between the branch and
+      ## the REQ consequent, then we can create the
+      ## connection
+      if(closest_antecedents %>% 
+         filter(!antecedent %in% mutual_activity_set) %>% 
+         nrow == 0){
+        exploration_result$pair <- seq_pair
+        exploration_result$rel_type <- "SEQ"
+        return(exploration_result)
+      }
+      acts_requiring_single_branch <- acts_requiring_single_branch %>%
+        filter(antecedent != seq_pair$consequent)
+    }
+  }
+  
+  
+  exploration_result$pair <- branch_pair
+  exploration_result$rel_type <- branch_pair$rel
+  exploration_result$branch_acts <- c(
+    branch_pair$antecedent,
+    branch_pair$consequent
+  )
+  return(exploration_result)
 }
 
 solve_branch_pair <- function(
