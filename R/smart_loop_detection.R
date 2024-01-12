@@ -131,6 +131,8 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       assigned_rels
     )
     
+    likely_end_points <- likely_end_points[likely_end_points %in% loop_acts]
+    
     loop_backs_to_solve <- loop_backs_to_solve %>%
       mutate(assigned = ifelse(
         antecedent %in% likely_end_points & consequent %in% likely_start_points,
@@ -197,6 +199,17 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
         
         loop_acts <- loop_acts[! loop_acts %in% inner_loop_acts]
         loop_acts <- c(loop_acts, inner_loop_name)
+        
+        start_in_inner <- likely_start_points[likely_start_points %in% inner_loop_acts]
+        end_in_inner <- likely_end_points[likely_end_points %in% inner_loop_acts]
+        if(length(start_in_inner) > 0){
+          likely_start_points <- likely_start_points[!likely_start_points %in% start_in_inner]
+          likely_start_points <- c(likely_start_points, inner_loop_name)
+        } else if(length(end_in_inner) > 0){
+          likely_end_points <- likely_end_points[!likely_end_points %in% end_in_inner]
+          likely_end_points <- c(likely_end_points, inner_loop_name)
+        }
+        
       }
     }
     
@@ -402,7 +415,9 @@ loop_extract_end_points <- function(strongest_loop_back, assigned_rels, loop_bac
   ## activity need to be preserved
   par_end_acts <- par_end_acts %>%
     filter(consequent %in% (loop_backs_to_solve %>%
-                              filter(consequent == strongest_loop_back$consequent) %>%
+                              filter(
+                                assigned == 0,
+                                consequent == strongest_loop_back$consequent) %>%
                               pull(antecedent))) %>%
     pull(consequent)
   
@@ -429,7 +444,9 @@ loop_extract_start_points <- function(
   ## loop back to
   par_start_acts <- par_start_acts %>%
     filter(consequent %in% (loop_backs_to_solve %>%
-                              filter(antecedent %in% likely_end_points) %>%
+                              filter(
+                                assigned == 0,
+                                antecedent %in% likely_end_points) %>%
                               pull(consequent))) %>%
     pull(consequent)
   
@@ -483,10 +500,16 @@ loop_extract_activities <- function(
     pull(consequent) %>%
     unique
   
+  acts_from_end_withou_end_points <- acts_from_end[!acts_from_end %in% likely_end_points]
+  
+  if(length(acts_from_end_withou_end_points) == 0){
+    acts_from_end <- acts_from_end_withou_end_points
+  }
+  
   loop_acts <- acts_from_start[!acts_from_start %in% acts_from_end]
   loop_acts <- c(
     likely_start_points,
-    likely_end_points,
+    # likely_end_points,
     loop_acts
   ) %>% unique
   
