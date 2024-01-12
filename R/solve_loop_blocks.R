@@ -47,7 +47,6 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
     
     if(first_loop_log %>% pull(AID) %>% unique %>% length == 1){
       sole_activity <- first_loop_log %>% pull(AID) %>% unique
-      print(sole_activity)
       sole_activity <- decode_task(
         sole_activity, 
         relevant_snippets,
