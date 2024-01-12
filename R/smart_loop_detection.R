@@ -9,10 +9,46 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
   
   assigned_rels  <- repeat_rels %>% 
     assign_relationships
+  
+  relevant_act_names <- c(
+    loop_scores$antecedent, loop_scores$consequent
+  ) %>% unique
+  
+  assigned_rels <- assigned_rels %>%
+    filter(
+      antecedent %in% relevant_act_names,
+      consequent %in% relevant_act_names
+    )
+  
+  ## Clean relationships
+  ## If there are mutual relations
+  ## then only the strongest should survive
+  mutual_rels <- loop_scores %>% 
+    inner_join(loop_scores, 
+               by=c("antecedent"="consequent",
+                    "consequent"="antecedent",
+                    "rel"="rel"))
+  
+  ## Relations should only be maintained
+  ## if they are stronger then their 
+  ## counterpart
+  relevant_rels <- mutual_rels %>%
+    filter(score.x >= score.y) %>%
+    select(
+      antecedent, consequent, rel,
+      score = score.x
+    )
+  
+  relevant_rels <- relevant_rels %>%
+    group_by(antecedent, consequent) %>%
+    mutate(nr_of_rels = n()) %>%
+    filter(!(rel == RScoreDict$LOOP_BACK & nr_of_rels > 1)) %>%
+    ungroup() %>%
+    select(-nr_of_rels)
 
   ## We want to discard irrelevant/maginal scores
   ## by introducing a threshold per relationship-type
-  norm_looped_scores <- loop_scores %>% 
+  norm_looped_scores <- relevant_rels %>% 
     group_by(antecedent, consequent) %>% 
     mutate(score = ifelse(score == max(score), score,0)) %>%
     group_by(rel) %>%
@@ -26,7 +62,10 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     select(-relevant) %>%
     mutate(loop_block_id = 0)
 
-  loop_back_scores <- loop_scores %>%
+  loop_back_scores <- relevant_rels %>%
+    group_by(antecedent, consequent) %>% 
+    filter(score == max(score)) %>%
+    ungroup() %>%
     filter(rel == RScoreDict$LOOP_BACK)
 
   loop_block_counter <- 0
@@ -55,134 +94,54 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     ## F.e. in a looped sequence A-B-C-D, by design, activity D will be the consequent of
     ## a LOOP_BLOCK relation for A, B and C, whereas activity B is only the LOOP_BLOCK
     ## consequent of A. In the following code, we are looking for activity D.
-    preceeding_acts <-  norm_looped_scores %>%
-      filter(loop_block_id == 0) %>%
-      filter(rel == RScoreDict$LOOP_BLOCK) %>%
-      group_by(consequent) %>%
-      summarize(score = sum(score))
-
-    most_connected_act <- preceeding_acts %>%
+    
+    # preceeding_acts <-  norm_looped_scores %>%
+    #   filter(loop_block_id == 0) %>%
+    #   filter(rel == RScoreDict$LOOP_BLOCK) %>%
+    #   group_by(consequent) %>%
+    #   summarize(score = sum(score))
+    # 
+    # most_connected_act <- preceeding_acts %>%
+    #   filter(score == max(score)) %>%
+    #   head(1) %>%
+    #   pull(consequent)
+    
+    strongest_loop_back <- loop_backs_to_solve %>%
+      filter(assigned == 0) %>%
       filter(score == max(score)) %>%
-      head(1) %>%
-      pull(consequent)
-
-    ## Find all activities that are within the loop block.
-    ## We assume now that the loop block ends with the
-    ## "most connected activity", which is referred to as actiity D
-    ## in the previous comment.
-    loop_acts <- norm_looped_scores %>%
-      filter(score == 1,
-             rel == RScoreDict$LOOP_BLOCK,
-             consequent == most_connected_act) %>%
-      pull(antecedent) %>%
-      unique %>%
-      c(.,most_connected_act)
-
-
-    ## There may be nested loops, so we need to check what
-    ## each activity within the loop block is most likely
-    ## to loop back to.
-    ## We selelect the activty woth the strongest
-    ## loop_back relation as the new endpoint of our loop.
-    most_likely_endpoint <- norm_looped_scores %>% 
-      filter(rel == RScoreDict$LOOP_BACK) %>%
-      filter(score > 0) %>%
-      filter(antecedent %in% loop_acts) %>%
-      arrange(-score) %>%
-      head(1) %>%
-      pull(antecedent)
-
-    ## If there is no loop_back activity, then we are in trouble.
-    if(length(most_likely_endpoint) == 0){
-      ## We first extend our search to other candidates
-      ## further down the line (after the activity that
-      ## we assumed to be last)
-      extra_acts <- norm_looped_scores %>%
-        filter(antecedent %in% loop_acts,
-               rel == RScoreDict$LOOP_BLOCK,
-               score > 0) %>%
-        pull(consequent)
-
-      loop_acts <- c(loop_acts, extra_acts) %>% unique()
-
-      ## We again search for the most likely end point
-      most_likely_endpoint <- loop_back_scores %>%
-        filter(antecedent %in% loop_acts) %>%
-        arrange(-score) %>%
-        head(1) %>%
-        pull(antecedent)
-    }
-
-    ## We want to know what activity to loop back to from our end point
-    ## this can only be an activity that had a  LOOP_BACK score with
-    ## that end point.
-    most_likely_start_points <- loop_back_scores %>%
-      filter(score > 0) %>%
-      filter(antecedent == most_likely_endpoint)
-
-    ## Id there are multiple potential start points,
-    ## then we can downsize the list by adding a threshold
-    ## to the required score.
-    if(most_likely_start_points %>% nrow > 0){
-      most_likely_start_points <- loop_back_scores %>%
-        filter(score >= mean(score)) %>%
-        filter(antecedent == most_likely_endpoint)
-    }
-
-    ## If there is at least 1 candidate, we extract all
-    ## of the as potential candidates
-    if(most_likely_start_points %>% nrow > 0){
-      most_likely_start_points <- most_likely_start_points %>%
-        pull(consequent)
-    } else {
-
-      ## Else, we are forced to move back to the extended list
-      ## and select them all as candidates
-      most_likely_start_points <- loop_back_scores %>%
-        filter(score > 0) %>%
-        filter(antecedent == most_likely_endpoint) %>%
-        pull(consequent)
-    }
-
-    ### WHAT IF ZERO CANDIDATES?
-
-
-    ## Gather all activities that we consider to be
-    ## part of the loop. We use the most likely
-    ## starting activity(es) as reference point
-    loop_acts <- generics::intersect(
-      norm_looped_scores %>%
-        filter(
-          rel==RScoreDict$LOOP_BLOCK,
-          score == 1,
-          antecedent %in% most_likely_start_points) %>%
-        pull(consequent),
-      norm_looped_scores %>%
-        filter(
-          rel==RScoreDict$LOOP_BLOCK,
-          score == 1,
-          consequent %in% most_likely_endpoint) %>%
-        pull(antecedent)
+      head(1)
+    
+    likely_end_points <- loop_extract_end_points(
+      strongest_loop_back,
+      assigned_rels,
+      loop_backs_to_solve
     )
     
-    priors_to_endpoint <- assigned_rels %>% 
-      filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS, RScoreDict$EVENTUALLY_FOLLOWS, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)) %>% 
-      filter(consequent %in% most_likely_endpoint ) %>% 
-      pull(antecedent) %>% 
-      unique()
+    likely_start_points <- loop_extract_start_points(
+      strongest_loop_back,
+      likely_end_points,
+      assigned_rels,
+      loop_backs_to_solve
+    )
     
-    loop_acts <- c(
-      most_likely_start_points,
-      most_likely_endpoint,
-      generics::intersect(loop_acts,priors_to_endpoint)
-    ) %>% unique
+    loop_acts <- loop_extract_activities(
+      likely_start_points,
+      likely_end_points,
+      norm_looped_scores,
+      assigned_rels
+    )
     
     loop_backs_to_solve <- loop_backs_to_solve %>%
       mutate(assigned = ifelse(
-        antecedent %in% most_likely_endpoint | consequent %in% loop_acts,
+        antecedent %in% likely_end_points & consequent %in% likely_start_points,
         1,
         assigned
       ))
+    
+    ## If some of these activities are already assigned
+    ## to a loop block, then we need to replace them
+    ## by their loop reference number
+    
     
     ## if all loop acts are already part of a loop, 
     ## then we don't need this loop anymore
@@ -243,118 +202,69 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     ## in its entirety, then we can refer to that loop_block here
     
     ##If there are still loopbacks, then there are probably multiple possible end points
-    remaining_loop_backs <- loop_back_scores %>%
-      filter(score >= mean(score)) %>%
+    remaining_loop_backs <- loop_backs_to_solve %>%
       filter(antecedent %in% loop_acts) %>%
-      filter(!(antecedent %in% c(most_likely_endpoint, most_likely_start_points)))
-
-    ## But we can disregard the loopback that also have a high Par if present score
-    ## Since PIP is high if activities appear in a choice in a loop
-    ## (First occurrence of A may always be before or after first occurrence of B)
-    remaining_loop_backs <- remaining_loop_backs %>%
-      inner_join(repeat_rels %>% filter(rel == RScoreDict$PARALLEL_IF_PRESENT) %>%
-                   select(antecedent, consequent, PIP=score),
-                 by=c("antecedent","consequent")) %>%
-      filter(score >= PIP) %>%
-      select(antecedent, consequent, rel, score)
+      filter(!(antecedent %in% c(likely_end_points, 
+                                 likely_start_points)))
 
     while(remaining_loop_backs %>% nrow > 0){
 
       ## Sekect the activity that has the strongest LOOP_BACK score
       ## This is likely an inner loop.
-      second_end_point <- remaining_loop_backs %>%
+      strongest_inner_loop_back <- remaining_loop_backs %>%
         arrange(-score) %>%
-        head(1) %>%
-        pull(antecedent)
-
-      ## Select all activities to which the second end point is
-      ## looping back.
-      second_start_points <- loop_back_scores %>%
-        filter(score > 0) %>%
-        filter(antecedent == second_end_point)
-
-      ## If there are many candidate starting points for the inner loop
-      ## then we can afford to be more stringent in our selection.
-      if(second_start_points %>% nrow > 0){
-        second_start_points <- loop_back_scores %>%
-          filter(score >= mean(score)) %>%
-          filter(antecedent == second_end_point)
-      }
-      ## Otherwise we just select all candidates as inner staring points.
-      if(second_start_points %>% nrow > 0){
-        second_start_points <- second_start_points %>%
-          pull(consequent)
-      } else {
-        most_likely_start_points <- loop_back_scores %>%
-          filter(antecedent == second_end_point) %>%
-          pull(consequent)
-      }
-
-      ## If there is no difference between the old and the new startpoint,
-      ## then we assume that both the old and the new end point are both
-      ## considered as loop end point.
-      ## Remember that A > B X>{A, C X>[A,..]} is the same as
-      ## A > B X>[C, ] X>[A,..]
-      if(setequal(most_likely_start_points, second_start_points)){
-        most_likely_endpoint <- c(most_likely_endpoint, second_end_point) %>% unique
-      } else{
-        ## If not, we will construct an inner loop first.
-        ## these must contain all activities that are part of
-        ## the loop block of the inner starting activity.
-        other_loop_acts <- norm_looped_scores %>%
-          filter(
-            rel==RScoreDict$LOOP_BLOCK,
-            score == 1,
-            antecedent %in% second_start_points) %>%
-          pull(consequent) %>%
-          c(.,second_start_points) %>%
-          unique
-
-
-        ## But we do not need any activity that comes
-        ## after the inner loop's end point.
-        acts_outside_block <- norm_looped_scores %>%
-          filter(
-            rel==RScoreDict$LOOP_BLOCK,
-            score == 1,
-            antecedent %in% second_end_point) %>%
-          pull(consequent)
-
-
-        acts_outside_block <- acts_outside_block[!acts_outside_block %in% second_start_points]
-        other_loop_acts <- other_loop_acts[!other_loop_acts %in% acts_outside_block]
-
-        ## Create a data structure that contains start and end activity of
-        ## the inner loop block, along with the other activities inside that block.
-        other_loop_block_info <- tibble(
-          loop_block_id  = loop_block_counter,
-          activity = other_loop_acts,
-        ) %>%
-          mutate(is_start = (activity %in% second_start_points),
-                 is_end = (activity %in% second_end_point))
-
-        ## Add the block to the temp loop_blocks and augment
-        ## the counter.
-        temp_loop_block_info_df <- temp_loop_block_info_df %>%
-          bind_rows(other_loop_block_info)
-
-        loop_block_counter <- loop_block_counter + 1
-      }
+        head(1)
+      
+      inner_end_points <- loop_extract_end_points(
+        strongest_inner_loop_back,
+        assigned_rels,
+        loop_backs_to_solve
+      )
+      
+      inner_start_points <- loop_extract_start_points(
+        strongest_inner_loop_back,
+        inner_end_points,
+        assigned_rels,
+        loop_backs_to_solve
+      )
+      
+      inner_loop_acts <- loop_extract_activities(
+        inner_start_points,
+        inner_end_points,
+        norm_looped_scores,
+        assigned_rels
+      )
+      
+      ## Create a data structure that contains start and end activity of
+      ## the inner loop block, along with the other activities inside that block.
+      other_loop_block_info <- tibble(
+        loop_block_id  = loop_block_counter,
+        activity = inner_loop_acts,
+      ) %>%
+        mutate(is_start = (activity %in% inner_start_points),
+               is_end = (activity %in% inner_end_points))
+      
+      ## Add the block to the temp loop_blocks and augment
+      ## the counter.
+      temp_loop_block_info_df <- temp_loop_block_info_df %>%
+        bind_rows(other_loop_block_info)
+      
+      loop_block_counter <- loop_block_counter + 1
 
       ## Remove the end points from the loopbacks so that the next
       ## one cna be examined.
       remaining_loop_backs <- remaining_loop_backs %>%
-        filter(!(antecedent %in% c(second_end_point, second_start_points)))
+        filter(!(antecedent %in% c(inner_end_points, inner_start_points)))
     }
 
-    ## If inner loop blocks are dealt with, we can collect the activites in the outer loop
+    ## If inner loop blocks are dealt with, we can collect the activities in the outer loop
     ## in a new datastructure. Start and end points must be indicated.
     loop_block_info <- tibble(
       loop_block_id  = loop_block_counter,
       activity = loop_acts,
     ) %>%
-      mutate(is_start = (activity %in% most_likely_start_points),
-             is_end = (activity %in% most_likely_endpoint))
+      mutate(is_start = (activity %in% likely_start_points),
+             is_end = (activity %in% likely_end_points))
 
     temp_loop_block_info_df <- temp_loop_block_info_df %>%
       bind_rows(loop_block_info) %>%
@@ -466,4 +376,117 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
   }
 
   return(loop_block_info_df)
+}
+
+
+loop_extract_end_points <- function(strongest_loop_back, assigned_rels, loop_backs_to_solve){
+  
+  most_connected_act <- strongest_loop_back %>%
+    pull(antecedent)
+  
+  ## We mus texamine whether there are activities
+  #" that happen in parallel or exlcusive to the
+  ## selected activity.
+  ## PLease note that exclusive activities are
+  ## recognised as PIP whe they occur in a loop.
+  ## Think about it and you'll understand.
+  par_end_acts <- assigned_rels %>%
+    filter(antecedent == most_connected_act,
+           rel %in% c(RScoreDict$PARALLEL_IF_PRESENT,
+                      RScoreDict$ALWAYS_PARALLEL,
+                      RScoreDict$MUTUALLY_EXCLUSIVE))
+  
+  ## Only the ones that also loopback to the same
+  ## activity need to be preserved
+  par_end_acts <- par_end_acts %>%
+    filter(consequent %in% (loop_backs_to_solve %>%
+                              filter(consequent == strongest_loop_back$consequent) %>%
+                              pull(antecedent))) %>%
+    pull(consequent)
+  
+  likely_end_points <- c(most_connected_act,
+                         par_end_acts) %>% unique
+  
+  return(likely_end_points)
+}
+
+loop_extract_start_points <- function(
+    strongest_loop_back,
+    likely_end_points,
+    assigned_rels,
+    loop_backs_to_solve){
+  
+  ## The same applies to the starting point
+  par_start_acts <- assigned_rels %>%
+    filter(antecedent == strongest_loop_back$consequent,
+           rel %in% c(RScoreDict$PARALLEL_IF_PRESENT,
+                      RScoreDict$ALWAYS_PARALLEL,
+                      RScoreDict$MUTUALLY_EXCLUSIVE))
+  
+  ## And we only need the ones where the end points
+  ## loop back to
+  par_start_acts <- par_start_acts %>%
+    filter(consequent %in% (loop_backs_to_solve %>%
+                              filter(antecedent %in% likely_end_points) %>%
+                              pull(consequent))) %>%
+    pull(consequent)
+  
+  likely_start_points <- c(strongest_loop_back$consequent,
+                           par_start_acts) %>% unique
+  
+  return(likely_start_points)
+}
+
+loop_extract_activities <- function(
+    likely_start_points,
+    likely_end_points,
+    norm_looped_scores,
+    assigned_rels
+    ) {
+  ## We now need to look for the activities that
+  #" happen within this loop block that start and
+  ## ands with the discoverd activities.
+  acts_from_start <- norm_looped_scores %>%
+    filter(score == 1,
+           rel == RScoreDict$LOOP_BLOCK,
+           antecedent %in% likely_start_points) %>%
+    pull(consequent) %>%
+    unique
+  
+  
+  leads_to_end_pint <- assigned_rels %>% 
+    filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS, RScoreDict$EVENTUALLY_FOLLOWS, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)) %>% 
+    filter(consequent %in% likely_end_points ) 
+  
+  follows_start_point <- assigned_rels %>% 
+    filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS, RScoreDict$EVENTUALLY_FOLLOWS, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)) %>% 
+    filter(antecedent %in% likely_start_points ) 
+  
+  priors_to_endpoint <- leads_to_end_pint %>%
+    filter(antecedent %in% follows_start_point$consequent) %>% 
+    pull(antecedent) %>% 
+    unique()
+  
+  acts_from_start <- c(
+    acts_from_start, priors_to_endpoint
+  ) %>% unique
+  
+  ## But we do not need the activities that go
+  ## beyond the end points. (We may be dealing with
+  ## an inner loop.
+  acts_from_end <- norm_looped_scores %>%
+    filter(score == 1,
+           rel == RScoreDict$LOOP_BLOCK,
+           antecedent %in% likely_end_points) %>%
+    pull(consequent) %>%
+    unique
+  
+  loop_acts <- acts_from_start[!acts_from_start %in% acts_from_end]
+  loop_acts <- c(
+    likely_start_points,
+    likely_end_points,
+    loop_acts
+  ) %>% unique
+  
+  return(loop_acts)
 }
