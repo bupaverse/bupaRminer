@@ -145,10 +145,12 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     
     ## if all loop acts are already part of a loop, 
     ## then we don't need this loop anymore
-    new_loop_acts <- loop_acts[
-      ! loop_acts %in% loop_block_info_df$activity
-    ]
+    new_loop_acts <- loop_acts
     
+    if(loop_block_info_df %>% nrow > 0){
+      new_loop_acts <- loop_acts[! loop_acts %in% loop_block_info_df$activity]
+    }
+  
     if(length(new_loop_acts) == 0){
       norm_looped_scores <- norm_looped_scores %>% 
         mutate(score =
