@@ -55,8 +55,8 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     mutate(relevant = ifelse(score >= mean(score), TRUE,FALSE)) %>%
     group_by(antecedent) %>%
     mutate(relevant = ifelse(score >= mean(score), TRUE,relevant)) %>%
-    group_by(consequent) %>%
-    mutate(relevant = ifelse(score >= mean(score), TRUE,relevant)) %>%
+#    group_by(consequent) %>%
+#    mutate(relevant = ifelse(score >= mean(score), TRUE,relevant)) %>%
     ungroup() %>%
     mutate(score = ifelse(relevant==TRUE,1,0)) %>%
     select(-relevant) %>%
@@ -74,6 +74,22 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
   loop_backs_to_solve <-  loop_back_scores %>% 
     filter(score > 0) %>%
     mutate(assigned = 0)
+  
+  ## Only loop_back scores that are greater
+  ## then follows scores must be resolved
+  ## the others are not considered significant
+  lb_follows_rels <- loop_backs_to_solve %>%
+    select(antecedent, consequent, rel, score) %>%
+    left_join(repeat_rels %>%
+                filter(rel == RScoreDict$MAYBE_EVENTUALLY_FOLLOWS) %>%
+                select(antecedent, consequent, score),
+              by=c("antecedent","consequent")) %>%
+    filter(score.x >= score.y)
+  
+  loop_backs_to_solve <- lb_follows_rels %>%
+    select(antecedent, consequent) %>%
+    left_join(loop_backs_to_solve,
+              by=c("antecedent","consequent"))
 
   ## We keep going as long as there are activities that are not assigned to a loop.
   while(loop_backs_to_solve %>%
@@ -94,17 +110,6 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     ## F.e. in a looped sequence A-B-C-D, by design, activity D will be the consequent of
     ## a LOOP_BLOCK relation for A, B and C, whereas activity B is only the LOOP_BLOCK
     ## consequent of A. In the following code, we are looking for activity D.
-    
-    # preceeding_acts <-  norm_looped_scores %>%
-    #   filter(loop_block_id == 0) %>%
-    #   filter(rel == RScoreDict$LOOP_BLOCK) %>%
-    #   group_by(consequent) %>%
-    #   summarize(score = sum(score))
-    # 
-    # most_connected_act <- preceeding_acts %>%
-    #   filter(score == max(score)) %>%
-    #   head(1) %>%
-    #   pull(consequent)
     
     strongest_loop_back <- loop_backs_to_solve %>%
       filter(assigned == 0) %>%
@@ -133,12 +138,22 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     
     likely_end_points <- likely_end_points[likely_end_points %in% loop_acts]
     
-    loop_backs_to_solve <- loop_backs_to_solve %>%
-      mutate(assigned = ifelse(
-        antecedent %in% likely_end_points & consequent %in% likely_start_points,
-        1,
-        assigned
-      ))
+    if(length(likely_start_points) > 0 & length(likely_end_points) > 0 ){
+      loop_backs_to_solve <- loop_backs_to_solve %>%
+        mutate(assigned = ifelse(
+          antecedent %in% likely_end_points & consequent %in% likely_start_points,
+          1,
+          assigned
+        ))
+    } else {
+      loop_backs_to_solve <- loop_backs_to_solve %>%
+        mutate(assigned = ifelse(
+          antecedent == strongest_loop_back$antecedent & 
+            consequent == strongest_loop_back$consequent,
+          1,
+          assigned
+        ))
+    }
     
     ## If some of these activities are already assigned
     ## to a loop block, then we need to replace them
@@ -163,11 +178,7 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       next
     }
     
-    ## We assign those activities to the new loop_block by reference number
-    ## norm_looped_scores <- norm_looped_scores %>%
-    ##   mutate(loop_block_id = ifelse(antecedent %in% loop_acts & score == 1,
-    ##                                loop_block_counter,
-    ##                                loop_block_id))
+    orig_loop_acts <- loop_acts
     if(loop_block_info_df %>% nrow > 0){
       
       activities_per_block <- loop_block_info_df %>% 
@@ -212,6 +223,7 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
         
       }
     }
+    lost_loop_acts <- orig_loop_acts[!orig_loop_acts %in% loop_acts]
     
     ## If some of these activities are already in another loop_block
     ## in its entirety, then we can refer to that loop_block here
@@ -219,8 +231,10 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     ##If there are still loopbacks, then there are probably multiple possible end points
     remaining_loop_backs <- loop_backs_to_solve %>%
       filter(antecedent %in% loop_acts) %>%
-      filter(!(antecedent %in% c(likely_end_points, 
-                                 likely_start_points)))
+      filter(!(antecedent %in% c(lost_loop_acts,
+                                 likely_end_points, 
+                                 likely_start_points)),
+             !consequent %in% lost_loop_acts)
 
     while(remaining_loop_backs %>% nrow > 0){
 
@@ -390,6 +404,8 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
       mutate(loop_block_id = ifelse(score > 0,loop_block_id, 0))
   }
 
+  loop_block_info_df <- loop_block_info_df %>%
+    arrange(loop_block_id)
   return(loop_block_info_df)
 }
 
