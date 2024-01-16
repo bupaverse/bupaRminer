@@ -84,7 +84,7 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
                 filter(rel == RScoreDict$MAYBE_EVENTUALLY_FOLLOWS) %>%
                 select(antecedent, consequent, score),
               by=c("antecedent","consequent")) %>%
-    filter(score.x >= score.y)
+    filter(score.x >= score.y/2)
   
   loop_backs_to_solve <- lb_follows_rels %>%
     select(antecedent, consequent) %>%
