@@ -13,11 +13,11 @@ create_snippet <- function(
     seq_name = ""
 ){
   new_snippet <- list(
-    tasks = tibble(),
-    seqs = tibble(),
-    gateways = tibble(),
-    start_events = tibble(),
-    end_events = tibble(),
+    tasks = init_empty_tasks(),
+    seqs = init_empty_seqs(),
+    gateways = init_empty_gateways(),
+    start_events = init_empty_events(),
+    end_events = init_empty_events(),
     init = c(),
     close = c()
   )
@@ -224,7 +224,7 @@ create_snippet <- function(
       if(dead_end_check(branch) == FALSE){
         clean_branch <- branch
         if(is.list(clean_branch)){
-          clean_branch$seqs <- tibble()
+          clean_branch$seqs <- init_empty_seqs()
         }
 
         branch_in <- create_snippet(
@@ -346,12 +346,12 @@ decode_task <- function(task_name,
   if (is.character(task_name) && task_name != "") {
     if (task_name %in% start_event_name) {
       start_snippet <- list(
-        tasks = tibble(),
-        seqs = tibble(),
-        gateways = tibble(),
+        tasks = init_empty_tasks(),
+        seqs = init_empty_seqs(),
+        gateways = init_empty_gateways(),
         start_events = tibble(id = task_name,
                               name = task_name),
-        end_events = tibble(),
+        end_events = init_empty_events(),
         init = task_name,
         close = task_name
       )
@@ -364,10 +364,10 @@ decode_task <- function(task_name,
       pkg.env$end_event_counter <- pkg.env$end_event_counter + 1
 
       end_snippet <- list(
-        tasks = tibble(),
-        seqs = tibble(),
-        gateways = tibble(),
-        start_events = tibble(),
+        tasks = init_empty_tasks(),
+        seqs = init_empty_seqs(),
+        gateways = init_empty_gateways(),
+        start_events = init_empty_events(),
         end_events = tibble(id = end_id,
                             name = task_name),
         init = end_id,
@@ -388,10 +388,10 @@ decode_task <- function(task_name,
     atomic_task_snippet <- list(
       tasks = tibble(id = task_id,
                      name = task_name),
-      seqs = tibble(),
-      gateways = tibble(),
-      start_events = tibble(),
-      end_events = tibble(),
+      seqs = init_empty_seqs(),
+      gateways = init_empty_gateways(),
+      start_events = init_empty_events(),
+      end_events = init_empty_events(),
       init = task_id,
       close = task_id
     )
@@ -402,11 +402,11 @@ decode_task <- function(task_name,
       list(
         init = NULL,
         close = NULL,
-        tasks = tibble(),
-        seqs = tibble(),
-        gateways = tibble(),
-        start_events = tibble(),
-        end_events = tibble()
+        tasks = init_empty_tasks(),
+        seqs = init_empty_seqs(),
+        gateways = init_empty_gateways(),
+        start_events = init_empty_events(),
+        end_events = init_empty_events()
       )
     )
   }
