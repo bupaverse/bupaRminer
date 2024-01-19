@@ -45,21 +45,29 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
     filter(!(rel == RScoreDict$LOOP_BACK & nr_of_rels > 1)) %>%
     ungroup() %>%
     select(-nr_of_rels)
-
-  ## We want to discard irrelevant/maginal scores
-  ## by introducing a threshold per relationship-type
+  
+  ## You can only be in a loop_block if your
+  ## LBL score is better than your REQ score
+  REQ_scores <- repeat_rels %>%
+    filter(rel == RScoreDict$REQUIRES) %>%
+    select(antecedent, consequent, rel, score)
+  
+  loop_block_scores <- relevant_rels %>%
+    filter(rel == RScoreDict$LOOP_BLOCK) %>%
+    select(antecedent, consequent, rel, score)
+  
+  strong_loop_block_scores <- loop_block_scores %>%
+    left_join(REQ_scores,
+              by=c("antecedent","consequent")) %>%
+    filter(score.x > score.y) %>%
+    select(antecedent, consequent)
+  
   norm_looped_scores <- relevant_rels %>% 
-    group_by(antecedent, consequent) %>% 
-    mutate(score = ifelse(score == max(score), score,0)) %>%
-    group_by(rel) %>%
-    mutate(relevant = ifelse(score >= mean(score), TRUE,FALSE)) %>%
-    group_by(antecedent) %>%
-    mutate(relevant = ifelse(score >= mean(score), TRUE,relevant)) %>%
-#    group_by(consequent) %>%
-#    mutate(relevant = ifelse(score >= mean(score), TRUE,relevant)) %>%
-    ungroup() %>%
-    mutate(score = ifelse(relevant==TRUE,1,0)) %>%
-    select(-relevant) %>%
+    inner_join(
+      strong_loop_block_scores,
+      by=c("antecedent","consequent")
+    ) %>%
+    mutate(score = 1) %>%
     mutate(loop_block_id = 0)
 
   loop_back_scores <- relevant_rels %>%
