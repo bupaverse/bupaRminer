@@ -272,6 +272,12 @@ detect_loop_blocks <- function(loop_scores, repeat_rels){
         assigned_rels
       )
       
+      starts_innerloop <- likely_start_points[!likely_start_points %in% inner_start_points]
+      
+      if(length(starts_innerloop) > 0){
+        inner_loop_acts <- inner_loop_acts[!inner_loop_acts %in% starts_innerloop]
+      }
+      
       ## Create a data structure that contains start and end activity of
       ## the inner loop block, along with the other activities inside that block.
       other_loop_block_info <- tibble(
