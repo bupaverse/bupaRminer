@@ -209,6 +209,32 @@ solve_directly_follows <- function(
       filter(antecedent %in% all_preceeding_relations$antecedent,
              consequent %in% all_preceeding_relations$antecedent)
     
+    if(mutual_preceeding_relations %>% nrow == 0){
+      snippet_name <- paste(act_a, act_b, sep = " >> ")
+      
+      msg <- paste("Created process snippet:", snippet_name, sep = " ")
+      
+      snippet_dict[[snippet_name]] <-
+        create_snippet(
+          act_a,
+          act_b,
+          c(),
+          "SEQ",
+          snippet_dict
+        )
+      
+      
+      return_list <- list(
+        snippet = snippet_name,
+        activities = c(act_a, act_b),
+        rel_df = rel_df,
+        snippet_dictionary = snippet_dict,
+        messages = msg
+      )
+      
+      return(return_list)
+    }
+    
     if(mutual_preceeding_relations %>%
        filter(rel == RScoreDict$MUTUALLY_EXCLUSIVE) %>% nrow > 0){
       xor_branches <- mutual_preceeding_relations %>%

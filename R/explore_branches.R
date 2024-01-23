@@ -141,6 +141,12 @@ explore_branch_pair <- function(
         RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
         RScoreDict$DIRECT_JOIN
       ))
+    
+    if(is.null(seq_pair)){
+      seq_pair <- tibble()
+      acts_requiring_single_branch <- tibble()
+    }
+    
     if(seq_pair %>% nrow > 0){
       closest_antecedents <- get_closest_antecedents(
         seq_pair,
