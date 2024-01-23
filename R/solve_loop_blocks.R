@@ -159,7 +159,7 @@ clean_loop_blocks <- function(loop_block_df){
   
   new_loop_block_df <- loop_block_df %>%
     mutate(is_start = ifelse(loop_block_id %in% no_end$loop_block_id & is_end == 0, 1, is_start))%>%
-    mutate(is_start = ifelse(loop_block_id %in% no_start$loop_block_id & is_start == 0, 1, is_end))
+    mutate(is_end = ifelse(loop_block_id %in% no_start$loop_block_id & is_start == 0, 1, is_end))
   
   return(new_loop_block_df)
 }
