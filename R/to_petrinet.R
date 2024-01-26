@@ -29,9 +29,6 @@ to_petrinet <- function(bpmn) {
   tibble(data = list(tmp_bpmn$nodes, tmp_bpmn$events)) %>%
     unnest(data) -> nodes
 
-  nodes %>%
-    count(objectType, gatewayDirection)
-
 
   seqs %>%
     mutate(from = sourceRef, to = targetRef) -> flows
@@ -83,6 +80,8 @@ to_petrinet <- function(bpmn) {
     filter(type_from == "P",type_to == "P") -> PP
 
   PP %>%
+    select(-id) %>%
+    distinct() %>%
     mutate(id = paste(sourceRef, targetRef, sep = "____"), label = "") -> PP
 
   PP %>%
@@ -103,8 +102,9 @@ to_petrinet <- function(bpmn) {
 
   petrinet_model <- create_marked_PN(create_PN(as.data.frame(places), as.data.frame(transitions), as.data.frame(flows)), initial_marking =  tmp_bpmn$startEvent$id,  final_marking =  tmp_bpmn$endEvent$id) -> converted_petri
 
-  petrinet_model$initial_marking <- "START"
-  petrinet_model$final_marking <- "END_1"
+  petrinet_model$initial_marking <- tmp_bpmn$events %>% filter(objectType == "startEvent") %>% pull(id)
+  petrinet_model$final_marking <- tmp_bpmn$events %>% filter(objectType == "endEvent") %>% pull(id)
+  petrinet_model$petrinet$transitions %>% mutate(label = ifelse(objectType == "parallelGateway", NA, label)) -> petrinet_model$petrinet$transitions
 
   petrinet_model
 }
