@@ -226,6 +226,23 @@ create_snippet <- function(
         if(is.list(clean_branch)){
           clean_branch$seqs <- init_empty_seqs()
         }
+        
+        branch_seq_name <- seq_name
+        
+        if(length(seq_name) > 1){
+          branch_seq_name <- seq_name[1]
+          for (i in 1:length(branches)) {
+            if(identical(branch, branches[[i]])){
+              branch_seq_name <- seq_name[i]
+            } else {
+              if(branch$tasks %>% nrow == 1 && branch$gateways %>% nrow == 0){
+                if(branch$tasks %>% pull(name) == branches[[i]]){
+                  branch_seq_name <- seq_name[i]
+                }
+              }
+            }
+          }
+        }
 
         branch_in <- create_snippet(
           start_point = list(
@@ -233,7 +250,8 @@ create_snippet <- function(
             close = new_gateway_A$id),
           end_point = clean_branch,
           branches = list(),
-          connection_type = "SEQ")
+          connection_type = "SEQ",
+          seq_name = branch_seq_name)
 
         branch_snippet <- branch_snippet %>%
           expand_snippet(branch_in)

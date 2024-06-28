@@ -21,6 +21,9 @@ construct_process <- function(assigned_rel_df,
 
   rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df, strict = FALSE) %>%
     reset_memory()
+  
+  req_relation_memory_df <- rel_notebook_df %>%
+    filter(rel == RScoreDict$REQUIRES)
 
   RELS_IN_FOCUS <- determine_rels_in_focus(
     rel_notebook_df

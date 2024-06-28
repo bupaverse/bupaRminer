@@ -30,10 +30,14 @@ discover.eventlog <- function(log) {
     loop_rels <- calculate_loop_relations(log)
     if(loop_rels %>% nrow > 0){
       loop_scores <- calculate_loop_scores(loop_rels, log)
-      loop_block_df <- detect_loop_blocks(loop_scores, loop_rels)
-      loop_result <- solve_loop_blocks(loop_block_df,log)
-      snippet_dictionary <- loop_result$process
-      log <- loop_result$log
+      if(loop_scores %>%
+         filter(rel == RScoreDict$LOOP_BACK) %>%
+         filter(score > 0) %>% nrow > 0){
+        loop_block_df <- detect_loop_blocks(loop_scores, loop_rels)
+        loop_result <- solve_loop_blocks(loop_block_df,log)
+        snippet_dictionary <- loop_result$process
+        log <- loop_result$log
+      }
     }
   }
   # i <- 0
