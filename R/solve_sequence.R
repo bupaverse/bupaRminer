@@ -53,6 +53,7 @@ solve_sequence_relationship <- function(
   ## If there is only one predecessor, then antec and conseq
   ## are the pair that we want to connect
   ## If not, we need to perform further analysis
+  
   if(others_preceeding_conseq %>% nrow() > 1){
     SEQ_FOUND <- FALSE
     ## If there are more predecessors, we have to fetch the closest
@@ -88,6 +89,7 @@ solve_sequence_relationship <- function(
     ## to override. F.e. A R2 B is stronger than B R4 A.
     ## So we drop B R4 A.
     if(closest_antecedents %>% nrow() == 0){
+      
       ## We search for the antecedents that are least often
       #" an antecedent.
       closest_antecedents <- others_preceeding_conseq %>%
@@ -196,6 +198,7 @@ solve_sequence_relationship <- function(
     ## If we have multiple direct predecessors
     ## then we have to examine
     if(closest_antecedents %>% nrow() > 1){
+      
       ## If all direct precedents are DJ
       ## Then we actually need to look for a split
       ## We try to create a new pair using one of the branches.
@@ -248,6 +251,7 @@ solve_sequence_relationship <- function(
           "SEQ"
         )
         
+        
         return(return_list)
       } else {
         ## Otherwise we must examine the mutual relationship
@@ -298,6 +302,7 @@ solve_sequence_relationship <- function(
                                                     snippet_dict)
             }
           }
+          
           return(return_list)
         }
         
@@ -313,6 +318,8 @@ solve_sequence_relationship <- function(
                                                 mutual_antec_relations,
                                                 snippet_dict)
           return_list$rel_df <- rel_df
+          
+          
           return(return_list)
         }
         
@@ -336,6 +343,7 @@ solve_sequence_relationship <- function(
                                                 mutual_antec_relations,
                                                 snippet_dict)
           return_list$rel_df <- rel_df
+          
           return(return_list)
         }
         
@@ -410,6 +418,7 @@ solve_sequence_relationship <- function(
               SEQ_pair,
               "AND"
             )
+            
             return(return_list)
           }
           
@@ -443,6 +452,7 @@ solve_sequence_relationship <- function(
                 rel_df = rel_df,
                 snippet_dict
               )
+              
               return(return_list)
             }
           }
@@ -503,6 +513,7 @@ solve_sequence_relationship <- function(
             sampled_par_pair,
             "OR"
           )
+          
           return(return_list)
         }
 

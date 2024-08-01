@@ -77,13 +77,15 @@ explore_XOR_split <- function(
           snippet_acts[i] <- act
           i <- i+1
         }
+        branch_names <- extract_branch_names(snippet_acts, rel_df)
         snippet_dict[[snippet_name]] <-
           create_snippet(
             NULL,
             NULL,
             snippet_acts,
             if(split_symbol == ">O>") "OR" else "XOR",
-            snippet_dict
+            snippet_dict,
+            seq_name = branch_names
           )
 
         return_list$snippet <-  snippet_name

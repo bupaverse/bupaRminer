@@ -197,6 +197,7 @@ solve_branch_pair <- function(
       rel_df,
       snippet_dict
     )
+    
   } else if(exploration_result$rel_type %in% 
             c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)){
     if(exploration_result$rel_type==RScoreDict$PARALLEL_IF_PRESENT){
@@ -211,16 +212,21 @@ solve_branch_pair <- function(
       snippet_dict,
       mode = mode
     )
+    
   } else if(exploration_result$rel_type == RScoreDict$MUTUALLY_EXCLUSIVE){
+    
+    
     branches <- exploration_result$branch_acts
     return_list <- solve_XOR_relationship(
       NULL,
       branches,
       rel_df,
       snippet_dict)
+    
   }else {
     print(exploration_result)
   }
+  
   return(return_list)
 }
 

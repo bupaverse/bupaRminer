@@ -126,6 +126,7 @@ construct_process <- function(assigned_rel_df,
           rel_notebook_df,
           snippet_dictionary
         )
+        
       } else{
         
         
@@ -254,8 +255,7 @@ construct_process <- function(assigned_rel_df,
               snippet_dictionary
             )
 
-        }
-
+        }-
 
         if(is.null(result)){
           print("---- No result for sample")

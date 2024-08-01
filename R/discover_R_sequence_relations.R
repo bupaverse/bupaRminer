@@ -151,28 +151,11 @@ discover_R_sequence_relations <- function(
             ev_log,
             case_count_list
           )
+          
+          DF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
+                                prec_act, succ_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip",
+                                succ_act, prec_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip")
 
-          if(any(EF_results$score >= 0.75*GENERAL_THRES)) {
-            # cli::cli_alert_info("Directly follows")
-
-            DF_results <- calculate_directly_follows_relation(
-              prec_act,
-              succ_act,
-              nr_cases_with_A,
-              nr_cases_with_B,
-              afterA_event_log_B,
-              afterB_event_log,
-              nr_cases,
-              ev_log,
-              case_count_list
-            )
-
-          } else {
-            DF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
-                                  prec_act, succ_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip",
-                                  succ_act, prec_act, RScoreDict$DIRECTLY_FOLLOWS, 0, 0, "skip")
-
-          }
         } else {
           EF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
                                 prec_act, succ_act, RScoreDict$EVENTUALLY_FOLLOWS, 0, 0, "skip",
@@ -182,11 +165,6 @@ discover_R_sequence_relations <- function(
 
 
         ## Sometimes directly or eventually happens
-
-        par_relationships_B <- as.data.table(rel_par_df)[
-          rel %in% c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL) &
-                 antecedent == succ_act &
-                 score >= parallel_thres][["consequent"]]
 
         if(any(DF_results$score < GENERAL_THRES) | any(EF_results$score < GENERAL_THRES)){
           # cli::cli_alert_info("Sometimes follows")
@@ -208,30 +186,9 @@ discover_R_sequence_relations <- function(
             EF_results,
             case_count_list)
 
-
-          if(any(MEF_results$score >= 0.75*GENERAL_THRES)){
-            # cli::cli_alert_info("Sometimes directly follows")
-
-            MDF_results <- calculate_sometimes_directly_follows_relation(
-              prec_act,
-              succ_act,
-              nr_cases_with_A,
-              nr_cases_with_B,
-              afterA_event_log_B,
-              afterB_event_log,
-              cases_before_B,
-              cases_before_A,
-              par_relationships_B,
-              par_relationships,
-              nr_cases,
-              ev_log,
-              DF_results,
-              case_count_list)
-          } else {
-            MDF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
-                                   prec_act, succ_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS , 0, 0, "skip",
-                                   succ_act, prec_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, 0, 0, "skip")
-          }
+          MDF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance, ~comment,
+                                  prec_act, succ_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS , 0, 0, "skip",
+                                  succ_act, prec_act, RScoreDict$MAYBE_DIRECTLY_FOLLOWS, 0, 0, "skip")
 
         } else {
           MEF_results <- tribble(~antecedent,~consequent,~rel,~score,~importance,~comment,

@@ -122,7 +122,6 @@ merge_relationships <- function(
         filter(rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS))
 
       if(closest_direct_XOR_roots %>% nrow > 0){
-        #print("CHANGE HAD EFFECT")
 
         closest_direct_XOR_roots <- closest_direct_XOR_roots %>%
           mutate(rel = RScoreDict$DIRECT_JOIN)
