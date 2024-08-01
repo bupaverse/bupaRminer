@@ -14,14 +14,14 @@ extract_branch_names <- function(branches,
     filter(antecedent %in% branches,
            !(consequent %in% branches))
   
-  req_relations <- rel_df %>%
-    filter(rel==RScoreDict$REQUIRES) %>%
-    filter(antecedent %in% branches)
-  
   exclusive_excl_rel <- excl_relations %>%
     group_by(consequent) %>%
     mutate(n = n()) %>%
     filter(n==1)
+  
+  req_relations <- rel_df %>%
+    filter(rel==RScoreDict$REQUIRES) %>%
+    filter(antecedent %in% branches)
   
   exclusive_req_rel <- req_relations %>%
     group_by(consequent) %>%
@@ -38,8 +38,8 @@ extract_branch_names <- function(branches,
       if(branch_req_rels %>% nrow > 0){
         branch_names[b_counter] <- paste(
           branch_names[b_counter], 
-          "ONLY AFTER", 
-          branch_req_rels$consequent, sep = " ")
+          paste("ONLY AFTER", branch_req_rels$consequent, sep = " "),
+          collapse = " ",)
       }
       
       branch_excl_rels <- exclusive_excl_rel %>%
@@ -48,15 +48,9 @@ extract_branch_names <- function(branches,
       if(branch_excl_rels %>% nrow > 0){
         branch_names[b_counter] <- paste(
           branch_names[b_counter], 
-          "NEVER WITH", 
-          branch_excl_rels$consequent, sep = " ")
+          paste("NEVER WITH", branch_req_rels$consequent, sep = " "),
+          collapse = " ",)
       }
-    }
-  }
-  
-  for(bn in branch_names){
-    if(bn != ""){
-      print(bn)
     }
   }
   

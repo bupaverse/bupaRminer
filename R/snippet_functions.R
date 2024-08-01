@@ -87,9 +87,6 @@ create_snippet <- function(
       incoming_connection_B,
       seq_name = seq_name
     )
-    if(seq_name != ""){
-      print(new_sequence)
-    }
 
     new_snippet$seqs <- new_snippet$seqs %>%
       bind_rows(new_sequence)

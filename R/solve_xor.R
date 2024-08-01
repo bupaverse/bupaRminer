@@ -163,9 +163,6 @@ solve_XOR_relationship <- function(
     messages = paste("Created process snippet:", snippet_name, sep = " ")
   )
   
-  
-  
-
   return(return_list)
 
 }

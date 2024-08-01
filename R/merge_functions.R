@@ -234,6 +234,8 @@ update_rel_notebook <- function(
     rel_df,
     verbose = FALSE){
 
+  print(constrc_result$snippet)
+  
   if(verbose ==  TRUE & length(constrc_result$messages) > 0){
     print(constrc_result$messages)
   }
