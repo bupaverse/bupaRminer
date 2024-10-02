@@ -20,6 +20,29 @@ solve_DF_relationship <- function(
   antec <- rel_pair$antecedent
   conseq <- rel_pair$consequent
   
+  if(conseq == "END"){
+    
+    snippet_name <- paste(antec, conseq, sep = " >> ")
+    
+    snippet_dict[[snippet_name]] <-
+      create_snippet(
+        antec,
+        conseq,
+        c(),
+        "SEQ",
+        snippet_dict
+      )
+    
+    return_list <- list(
+      snippet = snippet_name,
+      activities = c(antec, conseq),
+      rel_df = rel_df,
+      snippet_dictionary = snippet_dict,
+      messages = "Created END point"
+    )
+    return(return_list)
+  }
+  
 
   ## We need to check if other important
   ## relationships towards B exist.

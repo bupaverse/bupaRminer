@@ -2,7 +2,7 @@ calculate_relationships <- function(ev_log,
                                     skip_self_loops = FALSE,
                                     source,
                                     id){
-
+  
   unique(ev_log[, .(CID, CASE_COUNT)]) -> case_count_list
 
   rel_df <- discover_parallels_complete(ev_log,
@@ -90,18 +90,42 @@ calculate_relationships <- function(ev_log,
   )
 
   if("END" %in% unique(ev_log[["AID"]])){
+    
+    final_activities <- ev_log %>%
+      filter(AID != "END",
+             LC=="complete") %>%
+      group_by(AID) %>%
+      mutate(total_cases = sum(CASE_COUNT)) %>%
+      group_by(CID) %>%
+      arrange(TS) %>%
+      filter(row_number() == n()) %>%
+      group_by(AID) %>%
+      summarize(
+        L = sum(CASE_COUNT),
+        N = max(total_cases)) %>%
+      mutate(rel = RScoreDict$DIRECTLY_FOLLOWS,
+             score = L / N,
+             importance = L / sum(L),
+             or_importance = importance,
+             consequent = "END") %>%
+      select(antecedent = AID,
+             consequent, rel, score, importance, or_importance) %>%
+      filter(antecedent %in% all_activities)
+    
     always_end <- tibble(
       antecedent = all_activities,
       consequent = "END",
       rel=RScoreDict$EVENTUALLY_FOLLOWS,
       score = 1,
-      importance = 0.01
+      importance = 0.01,
+      or_importance = 0.01
     )
 
 
     rel_df <- rel_df %>%
       bind_rows(rel_df_2) %>%
-      bind_rows(always_end)
+      bind_rows(always_end) %>%
+      bind_rows(final_activities)
   } else{
 
     rel_df <- rel_df %>%

@@ -15,8 +15,8 @@ construct_process <- function(assigned_rel_df,
     filter(antecedent != "END",
            !(consequent == "START" & rel != RScoreDict$REQUIRES)) %>%
     mutate(
-      score=ifelse(consequent=="END",0,score),
-      importance=ifelse(consequent=="END",0,importance)
+      score=ifelse(consequent=="END",score,score),
+      importance=ifelse(consequent=="END",importance,importance)
     )
 
   rel_notebook_df <- solve_apriori_conflicts(rel_notebook_df, strict = FALSE) %>%
