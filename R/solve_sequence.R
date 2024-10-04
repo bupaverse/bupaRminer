@@ -479,6 +479,27 @@ solve_sequence_relationship <- function(
           # return_list$rel_df <- rel_df
           # return(return_list)
           
+          
+          ## Prioritize the EXC if nothing else helps
+          sampled_excl_pair <- mutual_antec_relations %>%
+            sample_pair(c(RScoreDict$MUTUALLY_EXCLUSIVE))
+          
+          if(!is.null(sampled_excl_pair)){
+            
+            return_list <- solve_XOR_relationship(
+              XOR_root = "",
+              XOR_branches = c(sampled_excl_pair$antecedent, sampled_excl_pair$consequent),
+              rel_df =  rel_df,
+              snippet_dict = snippet_dict
+            )
+            return_list$rel_df <- rel_df %>% remember_pair(
+              sampled_excl_pair,
+              "XOR"
+            )
+            return(return_list)
+          }
+          
+          
           ## If they are concurrent or do not agree
           ## among each other
           ## soft AND them together

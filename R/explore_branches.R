@@ -79,10 +79,17 @@ explore_branch_pair <- function(
         ## otherwise, we explore further
         
         if(branch_pair %>% filter(inspection_sequence >= 2) %>% 
-           nrow == 0){
+           nrow > 0){
           exploration_result <- explore_branch_pair(
             sampled_pair,
             rel_df
+          )
+          return(exploration_result)
+        } else {
+          exploration_result <- list(
+            pair = sampled_pair,
+            rel_type  = sampled_pair$rel,
+            branch_acts = c(sampled_pair$antecedent, sampled_pair$consequent)
           )
           return(exploration_result)
         }
@@ -113,9 +120,18 @@ explore_branch_pair <- function(
                                RScoreDict$DIRECT_JOIN,
                                RScoreDict$EVENTUALLY_FOLLOWS))
     
-    exploration_result$pair <- sequence_pair
-    exploration_result$rel_type <- "SEQ"
-    return(exploration_result)
+    reverse_pair <- rel_df %>% 
+      filter(antecedent == sequence_pair$consequent, 
+             consequent == sequence_pair$antecedent)
+    
+    if(reverse_pair %>% nrow == 1 || startsWith(sequence_pair$antecedent, " >X>")){
+      if(reverse_pair$rel == RScoreDict$REQUIRES || startsWith(sequence_pair$antecedent, " >X>")){
+        exploration_result$pair <- sequence_pair
+        exploration_result$rel_type <- "SEQ"
+        return(exploration_result)
+      }
+    }
+    
   }
   
   ## If we have activities that require only one of the
@@ -167,6 +183,38 @@ explore_branch_pair <- function(
     }
   }
   
+  if(rel_in_focus != RScoreDict$MUTUALLY_EXCLUSIVE){
+    acts_excluding_branch <- rel_df %>%
+      filter(consequent %in% mutual_activity_set,
+             rel == RScoreDict$MUTUALLY_EXCLUSIVE)
+    
+    acts_excluding_single_branch <- acts_excluding_branch %>%
+      count(antecedent) %>%
+      filter(n == 1)
+    
+    
+    while(acts_excluding_single_branch %>% nrow > 0){
+      excl_pair <- rel_df %>%
+        filter(
+          consequent %in% acts_excluding_single_branch$antecedent,
+          antecedent %in% mutual_activity_set) %>%
+        sample_pair(c(
+          RScoreDict$MUTUALLY_EXCLUSIVE
+        ))
+      
+      if(is.null(excl_pair)){
+        excl_pair <- tibble()
+        acts_excluding_single_branch <- tibble()
+      }
+      
+      if(excl_pair %>% nrow > 0){
+        
+        exploration_result <- explore_branch_pair(excl_pair,
+                                                  rel_df)
+        return(exploration_result)
+      }
+    }
+  }
   
   exploration_result$pair <- branch_pair
   exploration_result$rel_type <- branch_pair$rel
@@ -198,8 +246,8 @@ solve_branch_pair <- function(
       snippet_dict
     )
   } else if(exploration_result$rel_type %in% 
-            c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)){
-    if(exploration_result$rel_type==RScoreDict$PARALLEL_IF_PRESENT){
+            c("OR","AND", RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)){
+    if(exploration_result$rel_type %in% c("OR",RScoreDict$PARALLEL_IF_PRESENT)){
       mode <- "SOFT"
     } else {
       mode <- "HARD"
@@ -211,7 +259,7 @@ solve_branch_pair <- function(
       snippet_dict,
       mode = mode
     )
-  } else if(exploration_result$rel_type == RScoreDict$MUTUALLY_EXCLUSIVE){
+  } else if(exploration_result$rel_type %in% c("XOR",RScoreDict$MUTUALLY_EXCLUSIVE)){
     branches <- exploration_result$branch_acts
     return_list <- solve_XOR_relationship(
       NULL,
