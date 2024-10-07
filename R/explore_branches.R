@@ -78,7 +78,7 @@ explore_branch_pair <- function(
         ## then we will force the resolution
         ## otherwise, we explore further
         
-        if(branch_pair %>% filter(inspection_sequence >= 2) %>% 
+        if(branch_pair %>% filter(inspection_sequence <= 1) %>% 
            nrow > 0){
           exploration_result <- explore_branch_pair(
             sampled_pair,

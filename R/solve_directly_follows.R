@@ -47,44 +47,50 @@ solve_directly_follows <- function(
     return(return_list)
   }
 
-  ## Check if antecedent is part of branch that should
-  ## be investigated first
-  acts_followed_by_antec_and_conseq <- rel_df %>%
-    filter(consequent %in% c(act_a, act_b)) %>%
-    filter(rel %in% c(
-      RScoreDict$DIRECTLY_FOLLOWS,
-      RScoreDict$EVENTUALLY_FOLLOWS,
-      RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-      RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-      RScoreDict$DIRECT_JOIN
-    )) %>% 
-    group_by(antecedent) %>%
-    filter(n() == 2) %>%
-    ungroup()
   
-  acts_followed_by_antec_different_than_conseq <- acts_followed_by_antec_and_conseq %>%
-    mutate(sometimes_follows = (rel %in% c(
-      RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
-    ))) %>%
-    group_by(antecedent) %>%
-    mutate(nr_consequents = n()) %>%
-    group_by(antecedent, sometimes_follows) %>%
-    mutate(nr_consequents_w_rel = n()) %>%
-    filter(nr_consequents != nr_consequents_w_rel)
-  
-  if(acts_followed_by_antec_different_than_conseq %>%
-     nrow > 0){
-    previous_pair <- acts_followed_by_antec_and_conseq %>%
-      filter(consequent == act_a) %>%
-      sample_pair(c())
+  temp <- function(){
     
-    return_list <- solve_sequence_relationship(
-      previous_pair,
-      rel_df,
-      snippet_dict
-    )
-    return(return_list)
+    ## Check if antecedent is part of branch that should
+    ## be investigated first
+    acts_followed_by_antec_and_conseq <- rel_df %>%
+      filter(consequent %in% c(act_a, act_b)) %>%
+      filter(rel %in% c(
+        RScoreDict$DIRECTLY_FOLLOWS,
+        RScoreDict$EVENTUALLY_FOLLOWS,
+        RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+        RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
+        RScoreDict$DIRECT_JOIN
+      )) %>% 
+      group_by(antecedent) %>%
+      filter(n() == 2) %>%
+      ungroup()
+    
+    acts_followed_by_antec_different_than_conseq <- acts_followed_by_antec_and_conseq %>%
+      mutate(sometimes_follows = (rel %in% c(
+        RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
+      ))) %>%
+      group_by(antecedent) %>%
+      mutate(nr_consequents = n()) %>%
+      group_by(antecedent, sometimes_follows) %>%
+      mutate(nr_consequents_w_rel = n()) %>%
+      filter(nr_consequents != nr_consequents_w_rel)
+    
+    
+    if(acts_followed_by_antec_different_than_conseq %>%
+       nrow > 0){
+      previous_pair <- acts_followed_by_antec_and_conseq %>%
+        filter(consequent == act_a) %>%
+        sample_pair(c())
+      
+      return_list <- solve_sequence_relationship(
+        previous_pair,
+        rel_df,
+        snippet_dict
+      )
+      return(return_list)
+    }
   }
+  
     
   reverse_rel <- rel_df %>%
     filter(antecedent == act_b,
