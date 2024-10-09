@@ -84,15 +84,18 @@ explore_branch_pair <- function(
             sampled_pair,
             rel_df
           )
-          return(exploration_result)
-        } else {
-          exploration_result <- list(
-            pair = sampled_pair,
-            rel_type  = sampled_pair$rel,
-            branch_acts = c(sampled_pair$antecedent, sampled_pair$consequent)
-          )
-          return(exploration_result)
-        }
+          if(exploration_result$pair %>% filter(inspection_sequence <= 1) %>% 
+             nrow > 0){
+            return(exploration_result)
+          }
+        } 
+        
+        exploration_result <- list(
+          pair = sampled_pair,
+          rel_type  = sampled_pair$rel,
+          branch_acts = c(sampled_pair$antecedent, sampled_pair$consequent)
+        )
+        return(exploration_result)
       }
     }
   }
