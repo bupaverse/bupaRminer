@@ -263,7 +263,7 @@ explore_XOR_split <- function(
 
       rel_df <- rel_df %>%
         bind_rows(seq_pair)
-    } else if(seq_pair$rel == RScoreDict$MUTUALLY_EXCLUSIVE){
+    } else if(seq_pair$rel %in% c(RScoreDict$MUTUALLY_EXCLUSIVE, RScoreDict$PARALLEL_IF_PRESENT)){
       seq_pair <- seq_pair %>%
         mutate(rel = RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
 
