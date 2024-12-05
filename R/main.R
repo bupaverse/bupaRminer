@@ -49,7 +49,11 @@ discover.eventlog <- function(log) {
   assigned_relationships <- assign_relationships(relationships)
   # cli::cli_progress_step("Constructing process", spinner = TRUE)
   process <- construct_process(assigned_relationships,
-                               snippet_dictionary, source = "main")
+                               construction_context = list(
+                                 snippet_dictionary = snippet_dictionary,
+                                 trace_log = log
+                               ), 
+                               source = "main")
   cli::cli_progress_step("Generating BPMN", spinner = TRUE)
   generate_bpmn(process) -> model
   cli::cli_progress_done(result = "done")

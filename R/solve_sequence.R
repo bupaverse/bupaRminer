@@ -1,9 +1,13 @@
 solve_sequence_relationship <- function(
     rel_pair,
     rel_df,
-    snippet_dict
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    )
 ){
   
+  snippet_dict <- construction_context$snippet_dictionary
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -21,7 +25,7 @@ solve_sequence_relationship <- function(
       rel_pair,
       rel_pair %>% 
         mutate(inspection_sequence = 0),
-      snippet_dict
+      construction_context
     )
     
     return_list$rel_df <- rel_df %>% remember_pair(
@@ -109,7 +113,7 @@ solve_sequence_relationship <- function(
             return_list <- solve_XOR_relationship("",
                                                   closest_antecedents$consequent %>% unique,
                                                   rel_df = rel_df,
-                                                  snippet_dict =  snippet_dict)
+                                                  construction_context =  construction_context)
             return(return_list)
           } else {
             closest_antecedents <- closest_antecedents %>%
@@ -129,7 +133,7 @@ solve_sequence_relationship <- function(
           return_list <- solve_sequence_relationship(
             mutual_relationships,
             rel_df,
-            snippet_dict
+            construction_context
           )
           
           return(return_list)
@@ -179,7 +183,7 @@ solve_sequence_relationship <- function(
         return_list <- solve_PAR_relationship(
           sampled_pair,
           rel_df,
-          snippet_dict
+          construction_context
         )
         
         ## We only examined on a partial log.
@@ -214,25 +218,11 @@ solve_sequence_relationship <- function(
           return_list <- solve_sequence_relationship(
             new_pair,
             rel_df,
-            snippet_dict)
+            construction_context)
           
           return(return_list)
         }
       }
-      
-      ## We will give preference to R1, R3 relationships if
-      ## they exist
-      
-      # R2_closest <- closest_antecedents %>%
-      #   filter(rel == RScoreDict$EVENTUALLY_FOLLOWS)
-      # 
-      # if(R2_closest %>% nrow > 0) closest_antecedents <- R2_closest
-      # 
-      # R13_closest <- closest_antecedents %>%
-      #   filter(rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
-      #                     RScoreDict$MAYBE_DIRECTLY_FOLLOWS))
-      # 
-      # if(R13_closest %>% nrow > 0) closest_antecedents <- R13_closest
       
       if(closest_antecedents %>% nrow == 1){
         seq_pair <- closest_antecedents
@@ -240,7 +230,7 @@ solve_sequence_relationship <- function(
         return_list <- solve_directly_follows(
           seq_pair,
           closest_antecedents,
-          snippet_dict
+          construction_context
         )
         
         return_list$rel_df <- rel_df %>% remember_pair(
@@ -295,7 +285,7 @@ solve_sequence_relationship <- function(
               return_list <- solve_XOR_relationship("",
                                                     closest_antecedents$consequent %>% unique,
                                                     rel_df,
-                                                    snippet_dict)
+                                                    construction_context)
             }
           }
           return(return_list)
@@ -311,7 +301,7 @@ solve_sequence_relationship <- function(
                                                 c(mutual_antec_relations$antecedent,
                                                   mutual_antec_relations$consequent) %>% unique,
                                                 mutual_antec_relations,
-                                                snippet_dict)
+                                                construction_context)
           return_list$rel_df <- rel_df
           return(return_list)
         }
@@ -334,7 +324,7 @@ solve_sequence_relationship <- function(
           return_list <- solve_XOR_relationship("",
                                                 selected_branches$antecedent %>% unique,
                                                 mutual_antec_relations,
-                                                snippet_dict)
+                                                construction_context)
           return_list$rel_df <- rel_df
           return(return_list)
         }
@@ -356,7 +346,7 @@ solve_sequence_relationship <- function(
           return_list <- solve_branch_pair(
             exploration_result,
             rel_df,
-            snippet_dict)
+            construction_context)
           
           # return_list <- solve_PAR_relationship(
           #   sampled_soft_par,
@@ -404,7 +394,7 @@ solve_sequence_relationship <- function(
                 filter(antecedent %in% c(SEQ_pair$antecedent, SEQ_pair$consequent),
                        consequent %in% c(SEQ_pair$antecedent, SEQ_pair$consequent)) %>%
                 mutate(rel = RScoreDict$ALWAYS_PARALLEL),
-              snippet_dict
+              construction_context
             )
             return_list$rel_df <- rel_df %>% remember_pair(
               SEQ_pair,
@@ -441,7 +431,7 @@ solve_sequence_relationship <- function(
                 XOR_root = "",
                 XOR_branches = mutual_exclusions$antecedent %>% unique,
                 rel_df = rel_df,
-                snippet_dict
+                construction_context
               )
               return(return_list)
             }
@@ -496,7 +486,7 @@ solve_sequence_relationship <- function(
             sampled_par_pair,
             mutual_antec_relations %>%
               mutate(rel = RScoreDict$PARALLEL_IF_PRESENT),
-            snippet_dict,
+            construction_context,
             mode = "SOFT"
           )
           return_list$rel_df <- rel_df %>% remember_pair(
@@ -512,7 +502,7 @@ solve_sequence_relationship <- function(
         return_list <- solve_PAR_relationship(
           selected_pair,
           mutual_antec_relations,
-          snippet_dict,
+          construction_context,
           mode = "SOFT"
         )
         
@@ -552,7 +542,7 @@ solve_sequence_relationship <- function(
     return_list <- solve_directly_follows(
       seq_pair,
       rel_df,
-      snippet_dict
+      construction_context
     )
     
     return(return_list)
@@ -565,7 +555,7 @@ solve_sequence_relationship <- function(
     return_list <- explore_XOR_split(
       XOR_pair,
       rel_df,
-      snippet_dict,
+      construction_context,
       XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
                    RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
     )
@@ -581,7 +571,7 @@ solve_sequence_relationship <- function(
     return_list <- solve_join(
       join_pair,
       rel_df,
-      snippet_dict
+      construction_context
     )
     
     return(return_list)

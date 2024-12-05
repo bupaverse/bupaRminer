@@ -1,9 +1,12 @@
 solve_DF_relationship <- function(
     rel_pair,
     rel_df,
-    snippet_dict){
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    )){
 
-  
+  snippet_dict <- construction_context$snippet_dictionary
   rel_df <- rel_df %>% remember_pair(
     rel_pair,
     "SEQ"

@@ -1,8 +1,12 @@
 solve_directly_follows <- function(
     seq_pair,
     rel_df,
-    snippet_dict){
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    )){
 
+  snippet_dict <- construction_context$snippet_dictionary
   act_a <- seq_pair$antecedent
   act_b <- seq_pair$consequent
   
@@ -81,7 +85,7 @@ solve_directly_follows <- function(
     return_list <- solve_sequence_relationship(
       previous_pair,
       rel_df,
-      snippet_dict
+      construction_context
     )
     return(return_list)
   }
@@ -163,7 +167,7 @@ solve_directly_follows <- function(
     return_list <- solve_PAR_relationship(
       AND_pair,
       relevant_pairs,
-      snippet_dict = snippet_dict,
+      construction_context = construction_context,
       mode = PAR_mode
     )
 
@@ -202,7 +206,7 @@ solve_directly_follows <- function(
           XOR_root="",
           XOR_branches=other_pre_joins$antecedent %>% unique,
           rel_df,
-          snippet_dict)
+          construction_context = construction_context)
 
         return(return_list)
       }
@@ -212,7 +216,7 @@ solve_directly_follows <- function(
           XOR_root="",
           XOR_branches=other_pre_joins$antecedent %>% unique,
           rel_df,
-          snippet_dict,
+          construction_context = construction_context,
           split_symbol = ">O>")
 
         return(return_list)
@@ -232,7 +236,7 @@ solve_directly_follows <- function(
         return_list <- solve_sequence_relationship(
           seq_pair,
           rel_df,
-          snippet_dict
+          construction_context
         )
 
         return(return_list)
@@ -283,7 +287,7 @@ solve_directly_follows <- function(
         XOR_root = "",
         XOR_branches = c(xor_branches$antecedent, xor_branches$consequent),
         rel_df,
-        snippet_dict,
+        construction_context = construction_context,
         split_symbol = ">X>")
         
         return(return_list)
@@ -299,7 +303,7 @@ solve_directly_follows <- function(
       return_list <- solve_PAR_relationship(
         par_pair,
         rel_df,
-        snippet_dict,
+        construction_context = construction_context,
         mode = ifelse(par_pair$rel == RScoreDict$ALWAYS_PARALLEL, "HARD", "SOFT")
       )
       
@@ -314,7 +318,7 @@ solve_directly_follows <- function(
       return_list <- solve_sequence_relationship(
         sampled_pair,
         rel_df,
-        snippet_dict
+        construction_context = construction_context
       )
     } else {
       

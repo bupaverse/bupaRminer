@@ -42,22 +42,6 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
         mutate(loop_id = cumsum(starts_new_loop)) %>%
         mutate(loop_id = loop_id) %>%
         ungroup()
-        
-        
-         
-      
-      ## mutate(nr_of_starts = cumsum(is_start)) %>%
-      ## mutate(nr_of_ends = cumsum(is_end))
-      ## loop_log <- loop_log %>%
-      ##  mutate(starts_new_loop = (is_start & lag(is_end, default = TRUE))) %>%
-      ##  group_by(CID, orig_name, LC) %>%
-      ##  mutate(starts_per_act = cumsum(is_start)) %>%
-      ##  group_by(CID,LC) %>%
-      ##  mutate(start_counter = lag(cummax(starts_per_act), default=0)) %>%
-      ##  mutate(starts_new_loop = (starts_new_loop | starts_per_act > start_counter)) %>%
-      ##  group_by(CID) %>%
-      ##  mutate(loop_id = cumsum(starts_new_loop)) %>%
-      ##  ungroup()
       
       
       first_loop_log <- loop_log %>%
@@ -84,7 +68,11 @@ solve_loop_blocks <- function(loop_block_info_df, prep_log){
           assign_relationships()
         
         first_loop_snippet <- construct_process(first_loop_rel,
-                                                relevant_snippets, source = "main")
+                                                construction_context = list(
+                                                  snippet_dictionary = relevant_snippets,
+                                                  trace_log = first_loop_log
+                                                ), 
+                                                source = "main")
         
         relevant_snippet <- names(first_loop_snippet)[[length(first_loop_snippet)]]
         

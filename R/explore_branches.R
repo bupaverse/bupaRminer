@@ -180,8 +180,12 @@ explore_branch_pair <- function(
 solve_branch_pair <- function(
     exploration_result,
     rel_df,
-    snippet_dict
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    )
 ){
+  snippet_dict <- construction_context$snippet_dictionary
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -195,7 +199,7 @@ solve_branch_pair <- function(
     return_list <- solve_sequence_relationship(
       branch_pair,
       rel_df,
-      snippet_dict
+      construction_context
     )
   } else if(exploration_result$rel_type %in% 
             c(RScoreDict$PARALLEL_IF_PRESENT, RScoreDict$ALWAYS_PARALLEL)){
@@ -208,7 +212,7 @@ solve_branch_pair <- function(
     return_list <- solve_PAR_relationship(
       par_pair,
       rel_df,
-      snippet_dict,
+      construction_context,
       mode = mode
     )
   } else if(exploration_result$rel_type == RScoreDict$MUTUALLY_EXCLUSIVE){
@@ -217,7 +221,7 @@ solve_branch_pair <- function(
       NULL,
       branches,
       rel_df,
-      snippet_dict)
+      construction_context)
   }else {
     print(exploration_result)
   }

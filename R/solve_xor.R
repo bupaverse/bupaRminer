@@ -2,9 +2,13 @@ solve_XOR_relationship <- function(
     XOR_root = NULL,
     XOR_branches = c(),
     rel_df = tibble(),
-    snippet_dict,
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    ),
     split_symbol = ">X>"){
 
+  snippet_dict <- construction_context$snippet_dictionary
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -149,7 +153,14 @@ solve_XOR_relationship <- function(
       if(split_symbol == ">O>") "OR" else "XOR",
       snippet_dict
     )
-
+  
+  eventual_XOR_branches <-acts[acts != XOR_root]
+  rel_df <- check_forced_choice(
+    eventual_XOR_branches,
+    rel_df,
+    construction_context)
+      
+  
   return_list <- list(
     snippet = snippet_name,
     activities = acts,

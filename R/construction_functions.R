@@ -158,8 +158,12 @@ solve_apriori_conflicts <- function(
 solve_interrupt_relationship <- function(
     rel_pair,
     rel_df,
-    snippet_dict){
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    )){
 
+  snippet_dict <- construction_context$snippet_dictionary
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -249,9 +253,14 @@ solve_interrupt_relationship <- function(
 solve_join <- function(
   join_pair,
   rel_df,
-  snippet_dict
+  construction_context = list(
+    snippet_dictionary = list(),
+    trace_log = NULL
+  )
+  
 ){
 
+  snippet_dict <- construction_context$snippet_dictionary 
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -276,7 +285,7 @@ solve_join <- function(
       return_list <- solve_sequence_relationship(
         seq_pair,
         rel_df,
-        snippet_dict
+        construction_context
       )
       return(return_list)
     }
@@ -289,7 +298,7 @@ solve_join <- function(
         XOR_root = "",
         XOR_branches = c(seq_pair$antecedent, seq_pair$consequent),
         rel_df = rel_df,
-        snippet_dict
+        construction_context
       )
       return(return_list)
     }
@@ -310,7 +319,7 @@ solve_join <- function(
       XOR_root = "",
       XOR_branches = join_pair$antecedent %>% unique,
       rel_df = rel_df,
-      snippet_dict
+      construction_context
     )
     return(return_list)
   }
@@ -320,7 +329,7 @@ solve_join <- function(
       join_pair %>%
         mutate(rel = RScoreDict$DIRECTLY_FOLLOWS),
       rel_df,
-      snippet_dict
+      construction_context
     )
 
     return_list$rel_df <- rel_df
@@ -351,7 +360,7 @@ solve_join <- function(
       rel_df %>%
         filter(!(antecedent == par_pair$antecedent & consequent == par_pair$consequent)) %>%
         bind_rows(par_pair),
-      snippet_dict,
+      construction_context,
       mode = "SOFT"
     )
 

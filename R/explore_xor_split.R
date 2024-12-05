@@ -1,10 +1,14 @@
 explore_XOR_split <- function(
     XOR_pair,
     rel_df,
-    snippet_dict,
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    ),
     XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS),
     split_symbol = ">X>"){
   
+  snippet_dict <- construction_context$snippet_dictionary
   return_list <- list(
     snippet = NULL,
     activities = c(),
@@ -36,7 +40,7 @@ explore_XOR_split <- function(
         rel_df %>%
           anti_join(XOR_pair, by = c("antecedent","consequent")) %>%
           bind_rows(XOR_turned_seq),
-        snippet_dict
+        construction_context
       )
       
       return(return_list)
@@ -60,7 +64,7 @@ explore_XOR_split <- function(
         XOR_pair$antecedent,
         branch_names,
         rel_df,
-        snippet_dict)
+        construction_context)
     }
 
     if(reverse_rel == RScoreDict$MUTUALLY_EXCLUSIVE){
@@ -126,7 +130,7 @@ explore_XOR_split <- function(
           rel =c(RScoreDict$MUTUALLY_EXCLUSIVE,
                  RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
         ),
-        snippet_dict,
+        construction_context,
         split_symbol = ">O>")
 
       return_list$rel_df <- rel_df
@@ -161,7 +165,7 @@ explore_XOR_split <- function(
           return_list <- solve_sequence_relationship(
             branch_pair,
             rel_df,
-            snippet_dict
+            construction_context
           )
           return(return_list)
         }
@@ -179,7 +183,7 @@ explore_XOR_split <- function(
     return_list <- solve_sequence_relationship(
       new_pair,
       rel_df,
-      snippet_dict
+      construction_context
     )
     return(return_list)
     }
@@ -218,7 +222,7 @@ explore_XOR_split <- function(
         XOR_pair$antecedent,
         mutual_occurrences$antecedent,
         rel_df,
-        snippet_dict)
+        construction_context)
       
       return(return_list)
     }
@@ -238,7 +242,7 @@ explore_XOR_split <- function(
     return_list <- solve_sequence_relationship(
       seq_pair,
       rel_df,
-      snippet_dict = snippet_dict
+      construction_context = construction_context
     )
 
     return(return_list)
@@ -278,7 +282,7 @@ explore_XOR_split <- function(
       return_list <- solve_join(
         seq_pair,
         rel_df,
-        snippet_dict
+        construction_context
       )
 
       return(return_list)
@@ -287,7 +291,7 @@ explore_XOR_split <- function(
     return_list <- solve_sequence_relationship(
       seq_pair,
       rel_df,
-      snippet_dict
+      construction_context
     )
 
     return(return_list)

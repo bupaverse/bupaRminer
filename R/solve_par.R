@@ -1,10 +1,14 @@
 solve_PAR_relationship <- function(
     rel_pair,
     rel_df,
-    snippet_dict,
+    construction_context = list(
+      snippet_dictionary = list(),
+      trace_log = NULL
+    ),
     mode = "HARD"
 ){
 
+  snippet_dict <- construction_context$snippet_dictionary
   if(mode == "SOFT"){
     valid_relationships <- c(RScoreDict$ALWAYS_PARALLEL, RScoreDict$PARALLEL_IF_PRESENT)
   } else{
@@ -89,7 +93,7 @@ solve_PAR_relationship <- function(
         return_list <- solve_sequence_relationship(
           sampled_pair,
           rel_df,
-          snippet_dict
+          construction_context
         )
         return(return_list)
       }
@@ -143,7 +147,7 @@ solve_PAR_relationship <- function(
           return_list <- solve_sequence_relationship(
             new_pair,
             rel_df,
-            snippet_dict
+            construction_context
           )
           return(return_list)
         }
@@ -157,7 +161,7 @@ solve_PAR_relationship <- function(
         return_list <- solve_sequence_relationship(
           new_pair,
           rel_df,
-          snippet_dict
+          construction_context
         )
         return(return_list)
       }
@@ -183,7 +187,7 @@ solve_PAR_relationship <- function(
         return_list <- solve_sequence_relationship(
           selected_pair,
           rel_df,
-          snippet_dict
+          construction_context
         )
         return(return_list)
       }
