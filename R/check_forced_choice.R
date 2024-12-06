@@ -100,14 +100,42 @@ check_forced_choice <- function(
     
     for(act in pip_activities){
       
-      new_relations <- replace_rel_if_needed(
-        rel_df,
-        trace_log,
-        traces_with_at_least_one,
-        act,
-        pip_branches,
-        factor(RScoreDict$ALWAYS_PARALLEL, levels=levels(rel_df$rel), ordered=TRUE)
-      )
+      relevant_trace_cids <- trace_log %>%
+        filter(AID == act) %>%
+        pull(CID) %>%
+        unique
+      
+      n_cases_with_both <- trace_log %>%
+        filter(CID %in% relevant_trace_cids,
+               CID %in% traces_with_at_least_one) %>%
+        select(CID, CASE_COUNT) %>%
+        unique() %>%
+        pull(CASE_COUNT) %>%
+        sum
+      
+      n_cases_with_act <- trace_log %>%
+        filter(CID %in% relevant_trace_cids) %>%
+        select(CID, CASE_COUNT) %>%
+        unique() %>%
+        pull(CASE_COUNT) %>%
+        sum
+      
+      n_cases_with_XOR <- trace_log %>%
+        filter(CID %in% traces_with_at_least_one) %>%
+        select(CID, CASE_COUNT) %>%
+        unique() %>%
+        pull(CASE_COUNT) %>%
+        sum
+      
+      forced_choice_score <- n_cases_with_both / pmax(n_cases_with_act,n_cases_with_XOR)
+      
+      new_relations <- pip_branches %>%
+        filter(
+          antecedent == act,
+          score <= forced_choice_score
+        ) %>%
+        mutate(rel = factor(RScoreDict$ALWAYS_PARALLEL, levels=levels(rel_df$rel), ordered=TRUE),
+               score = forced_choice_score)
       
       if(new_relations %>% nrow > 0){
         reverse_relations <- rel_df %>%
@@ -129,47 +157,4 @@ check_forced_choice <- function(
   }
   
   return(new_rel_df)
-}
-
-replace_rel_if_needed <- function(
-    rel_df,
-    trace_log,
-    traces_with_at_least_one,
-    act,
-    relevant_branches_df,
-    new_rel
-    ){
-  
-  relevant_trace_cids <- trace_log %>%
-    filter(AID == act) %>%
-    pull(CID) %>%
-    unique
-  
-  n_cases_with_act <- trace_log %>%
-    filter(CID %in% relevant_trace_cids) %>%
-    select(CID, CASE_COUNT) %>%
-    unique() %>%
-    pull(CASE_COUNT) %>%
-    sum
-  
-  n_cases_with_branch <- trace_log %>%
-    filter(CID %in% relevant_trace_cids,
-           CID %in% traces_with_at_least_one) %>%
-    select(CID, CASE_COUNT) %>%
-    unique() %>%
-    pull(CASE_COUNT) %>%
-    sum
-  
-  forced_choice_score <- round(n_cases_with_branch / n_cases_with_act,1)
-  
-  new_relations <- relevant_branches_df %>%
-    filter(
-      antecedent == act,
-      score <= forced_choice_score
-    ) %>%
-    mutate(rel = new_rel,
-           score = forced_choice_score)
-  
-  
-  return(new_relations)
 }
