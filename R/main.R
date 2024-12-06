@@ -24,6 +24,7 @@ discover.eventlog <- function(log) {
   #TO DO: make sure start and complete are present for all activities
   cli::cli_progress_step("Preprocess log", spinner = TRUE)
   log <- preprocess(log)
+  prep_log <- log
   snippet_dictionary <- list()
   cli::cli_progress_step("Checking for loop blocks ", spinner = TRUE)
   if(log %>% pull(is_repeat) %>% max() > 1 ){
@@ -51,7 +52,7 @@ discover.eventlog <- function(log) {
   process <- construct_process(assigned_relationships,
                                construction_context = list(
                                  snippet_dictionary = snippet_dictionary,
-                                 trace_log = log
+                                 trace_log = prep_log
                                ), 
                                source = "main")
   cli::cli_progress_step("Generating BPMN", spinner = TRUE)

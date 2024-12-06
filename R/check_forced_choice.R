@@ -127,7 +127,7 @@ check_forced_choice <- function(
         pull(CASE_COUNT) %>%
         sum
       
-      forced_choice_score <- n_cases_with_both / pmax(n_cases_with_act,n_cases_with_XOR)
+      forced_choice_score <- round(n_cases_with_both / pmax(n_cases_with_act,n_cases_with_XOR),1)
       
       new_relations <- pip_branches %>%
         filter(
