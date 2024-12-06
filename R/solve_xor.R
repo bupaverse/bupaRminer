@@ -159,7 +159,7 @@ solve_XOR_relationship <- function(
     eventual_XOR_branches,
     rel_df,
     construction_context)
-      
+  
   
   return_list <- list(
     snippet = snippet_name,

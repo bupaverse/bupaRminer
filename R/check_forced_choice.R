@@ -12,8 +12,6 @@ check_forced_choice <- function(
     return(rel_df)
   }
   
-  print("CHECKING")
-  
   activities_in_XOR <- c()
   
   for(branch in XOR_branches){
@@ -75,17 +73,15 @@ check_forced_choice <- function(
         antecedent == act,
         score <= forced_choice_score
       ) %>%
-      mutate(rel = RScoreDict$EVENTUALLY_FOLLOWS,
+      mutate(rel = factor(RScoreDict$EVENTUALLY_FOLLOWS, levels=levels(maybe_follows_branches$rel), ordered=TRUE),
              score = forced_choice_score)
     
     if(new_relations %>% nrow > 0){
       new_rel_df <- new_rel_df %>%
-        anti_join(new_relations, by=c("antecedent","consequent")) %>%
+        anti_join(new_relations %>% select(antecedent, consequent), by=c("antecedent","consequent")) %>%
         bind_rows(new_relations)
     }
   }
-  print("After XOR")
-  print(new_relations)
   
   
   ## Then we check if we have to convert
@@ -110,30 +106,28 @@ check_forced_choice <- function(
         traces_with_at_least_one,
         act,
         pip_branches,
-        RScoreDict$ALWAYS_PARALLEL
+        factor(RScoreDict$ALWAYS_PARALLEL, levels=levels(rel_df$rel), ordered=TRUE)
       )
       
       if(new_relations %>% nrow > 0){
         reverse_relations <- rel_df %>%
-          inner_join(new_relations, by=c("antecedent"="consequent",
-                                         "consequent"="antecedent")) %>%
-          mutate(rel = RScoreDict$ALWAYS_PARALLEL)
+          inner_join(new_relations %>% select(antecedent, consequent), 
+                     by=c("antecedent"="consequent",
+                          "consequent"="antecedent")) %>%
+          mutate(rel = factor(RScoreDict$ALWAYS_PARALLEL, 
+                              levels=levels(rel_df$rel), 
+                              ordered=TRUE))
         
         new_relations <- new_relations %>%
           bind_rows(reverse_relations)
         
         new_rel_df <- new_rel_df %>%
-          anti_join(new_relations, by=c("antecedent","consequent")) %>%
+          anti_join(new_relations %>% select(antecedent, consequent), by=c("antecedent","consequent")) %>%
           bind_rows(new_relations)
       }
     }
   }
-  print("After PIP")
-  print(new_relations)
   
-  print(new_rel_df %>%
-          select(antecedent, consequent, rel) %>%
-          pivot_wider(names_from = consequent, values_from=rel))
   return(new_rel_df)
 }
 

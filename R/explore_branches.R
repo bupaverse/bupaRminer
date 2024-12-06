@@ -249,8 +249,13 @@ fetch_mutual_branch_relationships <- function(
   
   mutual_branch_rel_df <- branch_rel_df %>%
     inner_join(branch_rel_df,
-               c("antecedent"="consequent","consequent"="antecedent")) %>%
-    filter(rel.x == rel.y)
+               c("antecedent"="consequent","consequent"="antecedent"))
+  
+  
+  if(mutual_branch_rel_df %>% nrow > 0){
+    mutual_branch_rel_df <- mutual_branch_rel_df %>%
+      filter(rel.x == rel.y)
+  }
   
   return(mutual_branch_rel_df)
 }

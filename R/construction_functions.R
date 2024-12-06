@@ -75,33 +75,37 @@ solve_apriori_conflicts <- function(
       RScoreDict$TERMINATING,
       RScoreDict$HAPPENS_DURING,
       RScoreDict$EVENTUALLY_FOLLOWS))
-
+  
   follows_rel <- follows_rel %>%
-    inner_join(follows_rel, by = c("antecedent"="consequent",'consequent'="antecedent")) %>%
-    mutate(prevailing_rel = pmin(rel.x, rel.y)) %>%
-    mutate(must_remove = (rel.x != prevailing_rel))
-
-  if(strict == TRUE){
+    inner_join(follows_rel, by = c("antecedent"="consequent",'consequent'="antecedent"))
+  
+  if(follows_rel %>% nrow > 0){
     follows_rel <- follows_rel %>%
-      filter(must_remove == FALSE)
+      mutate(prevailing_rel = pmin(rel.x, rel.y)) %>%
+      mutate(must_remove = (rel.x != prevailing_rel))
+    
+    if(strict == TRUE){
+      follows_rel <- follows_rel %>%
+        filter(must_remove == FALSE)
+    }
+    
+    removed_rels <- follows_rel %>%
+      filter(must_remove == TRUE)
+    
+    rel_df <- rel_df %>%
+      anti_join(removed_rels, by=c("antecedent","consequent"))
+    
+    conflict_rel <- follows_rel %>%
+      filter(rel.x == rel.y) %>%
+      mutate(rel = RScoreDict$PARALLEL_IF_PRESENT,
+             importance = 0,
+             score = 0.5) %>%
+      select(antecedent, consequent, rel, importance)
+    
+    rel_df <- rel_df %>%
+      anti_join(conflict_rel, by=c("antecedent","consequent")) %>%
+      bind_rows(conflict_rel)
   }
-
-  removed_rels <- follows_rel %>%
-    filter(must_remove == TRUE)
-
-  rel_df <- rel_df %>%
-    anti_join(removed_rels, by=c("antecedent","consequent"))
-
-  conflict_rel <- follows_rel %>%
-    filter(rel.x == rel.y) %>%
-    mutate(rel = RScoreDict$PARALLEL_IF_PRESENT,
-           importance = 0,
-           score = 0.5) %>%
-    select(antecedent, consequent, rel, importance)
-
-  rel_df <- rel_df %>%
-    anti_join(conflict_rel, by=c("antecedent","consequent")) %>%
-    bind_rows(conflict_rel)
   
   
   join_with_soft_par <- rel_df %>%

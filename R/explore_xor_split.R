@@ -345,7 +345,7 @@ explore_XOR_split <- function(
       return_list <- solve_sequence_relationship(
         seq_pair,
         rel_df,
-        snippet_dict
+        construction_context
       )
 
       return(return_list)
@@ -366,7 +366,7 @@ explore_XOR_split <- function(
     return_list <- solve_PAR_relationship(
       sampled_par,
       par_branches,
-      snippet_dict,
+      construction_context,
       mode = "SOFT"
     )
     return_list$rel_df <- rel_df %>% remember_pair(
@@ -405,7 +405,7 @@ explore_XOR_split <- function(
       return_list <- solve_sequence_relationship(
         sampled_pair,
         rel_df,
-        snippet_dict
+        construction_context
       )
       return(return_list)
     }
@@ -427,7 +427,7 @@ explore_XOR_split <- function(
         XOR_root = R3_branches$antecedent %>% unique,
         XOR_branches = R3_branches$consequent %>% unique,
         rel_df = rel_df,
-        snippet_dict,
+        construction_context,
         split_symbol = ">X>")
       return(return_list)
     } else {
@@ -435,7 +435,7 @@ explore_XOR_split <- function(
         XOR_root = R3_branches$antecedent %>% unique,
         XOR_branches = R3_branches$consequent %>% unique,
         rel_df = rel_df,
-        snippet_dict,
+        construction_context,
         split_symbol = ">O>")
 
       return(return_list)
@@ -459,7 +459,7 @@ explore_XOR_split <- function(
       XOR_pair$antecedent,
       R3_branches$consequent,
       rel_df,
-      snippet_dict)
+      construction_context)
 
      return(return_list)
   }
@@ -476,7 +476,7 @@ explore_XOR_split <- function(
       XOR_pair$antecedent,
       branches_with_req_to_root$antecedent %>% unique,
       rel_df,
-      snippet_dict)
+      construction_context)
     
     return(return_list)
   }
@@ -495,7 +495,7 @@ explore_XOR_split <- function(
       XOR_pair$antecedent,
       branches_with_only_mutual_relations$antecedent %>% unique,
       rel_df,
-      snippet_dict)
+      construction_context)
 
     return(return_list)
   }
@@ -529,7 +529,7 @@ explore_XOR_split <- function(
     return_list <- solve_PAR_relationship(
       AND_pair,
       relevant_pairs,
-      snippet_dict
+      construction_context
     )
     return_list$rel_df <- rel_df %>%
       remember_pair(
@@ -575,7 +575,7 @@ explore_XOR_split <- function(
       return_list <- solve_XOR_relationship("",
                                             sampled_conflict$antecedent %>% unique,
                                             rel_df,
-                                            snippet_dict)
+                                            construction_context)
 
       return(return_list)
     } else if(conflicted_relations %>%
@@ -618,7 +618,7 @@ explore_XOR_split <- function(
       return_list <- solve_XOR_relationship(XOR_pair$antecedent,
                                             reqs_root$antecedent %>% unique,
                                             rel_df,
-                                            snippet_dict)
+                                            construction_context)
       return(return_list)
     }
     
@@ -650,7 +650,7 @@ explore_XOR_split <- function(
                                               filter(score==max(score)) %>%
                                               pull(antecedent),
                                             rel_df,
-                                            snippet_dict)
+                                            construction_context)
       return(return_list)
     }
     
@@ -692,7 +692,7 @@ explore_XOR_split <- function(
                                               filter(score==max(score)) %>%
                                               pull(consequent),
                                             rel_df,
-                                            snippet_dict)
+                                            construction_context)
       return(return_list)
     }
     
@@ -706,7 +706,7 @@ explore_XOR_split <- function(
         filter(antecedent %in% c(sampled_conflict$antecedent, sampled_conflict$consequent),
                consequent %in% c(sampled_conflict$antecedent, sampled_conflict$consequent)) %>%
         mutate(rel = RScoreDict$PARALLEL_IF_PRESENT),
-      snippet_dict,
+      construction_context,
       mode = "SOFT"
     )
     return_list$rel_df <- rel_df
@@ -719,7 +719,7 @@ explore_XOR_split <- function(
     XOR_pair$antecedent,
     mutual_branch_relationships$antecedent %>% unique,
     rel_df,
-    snippet_dict,
+    construction_context,
     split_symbol = ">O>"
   )
 
