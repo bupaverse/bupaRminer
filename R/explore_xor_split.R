@@ -491,11 +491,22 @@ explore_XOR_split <- function(
 
   if(branches_with_only_mutual_relations %>% nrow > 0){
     
-    return_list <- solve_XOR_relationship(
-      XOR_pair$antecedent,
-      branches_with_only_mutual_relations$antecedent %>% unique,
-      rel_df,
-      construction_context)
+    ## Chekc if branches do not contain too many conflicts
+    
+    branch_rels <- rel_df %>% 
+      filter(antecedent %in% branches_with_only_mutual_relations$antecedent) %>% 
+      count(consequent, rel)
+    
+    branch_rel_conflicts <- branch_rels %>%
+      filter(n < length(unique(branches_with_only_mutual_relations$antecedent)))
+    
+    if(branch_rel_conflicts %>% filter(rel == RScoreDict$REQUIRES) %>% nrow <= 1){
+      return_list <- solve_XOR_relationship(
+        XOR_pair$antecedent,
+        branches_with_only_mutual_relations$antecedent %>% unique,
+        rel_df,
+        construction_context)
+    }
 
     return(return_list)
   }

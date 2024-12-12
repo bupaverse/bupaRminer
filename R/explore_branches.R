@@ -167,7 +167,6 @@ explore_branch_pair <- function(
     }
   }
   
-  
   exploration_result$pair <- branch_pair
   exploration_result$rel_type <- branch_pair$rel
   exploration_result$branch_acts <- c(
