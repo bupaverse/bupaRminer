@@ -57,7 +57,7 @@ check_forced_choice <- function(
   maybe_follows_branches <- rel_df %>%
     filter(consequent %in% XOR_branches, 
            rel %in% c(
-             RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+             RScoreDict$MAYBE_DIRECTLY_FOLtaffiLOWS,
              RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
            ))
   
@@ -146,7 +146,7 @@ check_forced_choice <- function(
       
       pip_act <- decode_task(pip_snippet, snippet_dict,"START","END")
       pip_activities <- c()
-      if(is.list(prec_act)){
+      if(is.list(pip_act)){
         pip_activities <- pip_act$tasks$name %>% unique
       } else {
         pip_activities <- pip_act
@@ -206,6 +206,65 @@ check_forced_choice <- function(
           bind_rows(new_relations)
       }
     }
+  }
+  
+  ## We also check if REQ relations need to be added
+  ## we only do this for perfect scores
+  
+  ## Then we check if we have to convert
+  ## ¨PIP to PAR
+  new_relations <- tibble()
+  
+  related_antecedents <- new_rel_df %>%
+    filter(
+      !(antecedent %in% XOR_branches),
+      consequent %in% XOR_branches)
+  
+  all_antecedents <- new_rel_df %>%
+    filter(!(antecedent %in% XOR_branches)) %>%
+    pull(antecedent) %>%
+    unique
+  
+  unrelated_antecedents <- all_antecedents[!(all_antecedents %in% related_antecedents)]
+  
+  for(unrel_antec in unrelated_antecedents){
+    unrel_act <- decode_task(unrel_antec, snippet_dict,"START","END")
+    unrel_activities <- c()
+    if(is.list(unrel_act)){
+      unrel_activities <- unrel_act$tasks$name %>% unique
+    } else {
+      unrel_activities <- unrel_act
+    }
+    relevant_trace_cids <- trace_log %>%
+      filter(AID %in% unrel_activities) %>%
+      pull(CID) %>%
+      unique
+    
+    n_cases_with_both <- trace_log %>%
+      filter(CID %in% relevant_trace_cids,
+             CID %in% traces_with_at_least_one) %>%
+      select(CID, CASE_COUNT) %>%
+      unique() %>%
+      pull(CASE_COUNT) %>%
+      sum
+    
+    n_cases_with_act <- trace_log %>%
+      filter(CID %in% relevant_trace_cids) %>%
+      select(CID, CASE_COUNT) %>%
+      unique() %>%
+      pull(CASE_COUNT) %>%
+      sum
+    
+    n_cases_with_XOR <- trace_log %>%
+      filter(CID %in% traces_with_at_least_one) %>%
+      select(CID, CASE_COUNT) %>%
+      unique() %>%
+      pull(CASE_COUNT) %>%
+      sum
+    
+    
+    forced_choice_score <- round(n_cases_with_act/n_cases_with_both,1)
+    
   }
   
   return(new_rel_df)
