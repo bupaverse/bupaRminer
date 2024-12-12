@@ -228,6 +228,7 @@ check_forced_choice <- function(
   unrelated_antecedents <- all_antecedents[!(all_antecedents %in% related_antecedents)]
   
   for(unrel_antec in unrelated_antecedents){
+    
     unrel_act <- decode_task(unrel_antec, snippet_dict,"START","END")
     unrel_activities <- c()
     if(is.list(unrel_act)){
@@ -248,13 +249,6 @@ check_forced_choice <- function(
       pull(CASE_COUNT) %>%
       sum
     
-    n_cases_with_act <- trace_log %>%
-      filter(CID %in% relevant_trace_cids) %>%
-      select(CID, CASE_COUNT) %>%
-      unique() %>%
-      pull(CASE_COUNT) %>%
-      sum
-    
     n_cases_with_XOR <- trace_log %>%
       filter(CID %in% traces_with_at_least_one) %>%
       select(CID, CASE_COUNT) %>%
@@ -263,7 +257,33 @@ check_forced_choice <- function(
       sum
     
     
-    forced_choice_score <- round(n_cases_with_act/n_cases_with_both,1)
+    forced_choice_score <- round(n_cases_with_both/n_cases_with_XOR,1)
+    
+    if(forced_choice_score == 1){
+      reverse_rels <- new_rel_df %>%
+        filter(antecedent %in% XOR_branches,
+               consequent == unrel_antec,
+               rel != RScoreDict$REQUIRES,
+               !startsWith(consequent, "START"))
+      
+      if(reverse_rels %>% nrow > 0){
+        
+        
+        new_rels <- reverse_rels %>%
+          mutate(temp = antecedent) %>%
+          mutate(antecedent = consequent) %>%
+          mutate(consequent = temp) %>%
+          select(-temp) %>%
+          mutate(rel = factor(RScoreDict$REQUIRES, 
+                              levels=levels(rel_df$rel), 
+                              ordered=TRUE),
+                 score = forced_choice_score)
+        
+        new_rel_df <- new_rel_df %>%
+          bind_rows(new_rels)
+      }
+        
+    }
     
   }
   

@@ -357,6 +357,12 @@ solve_PAR_relationship <- function(
 
   return_list$snippet <- snippet_name
   return_list$activities <- R6_acts
+  if(mode == "SOFT"){
+    rel_df <- check_forced_choice(
+      R6_acts,
+      rel_df,
+      construction_context)
+  }
   return_list$rel_df <- rel_df
   return_list$messages <- c(return_list$messages,
                             paste("Created process snippet:",
