@@ -66,6 +66,9 @@ solve_directly_follows <- function(
     filter(n() == 2) %>%
     ungroup()
   
+  acts_followed_by_antec_and_conseq <- acts_followed_by_antec_and_conseq %>%
+    filter(antecedent != "START")
+  
   acts_followed_by_antec_different_than_conseq <- acts_followed_by_antec_and_conseq %>%
     mutate(sometimes_follows = (rel %in% c(
       RScoreDict$MAYBE_DIRECTLY_FOLLOWS, RScoreDict$MAYBE_EVENTUALLY_FOLLOWS

@@ -139,13 +139,20 @@ check_forced_choice <- function(
            rel  == RScoreDict$PARALLEL_IF_PRESENT)
   
   if(pip_branches %>% nrow > 0){
-    pip_activities <- pip_branches$antecedent %>%
+    pip_snippets <- pip_branches$antecedent %>%
       unique
     
-    for(act in pip_activities){
+    for(pip_snippet in pip_snippets){
       
+      pip_act <- decode_task(pip_snippet, snippet_dict,"START","END")
+      pip_activities <- c()
+      if(is.list(prec_act)){
+        pip_activities <- pip_act$tasks$name %>% unique
+      } else {
+        pip_activities <- pip_act
+      }
       relevant_trace_cids <- trace_log %>%
-        filter(AID == act) %>%
+        filter(AID %in% pip_activities) %>%
         pull(CID) %>%
         unique
       
@@ -171,11 +178,12 @@ check_forced_choice <- function(
         pull(CASE_COUNT) %>%
         sum
       
+      
       forced_choice_score <- round(n_cases_with_both / pmax(n_cases_with_act,n_cases_with_XOR),1)
       
       new_relations <- pip_branches %>%
         filter(
-          antecedent == act,
+          antecedent == pip_snippet,
           score <= forced_choice_score
         ) %>%
         mutate(rel = factor(RScoreDict$ALWAYS_PARALLEL, levels=levels(rel_df$rel), ordered=TRUE),
