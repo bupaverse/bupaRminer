@@ -297,13 +297,42 @@ solve_sequence_relationship <- function(
            filter(rel != RScoreDict$MUTUALLY_EXCLUSIVE) %>%
            nrow== 0){
           
-          return_list <- solve_XOR_relationship("",
-                                                c(mutual_antec_relations$antecedent,
-                                                  mutual_antec_relations$consequent) %>% unique,
-                                                mutual_antec_relations,
-                                                construction_context)
-          return_list$rel_df <- rel_df
-          return(return_list)
+          if(mutual_antec_relations %>% nrow > 1){
+            
+            ## Remove requires relationships if they are not directed at every
+            ## branch
+            XOR_branches <- c(mutual_antec_relations$antecedent,
+                               mutual_antec_relations$consequent) %>% unique
+            req_from_conseq <- rel_df %>% 
+              filter(antecedent == conseq,
+                     consequent %in% XOR_branches,
+                     rel == RScoreDict$REQUIRES) 
+            
+            if(req_from_conseq %>% nrow < length(XOR_branches)){
+              XOR_branches <- XOR_branches[!XOR_branches %in% c(req_from_conseq %>% pull(consequent))]
+            }
+            
+            if(length(XOR_branches) > 1){
+              
+              return_list <- solve_XOR_relationship("",
+                                                    XOR_branches,
+                                                    mutual_antec_relations,
+                                                    construction_context)
+              
+              if(!is.null(return_list$snippet)){
+                eventual_xor_branches <- return_list$activities
+                eventual_xor_branches <- eventual_xor_branches[eventual_xor_branches != ""]
+              }
+              rel_df <- check_forced_choice(
+                eventual_xor_branches,
+                rel_df,
+                construction_context)
+              
+              return_list$rel_df <- rel_df
+              return(return_list)
+            }
+            
+          }
         }
         
         
@@ -347,13 +376,6 @@ solve_sequence_relationship <- function(
             exploration_result,
             rel_df,
             construction_context)
-          
-          # return_list <- solve_PAR_relationship(
-          #   sampled_soft_par,
-          #   rel_df,
-          #   snippet_dict,
-          #   mode="SOFT"
-          # )
           
           return(return_list)
         }
@@ -468,6 +490,42 @@ solve_sequence_relationship <- function(
           #          consequent != conseq)
           # return_list$rel_df <- rel_df
           # return(return_list)
+          
+          ## If our conseq requires one but not the other, we 
+          ## establish the follows relationship
+          required_antecedents <- rel_df %>% filter(
+            antecedent == conseq,
+            consequent %in% unique(
+              c(mutual_antec_relations$antecedent,
+                mutual_antec_relations$consequent))) %>%
+            filter(rel == RScoreDict$REQUIRES)
+          
+          if(required_antecedents %>% nrow == 1){
+            seq_pair <- rel_df %>% filter(
+              antecedent == required_antecedents$consequent,
+              consequent == required_antecedents$antecedent)
+            
+            if(seq_pair %>% nrow == 1){
+              if(seq_pair$rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                                     RScoreDict$EVENTUALLY_FOLLOWS,
+                                     RScoreDict$DIRECT_JOIN)){
+                return_list <- solve_directly_follows(
+                  seq_pair,
+                  rel_df,
+                  construction_context
+                  )
+              } else {
+                return_list <- explore_XOR_split(
+                  seq_pair,
+                  rel_df,
+                  construction_context,
+                  XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
+                )
+              }
+              return(return_list)
+            }
+          }
           
           ## If they are concurrent or do not agree
           ## among each other

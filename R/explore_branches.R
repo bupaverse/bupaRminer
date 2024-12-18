@@ -44,6 +44,63 @@ explore_branch_pair <- function(
            consequent %in% mutual_activity_set,
            rel != rel_in_focus)
   
+  if(relationships_to_other_branches %>% nrow > 0){
+    
+    ## We check if a branch has rel_in_focus towards other activities
+    ## to which the other branch does not have this relationship
+    mismatched_relations <- rel_df %>%
+      filter(antecedent %in% mutual_activity_set,
+             !(consequent %in% mutual_activity_set)) %>%
+      count(consequent, rel) %>%
+      filter(n < length(mutual_activity_set)) %>%
+      filter(rel == rel_in_focus)
+    
+    ## If just a single branch has this mismatch, 
+    ## then we can simply exclude it from the mutual set
+    if(length(mutual_activity_set) > 2 && mismatched_relations %>% nrow > 0){
+      branches_with_unique_rel_in_focus <- rel_df %>%
+        filter(antecedent %in% mutual_activity_set,
+               consequent %in% mismatched_relations$consequent,
+               rel == rel_in_focus) %>%
+        count(antecedent)
+      ## We can exclude branches if they have exclusive rel_in_focus that the
+      ## others do not have
+      if(branches_with_unique_rel_in_focus %>% nrow == 1){
+        mutual_activity_set <- mutual_activity_set[mutual_activity_set != branches_with_unique_rel_in_focus$antecedent]
+        relationships_to_other_branches <- rel_df %>%
+          filter(antecedent %in% activities_splitted_from_individual_branch,
+                 consequent %in% mutual_activity_set,
+                 rel != rel_in_focus) %>%
+          filter(!(rel %in% c(
+            RScoreDict$MAYBE_EVENTUALLY_FOLLOWS
+          )))
+        
+        branch_pair <- rel_df %>%
+          filter(antecedent %in% mutual_activity_set,
+                 consequent %in% mutual_activity_set,
+                 rel == rel_in_focus) %>%
+          sample_pair(c())
+      } else {
+        ## If a single branch has a single rel_in_focus, we can concentrate on those
+        if(branches_with_unique_rel_in_focus %>% filter(n==1) %>% nrow == 1){
+          acts_with_single_rel_in_focus <- branches_with_unique_rel_in_focus %>%
+            filter(n==1) %>%
+            pull(antecedent)
+          
+          relevant_relations <- rel_df %>% 
+            filter(antecedent %in% mutual_activity_set,
+                   !(antecedent %in% acts_with_single_rel_in_focus),
+                   consequent %in% relationships_to_other_branches$antecedent,
+                   rel %in% MERGE_FOLLOWS_RELS) 
+          
+          if(relevant_relations %>% nrow > 0){
+            relationships_to_other_branches <- relevant_relations
+          }
+        }
+      }
+    }
+  }
+  
   if(relationships_to_other_branches %>% nrow() > 0){
       
     sampled_pair <- relationships_to_other_branches %>%
@@ -54,13 +111,7 @@ explore_branch_pair <- function(
     
     exploration_result$pair <- sampled_pair
     
-    if(sampled_pair$rel %in% c(
-      RScoreDict$DIRECTLY_FOLLOWS,
-      RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
-      RScoreDict$EVENTUALLY_FOLLOWS,
-      RScoreDict$MAYBE_EVENTUALLY_FOLLOWS,
-      RScoreDict$DIRECT_JOIN
-    )){
+    if(sampled_pair$rel %in% MERGE_FOLLOWS_RELS){
       exploration_result$rel_type <- "SEQ"
       return(exploration_result)
     }
@@ -123,7 +174,8 @@ explore_branch_pair <- function(
   ## but only if there is no long-term dependency
   acts_requiring_branch <- rel_df %>%
     filter(consequent %in% mutual_activity_set,
-           rel == RScoreDict$REQUIRES)
+           rel == RScoreDict$REQUIRES,
+           score > 1/length(mutual_activity_set))
   
   acts_requiring_single_branch <- acts_requiring_branch %>%
     count(antecedent) %>%
@@ -165,6 +217,41 @@ explore_branch_pair <- function(
       acts_requiring_single_branch <- acts_requiring_single_branch %>%
         filter(antecedent != seq_pair$consequent)
     }
+  }
+  
+  ## If we have activities that are required by one branch
+  ## but not by the others, then we need to look into that
+  branch_requiring_acts <- rel_df %>%
+    filter(antecedent %in% mutual_activity_set,
+           rel == RScoreDict$REQUIRES)
+  
+  single_branch_requiring_acts <- branch_requiring_acts %>%
+    count(consequent) %>%
+    filter(n == 1)
+  
+  required_acts <- single_branch_requiring_acts %>% pull(consequent)
+  while(length(required_acts) > 0){
+    act_in_focus <- required_acts[[1]]
+    req_relation <- branch_requiring_acts %>%
+      filter(consequent == act_in_focus )
+    seq_pair <- rel_df %>%
+      filter(antecedent == req_relation$consequent,
+             consequent == req_relation$antecedent)
+    
+    if(seq_pair %>% nrow > 0){
+      closest_antecedents <- get_closest_antecedents(
+        seq_pair,
+        rel_df
+      )
+      if(
+        seq_pair$antecedent %in% closest_antecedents$antecedent
+      ){
+        exploration_result$pair <- seq_pair
+        exploration_result$rel_type <- "SEQ"
+        return(exploration_result)
+      }
+    }
+    required_acts = required_acts[required_acts!=act_in_focus]
   }
   
   exploration_result$pair <- branch_pair
