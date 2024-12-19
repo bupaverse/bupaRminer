@@ -115,19 +115,53 @@ solve_sequence_relationship <- function(
                                                   rel_df = rel_df,
                                                   construction_context =  construction_context)
             return(return_list)
-          } else {
-            closest_antecedents <- closest_antecedents %>%
+          } 
+          req_relations <- rel_df %>%
+            filter(antecedent == conseq,
+                   consequent %in% closest_antecedents$antecedent,
+                   rel == RScoreDict$REQUIRES,
+                   score > 1 / nrow(closest_antecedents))
+          
+          if(req_relations %>% nrow == 1){
+            seq_pair <- rel_df %>%
+              filter(antecedent == req_relations$consequent,
+                     consequent == req_relations$antecedent)
+            
+            if(seq_pair %>% nrow > 0){
+              if(seq_pair$rel %in% c(RScoreDict$DIRECTLY_FOLLOWS,
+                                     RScoreDict$EVENTUALLY_FOLLOWS)){
+                return_list <- solve_directly_follows(
+                  seq_pair,
+                  rel_df,
+                  construction_context
+                )
+                return(return_list)
+              }
+              if(seq_pair$rel %in% c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                                     RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)) {
+                return_list <- explore_XOR_split(
+                  seq_pair,
+                  rel_df,
+                  construction_context,
+                  XOR_rels = c(RScoreDict$MAYBE_DIRECTLY_FOLLOWS,
+                               RScoreDict$MAYBE_EVENTUALLY_FOLLOWS)
+                )
+                return(return_list)
+              }
+            }
+          }
+          
+          closest_antecedents <- closest_antecedents %>%
               mutate(rel=RScoreDict$DIRECT_JOIN)
             
-            rel_df <- rel_df %>%
+          rel_df <- rel_df %>%
               filter(!(antecedent %in% closest_antecedents$antecedent & consequent == closest_antecedents$consequent)) %>%
               bind_rows(closest_antecedents)
             
-            return_list$rel_df <- rel_df
-            return_list$messages <- c(return_list$messages,
+          return_list$rel_df <- rel_df
+          return_list$messages <- c(return_list$messages,
                                       paste("Morphed relationships to Rx"))
-            return(return_list)
-          }
+          return(return_list)
         }
         if(mutual_relationships %>% nrow == 1){
           return_list <- solve_sequence_relationship(
@@ -459,37 +493,49 @@ solve_sequence_relationship <- function(
             }
           }
           
+          ## Can we find a subset that is fully mutually exclusive?
+          fully_mutually_exclusive <- mutual_exclusions %>%
+            select(antecedent, consequent, rel) %>%
+            inner_join(mutual_exclusions %>%
+                         select(antecedent, consequent, rel),
+                       by=c("antecedent"="consequent","consequent"="antecedent")) %>%
+            filter(rel.x == rel.y)
           
-          # ## TODO experimental
-          # ## If there are multiple direct predecessors
-          # ## then the consequent probably occurs at multiple
-          # ## places in the process
-          # new_consequent_names <- paste(conseq, "FROM", closest_antecedents$antecedent, sep = "_")
-          # new_relations <- closest_antecedents
-          # new_relations$consequent <- new_consequent_names
-          # rel_df <- rel_df %>%
-          #   anti_join(closest_antecedents, by = c("antecedent","consequent")) %>%
-          #   bind_rows(new_relations)
-          #
-          # for(new_name in new_consequent_names){
-          #   new_antec_rels <- rel_df %>%
-          #     filter(antecedent == conseq) %>%
-          #     mutate(antecedent = new_name)
-          #
-          #   new_conseq_rels <- rel_df %>%
-          #     filter(consequent == conseq) %>%
-          #     mutate(consequent = new_name)
-          #
-          #   rel_df <- rel_df %>%
-          #     bind_rows(new_antec_rels) %>%
-          #     bind_rows(new_conseq_rels)
-          # }
-          #
-          # rel_df <- rel_df %>%
-          #   filter(antecedent != conseq,
-          #          consequent != conseq)
-          # return_list$rel_df <- rel_df
-          # return(return_list)
+          supposed_mutual_exclusives <- unique(
+            c(
+              fully_mutually_exclusive$antecedent,
+              fully_mutually_exclusive$consequent))
+          
+          if(length(supposed_mutual_exclusives) > 1){
+            sampled_mutual_exclusion <- mutual_exclusions %>%
+              filter(antecedent %in% supposed_mutual_exclusives,
+                     consequent %in% supposed_mutual_exclusives) %>%
+              sample_pair(rel_vect = c(RScoreDict$MUTUALLY_EXCLUSIVE))
+            
+            exclusions_in_focus <- mutual_exclusions %>%
+              filter(
+                (antecedent %in% c(sampled_mutual_exclusion$antecedent,
+                                       sampled_mutual_exclusion$consequent)) |
+                  (consequent %in% c(sampled_mutual_exclusion$antecedent,
+                                     sampled_mutual_exclusion$consequent)))
+            
+            activities_in_focus  <- unique(c(
+              exclusions_in_focus$antecedent,
+              exclusions_in_focus$consequent
+            ))
+            
+            if(length(activities_in_focus) > 1){
+              
+              return_list <- solve_XOR_relationship(
+                XOR_root = "",
+                XOR_branches = activities_in_focus,
+                rel_df = rel_df,
+                construction_context
+              )
+              return(return_list)
+            }
+                  
+          }
           
           ## If our conseq requires one but not the other, we 
           ## establish the follows relationship
@@ -526,6 +572,7 @@ solve_sequence_relationship <- function(
               return(return_list)
             }
           }
+          
           
           ## If they are concurrent or do not agree
           ## among each other
@@ -602,7 +649,6 @@ solve_sequence_relationship <- function(
       rel_df,
       construction_context
     )
-    
     return(return_list)
   }
   

@@ -157,16 +157,25 @@ explore_branch_pair <- function(
   
   
   if(length(follows_only_one) > 0){
-    sequence_pair <- rel_df %>%
-      filter(antecedent %in% mutual_activity_set,
-             consequent %in% follows_only_one) %>%
-      sample_pair(rel_vect = c(RScoreDict$DIRECTLY_FOLLOWS,
-                               RScoreDict$DIRECT_JOIN,
-                               RScoreDict$EVENTUALLY_FOLLOWS))
+    rel_in_focus <- branch_pair$rel
+    branch_rel_to_act <- rel_df %>% 
+      filter(antecedent %in% mutual_activity_set, 
+             consequent %in% follows_only_one,
+             !(rel %in% MERGE_FOLLOWS_RELS)) %>%
+      filter(rel != rel_in_focus)
     
-    exploration_result$pair <- sequence_pair
-    exploration_result$rel_type <- "SEQ"
-    return(exploration_result)
+    if(branch_rel_to_act %>% nrow == 0){
+      sequence_pair <- rel_df %>%
+        filter(antecedent %in% mutual_activity_set,
+               consequent %in% follows_only_one) %>%
+        sample_pair(rel_vect = c(RScoreDict$DIRECTLY_FOLLOWS,
+                                 RScoreDict$DIRECT_JOIN,
+                                 RScoreDict$EVENTUALLY_FOLLOWS))
+      
+      exploration_result$pair <- sequence_pair
+      exploration_result$rel_type <- "SEQ"
+      return(exploration_result)
+    }
   }
   
   ## If we have activities that require only one of the

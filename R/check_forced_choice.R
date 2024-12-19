@@ -249,16 +249,18 @@ check_forced_choice <- function(
       pull(CASE_COUNT) %>%
       sum
     
-    n_cases_with_XOR <- trace_log %>%
-      filter(CID %in% traces_with_at_least_one) %>%
+    n_cases_with_other <- trace_log %>%
+      filter(CID %in% relevant_trace_cids) %>%
       select(CID, CASE_COUNT) %>%
       unique() %>%
       pull(CASE_COUNT) %>%
       sum
     
     
-    forced_choice_score <- round(n_cases_with_both/n_cases_with_XOR,1)
-    
+    forced_choice_score <- round(n_cases_with_both/n_cases_with_other,1)
+    if(is.na(forced_choice_score)){
+      forced_choice_score <- 0
+    }
     if(forced_choice_score == 1){
       reverse_rels <- new_rel_df %>%
         filter(antecedent %in% XOR_branches,
